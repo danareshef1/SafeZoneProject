@@ -4,70 +4,80 @@
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=pWud-G5bZaJeidCesuZN2g&cb_client=search.gws-prod.gps&w=408&h=240&yaw=312.41104&pitch=0&thumbfov=100",
       "latitude":32.07922331990642,
       "longitude":34.79490561700996,
-      "location": "דרך מנחם בגין"
+      "location": "דרך מנחם בגין",
+      "status": "green"
     },
     {
       "id": "shelter_002",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=B9iyvsA73DbY_mu4Xxn4Hg&cb_client=search.gws-prod.gps&w=408&h=240&yaw=24.546867&pitch=0&thumbfov=100",
       "latitude": 32.10931599694225, 
       "longitude": 34.800668651701706,
-      "location": "רחוב כפר יונה"
+      "location": "רחוב כפר יונה",
+      "status": "green"
     },
     {
       "id": "shelter_003",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=m1jIXfFtktikbeQkC7EdSQ&cb_client=search.gws-prod.gps&w=408&h=240&yaw=273.78494&pitch=0&thumbfov=100",
       "latitude": 32.11017159205346, 
       "longitude": 34.834094924167275,
-      "location": "רחוב עולי הגרדום"
+      "location": "רחוב עולי הגרדום",
+      "status": "green"
     },
     {
       "id": "shelter_004",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=wweps-SN59h6bOjtXvYbbg&cb_client=search.gws-prod.gps&w=408&h=240&yaw=301.78635&pitch=0&thumbfov=100",
       "latitude": 32.11215643752725, 
       "longitude": 34.82803405260228,
-      "location": "רחוב תבואות הארץ"
+      "location": "רחוב תבואות הארץ",
+      "status": "green"
     },
     {
       "id": "shelter_005",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=owY8C7yG0jNqMofBiaD8mA&cb_client=search.gws-prod.gps&w=408&h=240&yaw=146.71915&pitch=0&thumbfov=100",
       "latitude": 32.109543718119184, 
       "longitude": 34.82856054120832,
-      "location": "רחוב אלדד הדני"
+      "location": "רחוב אלדד הדני",
+      "status": "green"
     },
     {
       "id": "shelter_006",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=Mlit56012wjXOHCyCM27sA&cb_client=search.gws-prod.gps&w=408&h=240&yaw=128.20529&pitch=0&thumbfov=100",
       "latitude":32.07853633254241,
       "longitude":  34.77857706339054,
-      "location": "שדרות מסריק"
+      "location": "שדרות מסריק",
+      "status": "green"
     },
     {
       "id": "shelter_007",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=HsSBzAZKmesVgMj4k9feoA&cb_client=search.gws-prod.gps&w=408&h=240&yaw=279.46304&pitch=0&thumbfov=100",
       "latitude":32.04910280282101, 
       "longitude": 34.75947587124335,
-      "location": "רחוב עזה"
+      "location": "רחוב עזה",
+      "status": "green"
     },
     {
       "id": "shelter_008",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=45IVvBqGn3jyUh07wmty2w&cb_client=search.gws-prod.gps&w=408&h=240&yaw=188.88785&pitch=0&thumbfov=100",
       "latitude": 32.11208368338381, 
       "longitude":34.81971861811875,
-      "location": "רחוב קהילת וורשה"
+      "location": "רחוב קהילת וורשה",
+      "status": "green"
     },
     {
       "id": "shelter_009",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=Td8psXP4yrvZPnu_8h2Vig&cb_client=search.gws-prod.gps&w=408&h=240&yaw=180.94011&pitch=0&thumbfov=100",
       "latitude": 32.122932935190356, 
       "longitude": 34.816840434257585,
-      "location": "רחוב אהרון בקר"
+      "location": "רחוב אהרון בקר",
+      "status": "green"
     },
     {
       "id": "shelter_010",
       "image": "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=viXs8sdAiuFf-rVwbaTKyA&cb_client=search.gws-prod.gps&w=408&h=240&yaw=306.02243&pitch=0&thumbfov=100",
       "latitude": 32.11106872304937, 
       "longitude": 34.81723729819389,
-      "location": "רחוב הרב מרק"
+      "location": "רחוב הרב מרק",
+      "status": "green"
     }
   ]
   

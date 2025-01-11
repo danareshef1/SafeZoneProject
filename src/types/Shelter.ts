@@ -4,5 +4,6 @@ export type Shelter = {
     latitude: number;
     longitude: number;
     location: string;
+    status: string;
   };
   
