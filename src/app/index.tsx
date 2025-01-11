@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   TouchableWithoutFeedback,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
-import * as Location from 'expo-location'; // Location services
+import * as Location from 'expo-location';
 import sheltersData from '../../assets/data/shelters.json';
 import ShelterListItem from '../components/ShelterListItem';
 import CustomMarker from '../components/CustomMarker';
@@ -18,20 +19,54 @@ import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
 const HomeScreen: React.FC = () => {
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
-  const [shelters, setShelters] = useState<Shelter[]>(() =>
-    sheltersData.map((shelter) => ({
-      ...shelter,
-      status: shelter.status || 'green', // Default status
-    }))
-  );
+  const [shelters, setShelters] = useState<Shelter[]>([]);
   const [mapRegion, setMapRegion] = useState<null | {
     latitude: number;
     longitude: number;
     latitudeDelta: number;
     longitudeDelta: number;
-  }>(null); // Map region starts as null
+  }>(null);
 
   const snapPoints = useMemo(() => ['10%', '50%', '90%'], []);
+
+  // Load shelters from AsyncStorage or fallback to default data
+  useEffect(() => {
+    const loadSheltersFromStorage = async () => {
+      try {
+        const storedShelters = await AsyncStorage.getItem('shelters');
+        if (storedShelters) {
+          setShelters(JSON.parse(storedShelters));
+        } else {
+          setShelters(
+            sheltersData.map((shelter) => ({
+              ...shelter,
+              status: shelter.status || 'green', // Ensure default status
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('Error loading shelters:', error);
+        setShelters(
+          sheltersData.map((shelter) => ({
+            ...shelter,
+            status: shelter.status || 'green',
+          }))
+        );
+      }
+    };
+
+    loadSheltersFromStorage();
+  }, []);
+
+  const saveSheltersToStorage = async (updatedShelters: Shelter[]) => {
+    try {
+      await AsyncStorage.setItem('shelters', JSON.stringify(updatedShelters));
+      console.log('Shelters saved to storage:', updatedShelters);
+    } catch (error) {
+      console.error('Error saving shelters to storage:', error);
+    }
+  };
+  
 
   useEffect(() => {
     (async () => {
@@ -70,19 +105,23 @@ const HomeScreen: React.FC = () => {
     })();
   }, []);
 
-  const handleReport = (status: string) => {
-    if (!selectedShelter) {
-      Alert.alert('Error', 'Please select a shelter before reporting.');
-      return;
-    }
+const handleReport = (status: string) => {
+  if (!selectedShelter) {
+    Alert.alert('Error', 'Please select a shelter before reporting.');
+    return;
+  }
 
-    setShelters((prevShelters) =>
-      prevShelters.map((shelter) =>
-        shelter.id === selectedShelter.id ? { ...shelter, status } : shelter
-      )
-    );
-    Alert.alert('Reported', `Shelter: ${selectedShelter.location}\nStatus: ${status}`);
-  };
+  const updatedShelters = shelters.map((shelter) =>
+    shelter.id === selectedShelter.id ? { ...shelter, status } : shelter
+  );
+
+  setShelters(updatedShelters);
+  saveSheltersToStorage(updatedShelters);
+
+  Alert.alert('Reported', `Shelter: ${selectedShelter.location}\nStatus: ${status}`);
+  console.log('Updated Shelters:', updatedShelters);
+
+};
 
   const handleDeselectShelter = () => setSelectedShelter(null);
 
@@ -101,7 +140,7 @@ const HomeScreen: React.FC = () => {
         <MapView style={styles.map} region={mapRegion}>
           {shelters.map((shelter) => (
             <CustomMarker
-              key={shelter.id}
+              key={`${shelter.id}-${shelter.status}`} // Ensure unique key for re-rendering
               shelter={shelter}
               onPress={() => setSelectedShelter(shelter)}
             />

@@ -10,11 +10,11 @@ type CustomMarkerProps = {
 const CustomMarker: React.FC<CustomMarkerProps> = ({ shelter, onPress }) => {
   const getPinColor = () => {
     switch (shelter.status) {
-      case 'red':
+      case 'High Load (Red)':
         return 'red';
-      case 'yellow':
+      case 'Medium Load (Yellow)':
         return 'yellow';
-      case 'green':
+      case 'Low Load (Green)':
       default:
         return 'green';
     }

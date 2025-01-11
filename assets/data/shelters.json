@@ -5,7 +5,7 @@
       "latitude":32.07922331990642,
       "longitude":34.79490561700996,
       "location": "דרך מנחם בגין",
-      "status": "green"
+      "status": "Low Load (Green)"
     },
     {
       "id": "shelter_002",
@@ -13,7 +13,7 @@
       "latitude": 32.10931599694225, 
       "longitude": 34.800668651701706,
       "location": "רחוב כפר יונה",
-      "status": "green"
+      "status": "Low Load (Green)"
     },
     {
       "id": "shelter_003",
@@ -21,7 +21,7 @@
       "latitude": 32.11017159205346, 
       "longitude": 34.834094924167275,
       "location": "רחוב עולי הגרדום",
-      "status": "green"
+      "status":"Low Load (Green)"
     },
     {
       "id": "shelter_004",
@@ -29,7 +29,7 @@
       "latitude": 32.11215643752725, 
       "longitude": 34.82803405260228,
       "location": "רחוב תבואות הארץ",
-      "status": "green"
+      "status": "Low Load (Green)"
     },
     {
       "id": "shelter_005",
@@ -37,7 +37,7 @@
       "latitude": 32.109543718119184, 
       "longitude": 34.82856054120832,
       "location": "רחוב אלדד הדני",
-      "status": "green"
+      "status":"Low Load (Green)"
     },
     {
       "id": "shelter_006",
@@ -45,7 +45,7 @@
       "latitude":32.07853633254241,
       "longitude":  34.77857706339054,
       "location": "שדרות מסריק",
-      "status": "green"
+      "status": "Low Load (Green)"
     },
     {
       "id": "shelter_007",
@@ -53,7 +53,7 @@
       "latitude":32.04910280282101, 
       "longitude": 34.75947587124335,
       "location": "רחוב עזה",
-      "status": "green"
+      "status":"Low Load (Green)"
     },
     {
       "id": "shelter_008",
@@ -61,7 +61,7 @@
       "latitude": 32.11208368338381, 
       "longitude":34.81971861811875,
       "location": "רחוב קהילת וורשה",
-      "status": "green"
+      "status": "Low Load (Green)"
     },
     {
       "id": "shelter_009",
@@ -69,7 +69,7 @@
       "latitude": 32.122932935190356, 
       "longitude": 34.816840434257585,
       "location": "רחוב אהרון בקר",
-      "status": "green"
+      "status":"Low Load (Green)"
     },
     {
       "id": "shelter_010",
@@ -77,7 +77,7 @@
       "latitude": 32.11106872304937, 
       "longitude": 34.81723729819389,
       "location": "רחוב הרב מרק",
-      "status": "green"
+      "status":"Low Load (Green)"
     }
   ]
   
