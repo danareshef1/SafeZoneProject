@@ -43,7 +43,7 @@ const App = () => {
             title: 'Home', // Title in the header
             drawerLabel: 'Home', // This will show "Home" in the drawer
           }}
-        />
+        /> 
       </Drawer>
     </GestureHandlerRootView>
   );
