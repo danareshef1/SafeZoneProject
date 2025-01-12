@@ -25,9 +25,9 @@ const CustomDrawerContent = (props: any) => {
   const navigation = useNavigation<NavigationProp<RootDrawerParamList>>();
 
   const handleLogout = () => {
-    logout(); // Call the logout function from AuthContext
-    navigation.dispatch(DrawerActions.closeDrawer()); // Close the drawer
-    navigation.dispatch(StackActions.replace('login')); // Navigate to the login screen
+    logout();
+    navigation.dispatch(DrawerActions.closeDrawer());
+    navigation.dispatch(StackActions.replace('login'));
   };
 
   return (
@@ -46,7 +46,7 @@ const CustomDrawerContent = (props: any) => {
 const HomeStack = () => (
   <Stack>
     <Stack.Screen
-      name="index" // Corresponds to app/index.tsx
+      name="index"
       options={{
         title: 'Home',
         headerRight: () => <HomeButton />,
@@ -59,7 +59,7 @@ const HomeStack = () => (
 const OtherStack = () => (
   <Stack>
     <Stack.Screen
-      name="otherScreen" // Corresponds to app/other.tsx
+      name="otherScreen"
       options={{
         title: 'Q&A',
         headerRight: () => <HomeButton />,
@@ -72,7 +72,7 @@ const OtherStack = () => (
 const LoginStack = () => (
   <Stack>
     <Stack.Screen
-      name="login" // Corresponds to app/login.tsx
+      name="login"
       options={{
         title: 'Login',
         headerLeft: () => null,
@@ -93,7 +93,10 @@ const MenuButton = () => {
 const HomeButton = () => {
   const navigation = useNavigation<NavigationProp<RootDrawerParamList>>();
   return (
-    <TouchableOpacity onPress={() => navigation.navigate('index')} style={styles.homeButton}>
+    <TouchableOpacity
+      onPress={() => navigation.dispatch(DrawerActions.jumpTo('index'))}
+      style={styles.homeButton}
+    >
       <MaterialIcons name="home" size={24} color="#000" />
     </TouchableOpacity>
   );
@@ -106,9 +109,9 @@ const RootNavigator = () => {
   useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
-        navigation.dispatch(StackActions.replace('index')); // Navigate to Home
+        navigation.dispatch(StackActions.replace('index'));
       } else {
-        navigation.dispatch(StackActions.replace('login')); // Navigate to Login
+        navigation.dispatch(StackActions.replace('login'));
       }
     }
   }, [isLoggedIn, loading, navigation]);
@@ -125,7 +128,7 @@ const RootNavigator = () => {
     <Drawer.Navigator
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerShown: false, // Managed within Stack
+        headerShown: false,
       }}
     >
       {isLoggedIn ? (
