@@ -1,4 +1,3 @@
-// src/app/_layout.tsx
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -7,7 +6,7 @@ import {
   DrawerItemList,
 } from '@react-navigation/drawer';
 import { Stack } from 'expo-router';
-import { TouchableOpacity, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -21,11 +20,28 @@ type RootDrawerParamList = {
 
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 
-const CustomDrawerContent = (props: any) => (
-  <DrawerContentScrollView {...props}>
-    <DrawerItemList {...props} />
-  </DrawerContentScrollView>
-);
+const CustomDrawerContent = (props: any) => {
+  const { logout } = useContext(AuthContext);
+  const navigation = useNavigation<NavigationProp<RootDrawerParamList>>();
+
+  const handleLogout = () => {
+    logout(); // Call the logout function from AuthContext
+    navigation.dispatch(DrawerActions.closeDrawer()); // Close the drawer
+    navigation.dispatch(StackActions.replace('login')); // Navigate to the login screen
+  };
+
+  return (
+    <DrawerContentScrollView {...props}>
+      <DrawerItemList {...props} />
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <MaterialIcons name="logout" size={24} color="#000" />
+        <View style={styles.logoutTextContainer}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </View>
+      </TouchableOpacity>
+    </DrawerContentScrollView>
+  );
+};
 
 const HomeStack = () => (
   <Stack>
@@ -148,5 +164,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#ccc',
+  },
+  logoutTextContainer: {
+    marginLeft: 10,
+  },
+  logoutText: {
+    fontSize: 16,
+    color: '#000',
   },
 });
