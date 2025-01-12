@@ -22,7 +22,7 @@ const LoginScreen: React.FC = () => {
     const { username, password } = values;
 
     // Example validation (replace with real authentication)
-    if (username === 'admin' && password === 'password') {
+    if (username === 'a' && password === 'b') {
       await login(); // Update authentication state
       navigation.reset({
         index: 0,
