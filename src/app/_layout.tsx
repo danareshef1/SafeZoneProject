@@ -1,3 +1,4 @@
+// src/app/_layout.tsx
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -10,11 +11,11 @@ import { TouchableOpacity, StyleSheet, View, ActivityIndicator } from 'react-nat
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import { StackActions, DrawerActions } from '@react-navigation/native';
+import { StackActions, DrawerActions, NavigationProp } from '@react-navigation/native';
 
 type RootDrawerParamList = {
   index: undefined; // Corresponds to app/index.tsx
-  otherScreen: undefined; // Corresponds to app/other.tsx
+  other: undefined; // Corresponds to app/other.tsx
   login: undefined; // Corresponds to app/login.tsx
 };
 
@@ -74,7 +75,7 @@ const MenuButton = () => {
 };
 
 const HomeButton = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootDrawerParamList>>();
   return (
     <TouchableOpacity onPress={() => navigation.navigate('index')} style={styles.homeButton}>
       <MaterialIcons name="home" size={24} color="#000" />
@@ -114,7 +115,7 @@ const RootNavigator = () => {
       {isLoggedIn ? (
         <>
           <Drawer.Screen name="index" component={HomeStack} options={{ title: 'Home' }} />
-          <Drawer.Screen name="otherScreen" component={OtherStack} options={{ title: 'Q&A' }} />
+          <Drawer.Screen name="other" component={OtherStack} options={{ title: 'Q&A' }} />
         </>
       ) : (
         <Drawer.Screen
