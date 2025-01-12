@@ -4,30 +4,18 @@ import { Shelter } from '../types/Shelter';
 
 type CustomMarkerProps = {
   shelter: Shelter;
+  pinColor: string;
   onPress?: () => void;
 };
 
-const CustomMarker: React.FC<CustomMarkerProps> = ({ shelter, onPress }) => {
-  const getPinColor = () => {
-    switch (shelter.status) {
-      case 'High Load (Red)':
-        return 'red';
-      case 'Medium Load (Yellow)':
-        return 'yellow';
-      case 'Low Load (Green)':
-      default:
-        return 'green';
-    }
-  };
-
+const CustomMarker: React.FC<CustomMarkerProps> = ({ shelter, onPress ,pinColor}) => {
   return (
     <Marker
       coordinate={{
         latitude: shelter.latitude,
         longitude: shelter.longitude,
       }}
-      title={shelter.location}
-      pinColor={getPinColor()} // Dynamically set pin color
+      pinColor={pinColor} 
       onPress={onPress}
     />
   );
