@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, ViewStyle, Button } from 'react-native';
-import { Shelter } from '../types/Shelter';
+import { Shelter } from '../../../types/Shelter';
 
 type ShelterListItemProps = {
   shelter: Shelter;

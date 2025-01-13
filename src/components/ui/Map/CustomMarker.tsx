@@ -1,6 +1,6 @@
 import React from 'react';
 import { Marker } from 'react-native-maps';
-import { Shelter } from '../types/Shelter';
+import { Shelter } from '../../../types/Shelter';
 
 type CustomMarkerProps = {
   shelter: Shelter;
