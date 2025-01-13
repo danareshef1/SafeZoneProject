@@ -8,6 +8,22 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
 
+// HomeButton Component
+const HomeButton = () => {
+  const router = useRouter();
+
+  const handlePress = () => {
+    router.push('/');
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} style={styles.homeButton}>
+      <MaterialIcons name="home" size={24} color="#000" />
+    </TouchableOpacity>
+  );
+};
+
+// Custom Drawer Content
 const CustomDrawerContent = () => {
   const { logout } = useContext(AuthContext);
   const router = useRouter();
@@ -53,6 +69,7 @@ const CustomDrawerContent = () => {
   );
 };
 
+// RootNavigator Component
 const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
@@ -87,6 +104,7 @@ const RootNavigator = () => {
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
       screenOptions={{
         headerShown: true,
+        headerRight: () => <HomeButton />, // Add HomeButton to the header
       }}
     >
       {isLoggedIn ? (
@@ -110,6 +128,7 @@ const RootNavigator = () => {
   );
 };
 
+// Layout Component
 export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -120,6 +139,7 @@ export default function Layout() {
   );
 }
 
+// Stylesheet
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -155,5 +175,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
     color: '#000',
+  },
+  homeButton: {
+    marginRight: 15, // Adds spacing between the button and the edge
   },
 });
