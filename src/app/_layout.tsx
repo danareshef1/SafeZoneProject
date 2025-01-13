@@ -11,11 +11,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { StackActions, DrawerActions, NavigationProp } from '@react-navigation/native';
+import HospitalsScreen from './HospitalScreen'; // Import the HospitalsScreen
 
 type RootDrawerParamList = {
   index: undefined; // Corresponds to app/index.tsx
   other: undefined; // Corresponds to app/other.tsx
   login: undefined; // Corresponds to app/login.tsx
+  hospitals: undefined; // New Hospitals Screen
 };
 
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
@@ -48,7 +50,7 @@ const HomeStack = () => (
     <Stack.Screen
       name="index"
       options={{
-        title: 'Home',
+        title: 'Safe Zone',
         headerRight: () => <HomeButton />,
         headerLeft: () => <MenuButton />,
       }}
@@ -62,6 +64,19 @@ const OtherStack = () => (
       name="otherScreen"
       options={{
         title: 'Q&A',
+        headerRight: () => <HomeButton />,
+        headerLeft: () => <MenuButton />,
+      }}
+    />
+  </Stack>
+);
+
+const HospitalsStack = () => (
+  <Stack>
+    <Stack.Screen
+      name="HospitalScreen"
+      options={{
+        title: 'Hospitals & Emergency',
         headerRight: () => <HomeButton />,
         headerLeft: () => <MenuButton />,
       }}
@@ -135,6 +150,7 @@ const RootNavigator = () => {
         <>
           <Drawer.Screen name="index" component={HomeStack} options={{ title: 'Home' }} />
           <Drawer.Screen name="other" component={OtherStack} options={{ title: 'Q&A' }} />
+          <Drawer.Screen name="hospitals" component={HospitalsStack} options={{ title: 'Hospitals & Emergency' }}/>
         </>
       ) : (
         <Drawer.Screen
