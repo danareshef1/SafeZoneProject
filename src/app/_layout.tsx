@@ -1,148 +1,78 @@
+// src/app/_layout.tsx
+
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import {
-  createDrawerNavigator,
-  DrawerContentScrollView,
-  DrawerItemList,
-} from '@react-navigation/drawer';
-import { Stack } from 'expo-router';
-import { TouchableOpacity, StyleSheet, View, ActivityIndicator, Text } from 'react-native';
+import { Drawer } from 'expo-router/drawer';
+import { TouchableOpacity, StyleSheet, View, ActivityIndicator, Text, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
-import { useNavigation } from '@react-navigation/native';
-import { StackActions, DrawerActions, NavigationProp } from '@react-navigation/native';
+import { useRouter, useSegments } from 'expo-router';
 
-type RootDrawerParamList = {
-  index: undefined; // Corresponds to app/index.tsx
-  other: undefined; // Corresponds to app/other.tsx
-  login: undefined; // Corresponds to app/login.tsx
-  hospitals: undefined; // Corresponds to app/HospitalScreen.tsx
-  alarmHistory: undefined; // Corresponds to app/AlarmHistoryScreen.tsx
-};
-
-const Drawer = createDrawerNavigator<RootDrawerParamList>();
-
-const CustomDrawerContent = (props: any) => {
+const CustomDrawerContent = () => {
   const { logout } = useContext(AuthContext);
-  const navigation = useNavigation<NavigationProp<RootDrawerParamList>>();
+  const router = useRouter();
 
   const handleLogout = () => {
     logout();
-    navigation.dispatch(DrawerActions.closeDrawer());
-    navigation.dispatch(StackActions.replace('login'));
+    router.replace('/login');
+  };
+
+  const navigateTo = (path: string) => {
+    router.push(path as any);
   };
 
   return (
-    <DrawerContentScrollView {...props}>
-      <DrawerItemList {...props} />
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <MaterialIcons name="logout" size={24} color="#000" />
-        <View style={styles.logoutTextContainer}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </View>
+    <ScrollView contentContainerStyle={styles.drawerContainer}>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/')}>
+        <MaterialIcons name="home" size={24} color="#000" />
+        <Text style={styles.drawerItemText}>Home</Text>
       </TouchableOpacity>
-    </DrawerContentScrollView>
-  );
-};
-
-const HomeStack = () => (
-  <Stack>
-    <Stack.Screen
-      name="index"
-      options={{
-        title: 'Safe Zone',
-        headerRight: () => <HomeButton />,
-        headerLeft: () => <MenuButton />,
-      }}
-    />
-  </Stack>
-);
-
-const OtherStack = () => (
-  <Stack>
-    <Stack.Screen
-      name="QnAScreen"
-      options={{
-        title: 'Q&A',
-        headerRight: () => <HomeButton />,
-        headerLeft: () => <MenuButton />,
-      }}
-    />
-  </Stack>
-);
-
-const HospitalsStack = () => (
-  <Stack>
-    <Stack.Screen
-      name="HospitalScreen"
-      options={{
-        title: 'Hospitals & Emergency',
-        headerRight: () => <HomeButton />,
-        headerLeft: () => <MenuButton />,
-      }}
-    />
-  </Stack>
-);
-
-const AlarmHistoryStack = () => (
-  <Stack>
-    <Stack.Screen
-      name="AlarmHistoryScreen"
-      options={{
-        title: 'Alarm History',
-        headerRight: () => <HomeButton />,
-        headerLeft: () => <MenuButton />,
-      }}
-    />
-  </Stack>
-);
-
-const LoginStack = () => (
-  <Stack>
-    <Stack.Screen
-      name="login"
-      options={{
-        title: 'Login',
-        headerLeft: () => null,
-      }}
-    />
-  </Stack>
-);
-
-const MenuButton = () => {
-  const navigation = useNavigation();
-  return (
-    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}>
-      <MaterialIcons name="menu" size={30} color="#000" style={{ marginLeft: 15 }} />
-    </TouchableOpacity>
-  );
-};
-
-const HomeButton = () => {
-  const navigation = useNavigation<NavigationProp<RootDrawerParamList>>();
-  return (
-    <TouchableOpacity
-      onPress={() => navigation.dispatch(DrawerActions.jumpTo('index'))}
-      style={styles.homeButton}
-    >
-      <MaterialIcons name="home" size={24} color="#000" />
-    </TouchableOpacity>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/QnAScreen')}>
+        <MaterialIcons name="question-answer" size={24} color="#000" />
+        <Text style={styles.drawerItemText}>Q&A</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/HospitalScreen')}>
+        <MaterialIcons name="local-hospital" size={24} color="#000" />
+        <Text style={styles.drawerItemText}>Hospitals & Emergency</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/AlarmHistoryScreen')}>
+        <MaterialIcons name="history" size={24} color="#000" />
+        <Text style={styles.drawerItemText}>Alarm History</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/mainScreen')}>
+        <MaterialIcons name="dashboard" size={24} color="#000" />
+        <Text style={styles.drawerItemText}>Main Screen</Text>
+      </TouchableOpacity>
+      <View style={styles.logoutSection}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <MaterialIcons name="logout" size={24} color="#000" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 
 const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
-  const navigation = useNavigation();
+  const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
-        navigation.dispatch(StackActions.replace('index'));
+        // If user is logged in and tries to access login screen, redirect to home
+        if (segments[0] === 'login') {
+          router.replace('/');
+        }
       } else {
-        navigation.dispatch(StackActions.replace('login'));
+        // If user is not logged in and tries to access protected screens, redirect to login
+        if (segments[0] !== 'login') {
+          router.replace('/login');
+        }
       }
     }
-  }, [isLoggedIn, loading, navigation]);
+  }, [isLoggedIn, loading, router, segments]);
 
   if (loading) {
     return (
@@ -153,29 +83,30 @@ const RootNavigator = () => {
   }
 
   return (
-    <Drawer.Navigator
-      drawerContent={(props) => <CustomDrawerContent {...props} />}
+    <Drawer
+      drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
       }}
     >
       {isLoggedIn ? (
         <>
-          <Drawer.Screen name="index" component={HomeStack} options={{ title: 'Home' }} />
-          <Drawer.Screen name="other" component={OtherStack} options={{ title: 'Q&A' }} />
-          <Drawer.Screen name="hospitals" component={HospitalsStack} options={{ title: 'Hospitals & Emergency' }} />
-          <Drawer.Screen name="alarmHistory" component={AlarmHistoryStack} options={{ title: 'Alarm History' }} />
+          <Drawer.Screen name="/" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/QnAScreen" options={{ title: 'Q&A' }} />
+          <Drawer.Screen name="/HospitalScreen" options={{ title: 'Hospitals & Emergency' }} />
+          <Drawer.Screen name="/AlarmHistoryScreen" options={{ title: 'Alarm History' }} />
+          <Drawer.Screen name="/mainScreen" options={{ title: 'Main Screen' }} />
         </>
       ) : (
         <Drawer.Screen
-          name="login"
-          component={LoginStack}
+          name="/login"
           options={{
-            swipeEnabled: false,
+            title: 'Login',
+            headerLeft: () => null, // Hide the back button on login screen
           }}
         />
       )}
-    </Drawer.Navigator>
+    </Drawer>
   );
 };
 
@@ -190,28 +121,39 @@ export default function Layout() {
 }
 
 const styles = StyleSheet.create({
-  homeButton: {
-    padding: 10,
-  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  drawerContainer: {
+    flexGrow: 1,
+    paddingTop: 50,
+    paddingHorizontal: 10,
+  },
+  drawerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+  },
+  drawerItemText: {
+    fontSize: 16,
+    marginLeft: 10,
+    color: '#000',
+  },
+  logoutSection: {
+    marginTop: 'auto',
+    borderTopWidth: 1,
+    borderTopColor: '#ccc',
+    paddingVertical: 20,
+  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#ccc',
-  },
-  logoutTextContainer: {
-    marginLeft: 10,
   },
   logoutText: {
     fontSize: 16,
+    marginLeft: 10,
     color: '#000',
   },
 });
