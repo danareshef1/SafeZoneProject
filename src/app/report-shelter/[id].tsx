@@ -1,64 +1,85 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import sheltersData from '../../../assets/data/shelters.json';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
+import StatusButtons from '../../components/ui/Map/StatusButtons';
 
-const ReportShelter: React.FC = () => {
-  const router = useRouter();
-  const { id } = useLocalSearchParams(); // Use `useLocalSearchParams` instead of `useSearchParams`
+const ShelterDetail: React.FC = () => {
+  const { id } = useLocalSearchParams(); 
+  console.log('Dynamic Route Loaded with ID:', id); // Debugging log
 
-  const shelter = sheltersData.find((shelter) => shelter.id === id);
+  const [reportText, setReportText] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
-  if (!shelter) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.error}>Shelter not found</Text>
-      </View>
-    );
-  }
+  const handleStatusChange = (status: string) => {
+    setSelectedStatus(status);
+  };
 
-  const [status, setStatus] = useState(shelter.status || '');
-  const [description, setDescription] = useState('');
-  const [image, setImage] = useState(shelter.image || '');
+  const handleSubmitReport = () => {
+    if (!selectedStatus) {
+      Alert.alert('Error', 'Please select a status');
+      return;
+    }
 
-  const handleSubmit = () => {
-    console.log('Updated Shelter Info:', { status, description, image });
-    router.back();
+    // Replace with your backend integration logic
+    console.log('Report submitted:', { shelterId: id, status: selectedStatus, reportText });
+
+    Alert.alert('Success', 'Your report has been submitted');
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Report Shelter: {shelter.location}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Status"
-        value={status}
-        onChangeText={setStatus}
+      <Text style={styles.title}>Shelter Details</Text>
+      <Text style={styles.subTitle}>Shelter ID: {id}</Text>
+      <Image
+        source={{ uri: 'https://via.placeholder.com/300' }} // Replace with real image URL
+        style={styles.image}
       />
+      <Text style={styles.sectionTitle}>Report Issue:</Text>
+      <StatusButtons onReport={handleStatusChange} />
       <TextInput
-        style={styles.input}
-        placeholder="Description"
-        value={description}
-        onChangeText={setDescription}
+        style={styles.textInput}
+        placeholder="Describe the issue here..."
+        value={reportText}
+        onChangeText={setReportText}
+        multiline
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Image URL"
-        value={image}
-        onChangeText={setImage}
-      />
-      <Image source={{ uri: image }} style={styles.image} />
-      <Button title="Submit" onPress={handleSubmit} />
+      <TouchableOpacity style={styles.submitButton} onPress={handleSubmitReport}>
+        <Text style={styles.submitButtonText}>Submit Report</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 20 },
-  input: { borderWidth: 1, padding: 10, marginBottom: 10, borderRadius: 5 },
-  image: { width: '100%', height: 200, marginVertical: 20 },
-  error: { fontSize: 16, color: 'red', textAlign: 'center' },
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  subTitle: { fontSize: 18, marginBottom: 20 },
+  image: { width: '100%', height: 200, borderRadius: 10, marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    padding: 10,
+    height: 100,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: '#007bff',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
 
-export default ReportShelter;
+export default ShelterDetail;

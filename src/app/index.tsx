@@ -12,8 +12,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 import sheltersData from '../../assets/data/shelters.json';
-import ShelterListItem from '../components/ShelterListItem';
-import CustomMarker from '../components/CustomMarker';
+import ShelterListItem from '../components/ui/Map/ShelterListItem';
+import CustomMarker from '../components/ui/Map/CustomMarker';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { Shelter } from '../types/Shelter';
 import { useRouter } from 'expo-router';
@@ -33,18 +33,34 @@ const HomeScreen: React.FC = () => {
 
   const getStatusColor = (status: string): string => {
     switch (status.toLowerCase()) {
-      case 'Low Load (Green)':
+      case 'low load (green)':
         return '#4CAF50'; // Green
-      case 'Medium Load (Yellow)':
+      case 'medium load (yellow)':
         return '#FFEB3B'; // Yellow
-      case 'High Load (Red)':
+      case 'high load (red)':
         return '#F44336'; // Red
       default:
         return '#9E9E9E'; // Default gray
     }
   };
 
-  // Load shelters from AsyncStorage or fallback to default data
+  const resetSheltersData = async () => {
+    try {
+      const defaultShelters = sheltersData.map((shelter) => ({
+        ...shelter,
+        status: shelter.status || 'Low Load (Green)', // Ensure default status
+      }));
+
+      // Reset only the 'shelters' key in AsyncStorage
+      await AsyncStorage.setItem('shelters', JSON.stringify(defaultShelters));
+      setShelters(defaultShelters); // Update local state
+
+      console.log('Shelter data has been reset.');
+    } catch (error) {
+      console.error('Error resetting shelters data:', error);
+    }
+  };
+
   useEffect(() => {
     const loadSheltersFromStorage = async () => {
       try {
@@ -52,34 +68,15 @@ const HomeScreen: React.FC = () => {
         if (storedShelters) {
           setShelters(JSON.parse(storedShelters));
         } else {
-          setShelters(
-            sheltersData.map((shelter) => ({
-              ...shelter,
-              status: shelter.status || 'Low Load (Green)', // Ensure default status
-            }))
-          );
+          await resetSheltersData(); // Initialize with default shelters if none exist
         }
       } catch (error) {
         console.error('Error loading shelters:', error);
-        setShelters(
-          sheltersData.map((shelter) => ({
-            ...shelter,
-            status: shelter.status || 'Low Load (Green)',
-          }))
-        );
       }
     };
 
     loadSheltersFromStorage();
   }, []);
-
-  const saveSheltersToStorage = async (updatedShelters: Shelter[]) => {
-    try {
-      await AsyncStorage.setItem('shelters', JSON.stringify(updatedShelters));
-    } catch (error) {
-      console.error('Error saving shelters to storage:', error);
-    }
-  };
 
   useEffect(() => {
     (async () => {
@@ -120,10 +117,14 @@ const HomeScreen: React.FC = () => {
 
   const handleReport = () => {
     if (selectedShelter) {
-      router.push(`./report-shelter/${selectedShelter.id}`);
+      router.push({
+        pathname: '/report-shelter/[id]',
+        params: { id: selectedShelter.id },
+      });
     }
   };
-
+  
+  
   const handleDeselectShelter = () => setSelectedShelter(null);
 
   if (!mapRegion) {
