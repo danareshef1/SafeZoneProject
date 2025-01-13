@@ -11,13 +11,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { StackActions, DrawerActions, NavigationProp } from '@react-navigation/native';
-import HospitalsScreen from './HospitalScreen'; // Import the HospitalsScreen
 
 type RootDrawerParamList = {
   index: undefined; // Corresponds to app/index.tsx
   other: undefined; // Corresponds to app/other.tsx
   login: undefined; // Corresponds to app/login.tsx
-  hospitals: undefined; // New Hospitals Screen
+  hospitals: undefined; // Corresponds to app/HospitalScreen.tsx
+  alarmHistory: undefined; // Corresponds to app/AlarmHistoryScreen.tsx
 };
 
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
@@ -61,7 +61,7 @@ const HomeStack = () => (
 const OtherStack = () => (
   <Stack>
     <Stack.Screen
-      name="otherScreen"
+      name="QnAScreen"
       options={{
         title: 'Q&A',
         headerRight: () => <HomeButton />,
@@ -77,6 +77,19 @@ const HospitalsStack = () => (
       name="HospitalScreen"
       options={{
         title: 'Hospitals & Emergency',
+        headerRight: () => <HomeButton />,
+        headerLeft: () => <MenuButton />,
+      }}
+    />
+  </Stack>
+);
+
+const AlarmHistoryStack = () => (
+  <Stack>
+    <Stack.Screen
+      name="AlarmHistoryScreen"
+      options={{
+        title: 'Alarm History',
         headerRight: () => <HomeButton />,
         headerLeft: () => <MenuButton />,
       }}
@@ -150,7 +163,8 @@ const RootNavigator = () => {
         <>
           <Drawer.Screen name="index" component={HomeStack} options={{ title: 'Home' }} />
           <Drawer.Screen name="other" component={OtherStack} options={{ title: 'Q&A' }} />
-          <Drawer.Screen name="hospitals" component={HospitalsStack} options={{ title: 'Hospitals & Emergency' }}/>
+          <Drawer.Screen name="hospitals" component={HospitalsStack} options={{ title: 'Hospitals & Emergency' }} />
+          <Drawer.Screen name="alarmHistory" component={AlarmHistoryStack} options={{ title: 'Alarm History' }} />
         </>
       ) : (
         <Drawer.Screen
