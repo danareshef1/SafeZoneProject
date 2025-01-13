@@ -6,6 +6,7 @@ import {
   Alert,
   ActivityIndicator,
   TouchableWithoutFeedback,
+  Button,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
@@ -13,9 +14,9 @@ import * as Location from 'expo-location';
 import sheltersData from '../../assets/data/shelters.json';
 import ShelterListItem from '../components/ShelterListItem';
 import CustomMarker from '../components/CustomMarker';
-import StatusButtons from '../components/StatusButtons';
-import { Shelter } from '../types/Shelter';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { Shelter } from '../types/Shelter';
+import { useRouter } from 'expo-router';
 
 const HomeScreen: React.FC = () => {
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
@@ -27,7 +28,21 @@ const HomeScreen: React.FC = () => {
     longitudeDelta: number;
   }>(null);
 
-  const snapPoints = useMemo(() => ['10%', '50%', '90%'], []);
+  const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
+  const router = useRouter();
+
+  const getStatusColor = (status: string): string => {
+    switch (status.toLowerCase()) {
+      case 'Low Load (Green)':
+        return '#4CAF50'; // Green
+      case 'Medium Load (Yellow)':
+        return '#FFEB3B'; // Yellow
+      case 'High Load (Red)':
+        return '#F44336'; // Red
+      default:
+        return '#9E9E9E'; // Default gray
+    }
+  };
 
   // Load shelters from AsyncStorage or fallback to default data
   useEffect(() => {
@@ -40,7 +55,7 @@ const HomeScreen: React.FC = () => {
           setShelters(
             sheltersData.map((shelter) => ({
               ...shelter,
-              status: shelter.status || 'green', // Ensure default status
+              status: shelter.status || 'Low Load (Green)', // Ensure default status
             }))
           );
         }
@@ -49,7 +64,7 @@ const HomeScreen: React.FC = () => {
         setShelters(
           sheltersData.map((shelter) => ({
             ...shelter,
-            status: shelter.status || 'green',
+            status: shelter.status || 'Low Load (Green)',
           }))
         );
       }
@@ -61,12 +76,10 @@ const HomeScreen: React.FC = () => {
   const saveSheltersToStorage = async (updatedShelters: Shelter[]) => {
     try {
       await AsyncStorage.setItem('shelters', JSON.stringify(updatedShelters));
-      console.log('Shelters saved to storage:', updatedShelters);
     } catch (error) {
       console.error('Error saving shelters to storage:', error);
     }
   };
-  
 
   useEffect(() => {
     (async () => {
@@ -105,23 +118,11 @@ const HomeScreen: React.FC = () => {
     })();
   }, []);
 
-const handleReport = (status: string) => {
-  if (!selectedShelter) {
-    Alert.alert('Error', 'Please select a shelter before reporting.');
-    return;
-  }
-
-  const updatedShelters = shelters.map((shelter) =>
-    shelter.id === selectedShelter.id ? { ...shelter, status } : shelter
-  );
-
-  setShelters(updatedShelters);
-  saveSheltersToStorage(updatedShelters);
-
-  Alert.alert('Reported', `Shelter: ${selectedShelter.location}\nStatus: ${status}`);
-  console.log('Updated Shelters:', updatedShelters);
-
-};
+  const handleReport = () => {
+    if (selectedShelter) {
+      router.push(`./report-shelter/${selectedShelter.id}`);
+    }
+  };
 
   const handleDeselectShelter = () => setSelectedShelter(null);
 
@@ -140,8 +141,9 @@ const handleReport = (status: string) => {
         <MapView style={styles.map} region={mapRegion}>
           {shelters.map((shelter) => (
             <CustomMarker
-              key={`${shelter.id}-${shelter.status}`} // Ensure unique key for re-rendering
+              key={`${shelter.id}-${shelter.status}`}
               shelter={shelter}
+              pinColor={getStatusColor(shelter.status)} // Pass dynamic pin color
               onPress={() => setSelectedShelter(shelter)}
             />
           ))}
@@ -150,10 +152,15 @@ const handleReport = (status: string) => {
         {selectedShelter && (
           <>
             <View style={styles.selectedShelter}>
-              <ShelterListItem shelter={selectedShelter} containerStyle={{}} />
+              <ShelterListItem
+                shelter={selectedShelter}
+                containerStyle={{}}
+                statusColor={getStatusColor(selectedShelter.status)} // Pass dynamic color
+              />
             </View>
-            <Text style={styles.title}>Report Status of Shelter: {selectedShelter.location}</Text>
-            <StatusButtons onReport={handleReport} />
+            <View style={styles.reportButtonContainer}>
+              <Button title="Report Shelter" onPress={handleReport} />
+            </View>
           </>
         )}
 
@@ -164,7 +171,11 @@ const handleReport = (status: string) => {
               data={shelters}
               contentContainerStyle={{ gap: 10, padding: 10 }}
               renderItem={({ item }) => (
-                <ShelterListItem shelter={item} containerStyle={{}} />
+                <ShelterListItem
+                  shelter={item}
+                  containerStyle={{}}
+                  statusColor={getStatusColor(item.status)} // Pass dynamic color
+                />
               )}
             />
           </View>
@@ -175,33 +186,26 @@ const handleReport = (status: string) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    width: '100%',
-    height: '50%',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
+  map: { width: '100%', height: '50%' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   selectedShelter: {
     position: 'absolute',
     bottom: 120,
     right: 10,
     left: 10,
   },
-  title: {
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginVertical: 10,
+  reportButtonContainer: {
+    position: 'absolute',
+    bottom: 60,
+    right: 10,
+    left: 10,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
+    elevation: 5,
   },
-  contentContainer: {
-    flex: 1,
-  },
+  contentContainer: { flex: 1 },
   listTitle: {
     textAlign: 'center',
     fontSize: 16,
