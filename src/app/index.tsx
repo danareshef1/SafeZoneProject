@@ -79,6 +79,22 @@ const HomeScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const loadSheltersFromStorage = async () => {
+      try {
+        const storedShelters = await AsyncStorage.getItem('shelters');
+        if (storedShelters) {
+          setShelters(JSON.parse(storedShelters));
+        }
+      } catch (error) {
+        console.error('Error loading shelters:', error);
+      }
+    };
+  
+    loadSheltersFromStorage();
+  }, [shelters]);
+  
+
+  useEffect(() => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -123,6 +139,24 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
+  
+  const updateShelterStatus = (shelterId: string, newStatus: string) => {
+    setShelters((prevShelters) =>
+      prevShelters.map((shelter) =>
+        shelter.id === shelterId ? { ...shelter, status: newStatus } : shelter
+      )
+    );
+  
+    AsyncStorage.setItem(
+      'shelters',
+      JSON.stringify(
+        shelters.map((shelter) =>
+          shelter.id === shelterId ? { ...shelter, status: newStatus } : shelter
+        )
+      )
+    );
+  };
+  
   
   
   const handleDeselectShelter = () => setSelectedShelter(null);
