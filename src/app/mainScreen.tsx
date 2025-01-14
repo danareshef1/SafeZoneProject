@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
 const ShelterInfoScreen = () => {
   const [minutes, setMinutes] = useState(10); // Initialize to 10 minutes
   const [seconds, setSeconds] = useState(0); // Initialize to 0 seconds
+  const [progress, setProgress] = useState(1); // Full progress initially (100%)
 
   useEffect(() => {
+    const totalSeconds = 10 * 60; // Total countdown time in seconds (10 minutes)
+    const updateProgress = (remainingSeconds: number) => {
+      setProgress(remainingSeconds / totalSeconds); // Update progress based on remaining time
+    };
+
     const timer = setInterval(() => {
       setSeconds((prevSeconds) => {
         if (prevSeconds === 0) {
@@ -14,14 +21,21 @@ const ShelterInfoScreen = () => {
             return 0;
           }
           setMinutes((prevMinutes) => prevMinutes - 1); // Decrease the minute
+          updateProgress((minutes - 1) * 60 + 59); // Update progress
           return 59; // Reset seconds to 59
         }
+        const remainingSeconds = minutes * 60 + prevSeconds - 1;
+        updateProgress(remainingSeconds); // Update progress
         return prevSeconds - 1; // Decrease seconds
       });
     }, 1000);
 
     return () => clearInterval(timer); // Cleanup the interval on component unmount
   }, [minutes]);
+
+  const circleRadius = 45;
+  const circleCircumference = 2 * Math.PI * circleRadius;
+  const strokeDashoffset = circleCircumference * (1 - progress);
 
   return (
     <View style={styles.container}>
@@ -44,8 +58,29 @@ const ShelterInfoScreen = () => {
 
       {/* Bottom Section with Timer and Buttons */}
       <View style={styles.bottomContainer}>
-        {/* Timer */}
+        {/* Timer with Decreasing Circle */}
         <View style={styles.timerContainer}>
+          <Svg width={100} height={100}>
+            <Circle
+              cx="50"
+              cy="50"
+              r={circleRadius}
+              stroke="#e0e0e0"
+              strokeWidth="10"
+              fill="none"
+            />
+            <Circle
+              cx="50"
+              cy="50"
+              r={circleRadius}
+              stroke="#00b300"
+              strokeWidth="10"
+              strokeDasharray={circleCircumference}
+              strokeDashoffset={strokeDashoffset}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </Svg>
           <Text style={styles.timerText}>
             {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
           </Text>
@@ -102,15 +137,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timerContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: '#00b300',
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
   timerText: {
+    position: 'absolute',
     fontSize: 24,
     fontWeight: 'bold',
     color: '#00b300',
