@@ -11,12 +11,15 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
-import sheltersData from '../../assets/data/shelters.json';
+import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { useRouter } from 'expo-router';
+
 import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
-import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { Shelter } from '../types/Shelter';
-import { useRouter } from 'expo-router';
+
+// REPLACE with your real API Gateway URL
+const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
 const HomeScreen: React.FC = () => {
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
@@ -28,72 +31,34 @@ const HomeScreen: React.FC = () => {
     longitudeDelta: number;
   }>(null);
 
+  // Snap points for the bottom sheet
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
 
-  const getStatusColor = (status: string): string => {
-    switch (status.toLowerCase()) {
-      case 'low load (green)':
-        return '#4CAF50'; // Green
-      case 'medium load (yellow)':
-        return '#FFEB3B'; // Yellow
-      case 'high load (red)':
-        return '#F44336'; // Red
-      default:
-        return '#9E9E9E'; // Default gray
-    }
-  };
-
-  const resetSheltersData = async () => {
+  // Fetch shelters from your API Gateway endpoint
+  const fetchShelters = async () => {
     try {
-      const defaultShelters = sheltersData.map((shelter) => ({
-        ...shelter,
-        status: shelter.status || 'Low Load (Green)', // Ensure default status
-      }));
-
-      // Reset only the 'shelters' key in AsyncStorage
-      await AsyncStorage.setItem('shelters', JSON.stringify(defaultShelters));
-      setShelters(defaultShelters); // Update local state
-
-      console.log('Shelter data has been reset.');
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch shelters: ${response.status}`);
+      }
+      const data = await response.json();
+      // Save to state
+      setShelters(data);
+      // Optionally store offline
+      await AsyncStorage.setItem('shelters', JSON.stringify(data));
     } catch (error) {
-      console.error('Error resetting shelters data:', error);
+      console.error('Error fetching shelters from API:', error);
+      Alert.alert('Error', 'Unable to fetch shelter data.');
     }
   };
 
+  // Load shelters on mount
   useEffect(() => {
-    const loadSheltersFromStorage = async () => {
-      try {
-        const storedShelters = await AsyncStorage.getItem('shelters');
-        if (storedShelters) {
-          setShelters(JSON.parse(storedShelters));
-        } else {
-          await resetSheltersData(); // Initialize with default shelters if none exist
-        }
-      } catch (error) {
-        console.error('Error loading shelters:', error);
-      }
-    };
-
-    loadSheltersFromStorage();
+    fetchShelters();
   }, []);
 
-  useEffect(() => {
-    const loadSheltersFromStorage = async () => {
-      try {
-        const storedShelters = await AsyncStorage.getItem('shelters');
-        if (storedShelters) {
-          setShelters(JSON.parse(storedShelters));
-        }
-      } catch (error) {
-        console.error('Error loading shelters:', error);
-      }
-    };
-  
-    loadSheltersFromStorage();
-  }, [shelters]);
-  
-
+  // Get user's location
   useEffect(() => {
     (async () => {
       try {
@@ -111,6 +76,7 @@ const HomeScreen: React.FC = () => {
           });
           return;
         }
+
         const location = await Location.getCurrentPositionAsync({});
         setMapRegion({
           latitude: location.coords.latitude,
@@ -139,28 +105,10 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
-  
-  const updateShelterStatus = (shelterId: string, newStatus: string) => {
-    setShelters((prevShelters) =>
-      prevShelters.map((shelter) =>
-        shelter.id === shelterId ? { ...shelter, status: newStatus } : shelter
-      )
-    );
-  
-    AsyncStorage.setItem(
-      'shelters',
-      JSON.stringify(
-        shelters.map((shelter) =>
-          shelter.id === shelterId ? { ...shelter, status: newStatus } : shelter
-        )
-      )
-    );
-  };
-  
-  
-  
+
   const handleDeselectShelter = () => setSelectedShelter(null);
 
+  // Show a loading screen until we have the user's location
   if (!mapRegion) {
     return (
       <View style={styles.loadingContainer}>
@@ -173,24 +121,26 @@ const HomeScreen: React.FC = () => {
   return (
     <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={styles.container}>
+        {/* Map */}
         <MapView style={styles.map} region={mapRegion}>
           {shelters.map((shelter) => (
             <CustomMarker
               key={`${shelter.id}-${shelter.status}`}
               shelter={shelter}
-              pinColor={getStatusColor(shelter.status)} // Pass dynamic pin color
+              pinColor="#4CAF50"
               onPress={() => setSelectedShelter(shelter)}
             />
           ))}
         </MapView>
 
+        {/* Selected Shelter Info */}
         {selectedShelter && (
           <>
             <View style={styles.selectedShelter}>
               <ShelterListItem
                 shelter={selectedShelter}
                 containerStyle={{}}
-                statusColor={getStatusColor(selectedShelter.status)} // Pass dynamic color
+                statusColor="#4CAF50"
               />
             </View>
             <View style={styles.reportButtonContainer}>
@@ -199,6 +149,7 @@ const HomeScreen: React.FC = () => {
           </>
         )}
 
+        {/* Bottom Sheet with Shelters List */}
         <BottomSheet index={0} snapPoints={snapPoints}>
           <View style={styles.contentContainer}>
             <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
@@ -209,7 +160,7 @@ const HomeScreen: React.FC = () => {
                 <ShelterListItem
                   shelter={item}
                   containerStyle={{}}
-                  statusColor={getStatusColor(item.status)} // Pass dynamic color
+                  statusColor="#4CAF50"
                 />
               )}
             />
