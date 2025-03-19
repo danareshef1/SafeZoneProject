@@ -1,3 +1,4 @@
+// app/verifySignUpScreen.tsx
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -7,8 +8,8 @@ import { CognitoUser, CognitoUserPool } from 'amazon-cognito-identity-js';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const poolData = {
-  UserPoolId: 'us-east-1_D2gEiWghw', // Your User Pool ID
-  ClientId: '3ari019pia44dhfpb0okane3ir', // Your Client ID
+  UserPoolId: 'us-east-1_D2gEiWghw',
+  ClientId: '3ari019pia44dhfpb0okane3ir',
 };
 
 const userPool = new CognitoUserPool(poolData);
@@ -34,11 +35,15 @@ const VerifySignUpScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#ff9a9e', '#fad0c4']} style={styles.gradient}>
+    <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
       <View style={styles.container}>
         <Text style={styles.title}>Verify Your Account</Text>
         <View style={styles.card}>
-          <Formik initialValues={{ code: '' }} validationSchema={VerifySchema} onSubmit={handleVerify}>
+          <Formik
+            initialValues={{ code: '' }}
+            validationSchema={VerifySchema}
+            onSubmit={handleVerify}
+          >
             {({ handleChange, handleSubmit, values, errors, touched }) => (
               <>
                 <TextInput
@@ -48,7 +53,9 @@ const VerifySignUpScreen: React.FC = () => {
                   onChangeText={handleChange('code')}
                   value={values.code}
                 />
-                {errors.code && touched.code && <Text style={styles.error}>{errors.code}</Text>}
+                {errors.code && touched.code && (
+                  <Text style={styles.error}>{errors.code}</Text>
+                )}
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Verify</Text>
                 </TouchableOpacity>
@@ -86,6 +93,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
     height: 50,
@@ -103,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#ff6f61',
+    backgroundColor: '#11998e',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',

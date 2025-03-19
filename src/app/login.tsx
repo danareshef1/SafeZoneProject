@@ -1,3 +1,4 @@
+// app/login.tsx
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { AuthContext } from './AuthContext';
@@ -30,7 +31,7 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#4c669f', '#3b5998', '#192f6a']} style={styles.gradient}>
+    <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
       <View style={styles.container}>
         <Text style={styles.title}>Welcome Back!</Text>
         <View style={styles.card}>
@@ -49,7 +50,9 @@ const LoginScreen: React.FC = () => {
                   onBlur={handleBlur('username')}
                   value={values.username}
                 />
-                {errors.username && touched.username && <Text style={styles.error}>{errors.username}</Text>}
+                {errors.username && touched.username && (
+                  <Text style={styles.error}>{errors.username}</Text>
+                )}
                 <TextInput
                   placeholder="Password"
                   placeholderTextColor="#888"
@@ -59,11 +62,16 @@ const LoginScreen: React.FC = () => {
                   onBlur={handleBlur('password')}
                   value={values.password}
                 />
-                {errors.password && touched.password && <Text style={styles.error}>{errors.password}</Text>}
+                {errors.password && touched.password && (
+                  <Text style={styles.error}>{errors.password}</Text>
+                )}
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign In</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/signUpScreen')}>
+                <TouchableOpacity
+                  style={styles.linkButton}
+                  onPress={() => router.push('/signUpScreen')}
+                >
                   <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
                 </TouchableOpacity>
               </>
@@ -100,6 +108,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
     height: 50,
@@ -117,7 +126,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#3b5998',
+    backgroundColor: '#11998e',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -133,7 +142,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: '#3b5998',
+    color: '#11998e',
     fontSize: 16,
   },
 });

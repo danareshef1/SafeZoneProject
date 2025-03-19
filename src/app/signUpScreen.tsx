@@ -1,3 +1,4 @@
+// app/signUpScreen.tsx
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { AuthContext } from './AuthContext';
@@ -27,7 +28,7 @@ const SignUpScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#8e9eab', '#eef2f3']} style={styles.gradient}>
+    <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
       <View style={styles.container}>
         <Text style={styles.title}>Create Account</Text>
         <View style={styles.card}>
@@ -46,7 +47,9 @@ const SignUpScreen: React.FC = () => {
                   onBlur={handleBlur('username')}
                   value={values.username}
                 />
-                {errors.username && touched.username && <Text style={styles.error}>{errors.username}</Text>}
+                {errors.username && touched.username && (
+                  <Text style={styles.error}>{errors.username}</Text>
+                )}
                 <TextInput
                   placeholder="Email"
                   placeholderTextColor="#888"
@@ -55,7 +58,9 @@ const SignUpScreen: React.FC = () => {
                   onBlur={handleBlur('email')}
                   value={values.email}
                 />
-                {errors.email && touched.email && <Text style={styles.error}>{errors.email}</Text>}
+                {errors.email && touched.email && (
+                  <Text style={styles.error}>{errors.email}</Text>
+                )}
                 <TextInput
                   placeholder="Password"
                   placeholderTextColor="#888"
@@ -65,7 +70,9 @@ const SignUpScreen: React.FC = () => {
                   onBlur={handleBlur('password')}
                   value={values.password}
                 />
-                {errors.password && touched.password && <Text style={styles.error}>{errors.password}</Text>}
+                {errors.password && touched.password && (
+                  <Text style={styles.error}>{errors.password}</Text>
+                )}
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign Up</Text>
                 </TouchableOpacity>
@@ -101,8 +108,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
     marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
     height: 50,
@@ -120,7 +128,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#3b5998',
+    backgroundColor: '#11998e',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',

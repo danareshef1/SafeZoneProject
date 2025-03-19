@@ -1,3 +1,4 @@
+// app/_layout.tsx
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
@@ -13,17 +14,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
 
-// A simple HomeButton to navigate to the home screen.
 const HomeButton = () => {
   const router = useRouter();
   return (
     <TouchableOpacity onPress={() => router.push('/')} style={styles.homeButton}>
-      <MaterialIcons name="home" size={24} color="#000" />
+      <MaterialIcons name="home" size={24} color="#fff" />
     </TouchableOpacity>
   );
 };
 
-// Custom drawer content with several navigation options and logout.
 const CustomDrawerContent = () => {
   const { logout } = useContext(AuthContext);
   const router = useRouter();
@@ -40,28 +39,28 @@ const CustomDrawerContent = () => {
   return (
     <ScrollView contentContainerStyle={styles.drawerContainer}>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/')}>
-        <MaterialIcons name="home" size={24} color="#000" />
+        <MaterialIcons name="home" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Home</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/QnAScreen')}>
-        <MaterialIcons name="question-answer" size={24} color="#000" />
+        <MaterialIcons name="question-answer" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Q&A</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/HospitalScreen')}>
-        <MaterialIcons name="local-hospital" size={24} color="#000" />
+        <MaterialIcons name="local-hospital" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Hospitals & Emergency</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/AlarmHistoryScreen')}>
-        <MaterialIcons name="history" size={24} color="#000" />
+        <MaterialIcons name="history" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Alarm History</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/mainScreen')}>
-        <MaterialIcons name="dashboard" size={24} color="#000" />
+        <MaterialIcons name="dashboard" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Main Screen</Text>
       </TouchableOpacity>
       <View style={styles.logoutSection}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialIcons name="logout" size={24} color="#000" />
+          <MaterialIcons name="logout" size={24} color="#333" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -69,7 +68,6 @@ const CustomDrawerContent = () => {
   );
 };
 
-// The RootNavigator handles redirection based on authentication status.
 const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
@@ -78,7 +76,7 @@ const RootNavigator = () => {
   useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
-        // Redirect away from auth screens if logged in.
+        // Redirect away from auth screens if logged in
         if (
           segments[0] === 'login' ||
           segments[0] === 'signUpScreen' ||
@@ -87,7 +85,7 @@ const RootNavigator = () => {
           router.replace('/');
         }
       } else {
-        // If not logged in, only allow access to auth screens.
+        // If not logged in, only allow access to auth screens
         if (
           segments[0] !== 'login' &&
           segments[0] !== 'signUpScreen' &&
@@ -102,7 +100,7 @@ const RootNavigator = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#11998e" />
       </View>
     );
   }
@@ -112,22 +110,31 @@ const RootNavigator = () => {
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
       screenOptions={{
         headerShown: true,
+        // Custom header style to match your green color scheme:
+        headerStyle: { backgroundColor: '#11998e' },
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: 'bold' },
+        // "Safe Zone" as title:
+        headerTitle: 'Safe Zone',
         headerRight: () => <HomeButton />,
       }}
     >
       {isLoggedIn ? (
         <>
           <Drawer.Screen name="/" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/QnAScreen" options={{ title: 'Q&A' }} />
-          <Drawer.Screen name="/HospitalScreen" options={{ title: 'Hospitals & Emergency' }} />
-          <Drawer.Screen name="/AlarmHistoryScreen" options={{ title: 'Alarm History' }} />
-          <Drawer.Screen name="/mainScreen" options={{ title: 'Main Screen' }} />
+          <Drawer.Screen name="/QnAScreen" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/HospitalScreen" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/AlarmHistoryScreen" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/mainScreen" options={{ title: 'Safe Zone' }} />
         </>
       ) : (
         <>
-          <Drawer.Screen name="/login" options={{ title: 'Login', headerLeft: () => null }} />
-          <Drawer.Screen name="/signUpScreen" options={{ title: 'Sign Up' }} />
-          <Drawer.Screen name="/verifySignUpScreen" options={{ title: 'Verify Sign Up' }} />
+          <Drawer.Screen
+            name="/login"
+            options={{ title: 'Safe Zone', headerLeft: () => null }}
+          />
+          <Drawer.Screen name="/signUpScreen" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/verifySignUpScreen" options={{ title: 'Safe Zone' }} />
         </>
       )}
     </Drawer>
@@ -163,7 +170,7 @@ const styles = StyleSheet.create({
   drawerItemText: {
     fontSize: 16,
     marginLeft: 10,
-    color: '#000',
+    color: '#333',
   },
   logoutSection: {
     marginTop: 'auto',
@@ -178,7 +185,7 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     marginLeft: 10,
-    color: '#000',
+    color: '#333',
   },
   homeButton: {
     marginRight: 15,
