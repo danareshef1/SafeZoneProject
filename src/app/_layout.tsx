@@ -80,7 +80,10 @@ const RootNavigator = () => {
         if (
           segments[0] === 'login' ||
           segments[0] === 'signUpScreen' ||
-          segments[0] === 'verifySignUpScreen'
+          segments[0] === 'verifySignUpScreen' ||
+          segments[0] === 'forgotPassword' ||
+          segments[0] === 'verification' ||
+          segments[0] === 'newPassword'
         ) {
           router.replace('/');
         }
@@ -89,7 +92,10 @@ const RootNavigator = () => {
         if (
           segments[0] !== 'login' &&
           segments[0] !== 'signUpScreen' &&
-          segments[0] !== 'verifySignUpScreen'
+          segments[0] !== 'verifySignUpScreen' &&
+          segments[0] !== 'forgotPassword' &&
+          segments[0] !== 'verification' &&
+          segments[0] !== 'newPassword'
         ) {
           router.replace('/login');
         }
@@ -110,11 +116,9 @@ const RootNavigator = () => {
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
       screenOptions={{
         headerShown: true,
-        // Custom header style to match your green color scheme:
         headerStyle: { backgroundColor: '#11998e' },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
-        // "Safe Zone" as title:
         headerTitle: 'Safe Zone',
         headerRight: () => <HomeButton />,
       }}
@@ -129,12 +133,12 @@ const RootNavigator = () => {
         </>
       ) : (
         <>
-          <Drawer.Screen
-            name="/login"
-            options={{ title: 'Safe Zone', headerLeft: () => null }}
-          />
+          <Drawer.Screen name="/login" options={{ title: 'Safe Zone', headerLeft: () => null }} />
           <Drawer.Screen name="/signUpScreen" options={{ title: 'Safe Zone' }} />
           <Drawer.Screen name="/verifySignUpScreen" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/forgotPassword" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/verification" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/newPassword" options={{ title: 'Safe Zone' }} />
         </>
       )}
     </Drawer>

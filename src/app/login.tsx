@@ -65,9 +65,19 @@ const LoginScreen: React.FC = () => {
                 {errors.password && touched.password && (
                   <Text style={styles.error}>{errors.password}</Text>
                 )}
+
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign In</Text>
                 </TouchableOpacity>
+
+                {/* FORGOT PASSWORD LINK */}
+                <TouchableOpacity
+                  style={styles.linkButton}
+                  onPress={() => router.push('/forgotPassword')}
+                >
+                  <Text style={styles.linkText}>Forgot your password?</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.linkButton}
                   onPress={() => router.push('/signUpScreen')}
@@ -82,6 +92,8 @@ const LoginScreen: React.FC = () => {
     </LinearGradient>
   );
 };
+
+export default LoginScreen;
 
 const styles = StyleSheet.create({
   gradient: {
@@ -147,4 +159,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LoginScreen;
+
