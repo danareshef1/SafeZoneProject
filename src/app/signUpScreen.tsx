@@ -6,38 +6,35 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const LoginSchema = Yup.object().shape({
+const SignUpSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
   password: Yup.string().required('Password is required.'),
+  email: Yup.string().email('Invalid email').required('Email is required.'),
 });
 
-const LoginScreen: React.FC = () => {
-  const { login } = useContext(AuthContext);
+const SignUpScreen: React.FC = () => {
+  const { signUp } = useContext(AuthContext);
   const router = useRouter();
 
-  const handleLogin = async (values: { username: string; password: string }) => {
+  const handleSignUp = async (values: { username: string; password: string; email: string }) => {
     try {
-      await login(values.username, values.password);
-      router.replace('/');
+      await signUp(values.username, values.password, values.email);
+      Alert.alert('Registration Successful', 'Please check your email for the verification code.');
+      router.push(`/verifySignUpScreen?username=${values.username}`);
     } catch (error: any) {
-      if (error.code === 'UserNotConfirmedException') {
-        Alert.alert('Account Not Verified', 'Please verify your account before signing in.');
-        router.push(`/verifySignUpScreen?username=${values.username}`);
-      } else {
-        Alert.alert('Login Failed', error.message || 'Invalid username or password.');
-      }
+      Alert.alert('Sign Up Failed', error.message || 'An error occurred during registration.');
     }
   };
 
   return (
-    <LinearGradient colors={['#4c669f', '#3b5998', '#192f6a']} style={styles.gradient}>
+    <LinearGradient colors={['#8e9eab', '#eef2f3']} style={styles.gradient}>
       <View style={styles.container}>
-        <Text style={styles.title}>Welcome Back!</Text>
+        <Text style={styles.title}>Create Account</Text>
         <View style={styles.card}>
           <Formik
-            initialValues={{ username: '', password: '' }}
-            validationSchema={LoginSchema}
-            onSubmit={handleLogin}
+            initialValues={{ username: '', password: '', email: '' }}
+            validationSchema={SignUpSchema}
+            onSubmit={handleSignUp}
           >
             {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
               <>
@@ -51,6 +48,15 @@ const LoginScreen: React.FC = () => {
                 />
                 {errors.username && touched.username && <Text style={styles.error}>{errors.username}</Text>}
                 <TextInput
+                  placeholder="Email"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  onChangeText={handleChange('email')}
+                  onBlur={handleBlur('email')}
+                  value={values.email}
+                />
+                {errors.email && touched.email && <Text style={styles.error}>{errors.email}</Text>}
+                <TextInput
                   placeholder="Password"
                   placeholderTextColor="#888"
                   style={styles.input}
@@ -61,10 +67,7 @@ const LoginScreen: React.FC = () => {
                 />
                 {errors.password && touched.password && <Text style={styles.error}>{errors.password}</Text>}
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
-                  <Text style={styles.buttonText}>Sign In</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/signUpScreen')}>
-                  <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+                  <Text style={styles.buttonText}>Sign Up</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -98,7 +101,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#333',
     marginBottom: 20,
   },
   input: {
@@ -128,14 +131,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  linkButton: {
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#3b5998',
-    fontSize: 16,
-  },
 });
 
-export default LoginScreen;
+export default SignUpScreen;

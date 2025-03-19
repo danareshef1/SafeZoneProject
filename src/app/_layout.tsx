@@ -1,29 +1,29 @@
-// src/app/_layout.tsx
-
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
-import { TouchableOpacity, StyleSheet, View, ActivityIndicator, Text, ScrollView } from 'react-native';
+import {
+  TouchableOpacity,
+  StyleSheet,
+  View,
+  ActivityIndicator,
+  Text,
+  ScrollView,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
 
-// HomeButton Component
+// A simple HomeButton to navigate to the home screen.
 const HomeButton = () => {
   const router = useRouter();
-
-  const handlePress = () => {
-    router.push('/');
-  };
-
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.homeButton}>
+    <TouchableOpacity onPress={() => router.push('/')} style={styles.homeButton}>
       <MaterialIcons name="home" size={24} color="#000" />
     </TouchableOpacity>
   );
 };
 
-// Custom Drawer Content
+// Custom drawer content with several navigation options and logout.
 const CustomDrawerContent = () => {
   const { logout } = useContext(AuthContext);
   const router = useRouter();
@@ -34,7 +34,7 @@ const CustomDrawerContent = () => {
   };
 
   const navigateTo = (path: string) => {
-    router.push(path as any);
+    router.push(path);
   };
 
   return (
@@ -69,7 +69,7 @@ const CustomDrawerContent = () => {
   );
 };
 
-// RootNavigator Component
+// The RootNavigator handles redirection based on authentication status.
 const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
@@ -78,13 +78,21 @@ const RootNavigator = () => {
   useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
-        // If user is logged in and tries to access login screen, redirect to home
-        if (segments[0] === 'login') {
+        // Redirect away from auth screens if logged in.
+        if (
+          segments[0] === 'login' ||
+          segments[0] === 'signUpScreen' ||
+          segments[0] === 'verifySignUpScreen'
+        ) {
           router.replace('/');
         }
       } else {
-        // If user is not logged in and tries to access protected screens, redirect to login
-        if (segments[0] !== 'login') {
+        // If not logged in, only allow access to auth screens.
+        if (
+          segments[0] !== 'login' &&
+          segments[0] !== 'signUpScreen' &&
+          segments[0] !== 'verifySignUpScreen'
+        ) {
           router.replace('/login');
         }
       }
@@ -104,7 +112,7 @@ const RootNavigator = () => {
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
       screenOptions={{
         headerShown: true,
-        headerRight: () => <HomeButton />, // Add HomeButton to the header
+        headerRight: () => <HomeButton />,
       }}
     >
       {isLoggedIn ? (
@@ -116,19 +124,16 @@ const RootNavigator = () => {
           <Drawer.Screen name="/mainScreen" options={{ title: 'Main Screen' }} />
         </>
       ) : (
-        <Drawer.Screen
-          name="/login"
-          options={{
-            title: 'Login',
-            headerLeft: () => null, // Hide the back button on login screen
-          }}
-        />
+        <>
+          <Drawer.Screen name="/login" options={{ title: 'Login', headerLeft: () => null }} />
+          <Drawer.Screen name="/signUpScreen" options={{ title: 'Sign Up' }} />
+          <Drawer.Screen name="/verifySignUpScreen" options={{ title: 'Verify Sign Up' }} />
+        </>
       )}
     </Drawer>
   );
 };
 
-// Layout Component
 export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -139,7 +144,6 @@ export default function Layout() {
   );
 }
 
-// Stylesheet
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -177,6 +181,6 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   homeButton: {
-    marginRight: 15, // Adds spacing between the button and the edge
+    marginRight: 15,
   },
 });
