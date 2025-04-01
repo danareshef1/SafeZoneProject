@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
+import { useFocusEffect } from '@react-navigation/native';
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
@@ -56,6 +57,12 @@ const HomeScreen: React.FC = () => {
   useEffect(() => {
     fetchShelters();
   }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchShelters();
+    }, [])
+  );
+  
 
   // Get user's location
   useEffect(() => {

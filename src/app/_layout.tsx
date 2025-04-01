@@ -13,6 +13,8 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
+import { ShelterProvider } from '../app/contexts/ShelterContext'; // Add this import
+
 
 const HomeButton = () => {
   const router = useRouter();
@@ -149,7 +151,9 @@ export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
+      <ShelterProvider>
         <RootNavigator />
+        </ShelterProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
