@@ -5,6 +5,8 @@ import { AuthContext } from './AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 // Define the validation schema using Yup
 const LoginSchema = Yup.object().shape({
@@ -18,20 +20,22 @@ const LoginScreen: React.FC = () => {
 
   // Handle form submission
   const handleLogin = async (values: { username: string; password: string }) => {
-    // Replace with your actual login logic (e.g., API call)
     const { username, password } = values;
-
-    // Example validation (replace with real authentication)
+  
     if (username === 'A' && password === 'b') {
-      await login(); // Update authentication state
+      // ✅ Save username (or email) locally
+      await AsyncStorage.setItem('userEmail', username); // or any unique user ID
+  
+      await login(); // Update auth state
       navigation.reset({
         index: 0,
         routes: [{ name: 'index' as never }],
-      }); // Navigate to Home screen after successful login
+      });
     } else {
       Alert.alert('Login Failed', 'Invalid username or password.');
     }
   };
+  
 
   return (
     <View style={styles.container}>
