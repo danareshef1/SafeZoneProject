@@ -7,16 +7,16 @@ type CustomMarkerProps = {
   onPress?: () => void;
 };
 
-const getColorByStatus = (status: string) => {
+export const getColorByStatus = (status: string): string => {
   switch (status) {
     case 'גבוה':
-      return '#FF3B30'; // Red
+      return '#FF3B30'; // red
     case 'בינוני':
-      return '#FFCC00'; // Yellow/Orange
+      return '#FFCC00'; // yellow
     case 'נמוך':
-      return '#34C759'; // Green
+      return '#34C759'; // green
     default:
-      return '#34C759'; // Default to Green
+      return '#ccc'; // fallback gray
   }
 };
 

@@ -18,8 +18,10 @@ import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
 import { useFocusEffect } from '@react-navigation/native';
+import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
+
 
 const HomeScreen: React.FC = () => {
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
@@ -31,11 +33,9 @@ const HomeScreen: React.FC = () => {
     longitudeDelta: number;
   }>(null);
 
-  // Snap points for the bottom sheet
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
 
-  // Fetch shelters from your API Gateway endpoint
   const fetchShelters = async () => {
     try {
       const response = await fetch(API_URL);
@@ -43,9 +43,7 @@ const HomeScreen: React.FC = () => {
         throw new Error(`Failed to fetch shelters: ${response.status}`);
       }
       const data = await response.json();
-      // Save to state
       setShelters(data);
-      // Optionally store offline
       await AsyncStorage.setItem('shelters', JSON.stringify(data));
     } catch (error) {
       console.error('Error fetching shelters from API:', error);
@@ -53,7 +51,6 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  // Load shelters on mount
   useEffect(() => {
     fetchShelters();
   }, []);
@@ -64,7 +61,6 @@ const HomeScreen: React.FC = () => {
   );
   
 
-  // Get user's location
   useEffect(() => {
     (async () => {
       try {
@@ -114,7 +110,6 @@ const HomeScreen: React.FC = () => {
 
   const handleDeselectShelter = () => setSelectedShelter(null);
 
-  // Show a loading screen until we have the user's location
   if (!mapRegion) {
     return (
       <View style={styles.loadingContainer}>
@@ -127,13 +122,11 @@ const HomeScreen: React.FC = () => {
   return (
     <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={styles.container}>
-        {/* Map */}
         <MapView style={styles.map} region={mapRegion}>
           {shelters.map((shelter) => (
             <CustomMarker
               key={`${shelter.id}-${shelter.status}`}
               shelter={shelter}
-              pinColor="#4CAF50"
               onPress={() => setSelectedShelter(shelter)}
             />
           ))}
@@ -146,8 +139,8 @@ const HomeScreen: React.FC = () => {
               <ShelterListItem
                 shelter={selectedShelter}
                 containerStyle={{}}
-                statusColor="#4CAF50"
-              />
+                statusColor={getColorByStatus(selectedShelter?.status ?? '')}
+                />
             </View>
             <View style={styles.reportButtonContainer}>
               <Button title="Report Shelter" onPress={handleReport} />
@@ -155,7 +148,6 @@ const HomeScreen: React.FC = () => {
           </>
         )}
 
-        {/* Bottom Sheet with Shelters List */}
         <BottomSheet index={0} snapPoints={snapPoints}>
           <View style={styles.contentContainer}>
             <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
@@ -166,8 +158,8 @@ const HomeScreen: React.FC = () => {
                 <ShelterListItem
                   shelter={item}
                   containerStyle={{}}
-                  statusColor="#4CAF50"
-                />
+                  statusColor={getColorByStatus(item.status)}
+                  />
               )}
             />
           </View>
