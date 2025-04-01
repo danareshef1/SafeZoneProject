@@ -13,6 +13,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
+import ContactsButton from './contactsButton';
 
 const HomeButton = () => {
   const router = useRouter();
@@ -120,7 +121,12 @@ const RootNavigator = () => {
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
         headerTitle: 'Safe Zone',
-        headerRight: () => <HomeButton />,
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <ContactsButton />
+            <HomeButton />
+          </View>
+        ),
       }}
     >
       {isLoggedIn ? (
