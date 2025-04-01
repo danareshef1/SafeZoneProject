@@ -19,12 +19,14 @@ const ShelterListItem: React.FC<ShelterListItemProps> = ({
 }) => {
   return (
     <View style={[styles.card, containerStyle]}>
-      <Image source={{ uri: shelter.image }} style={styles.image} />
+      {shelter.image && (
+        <Image source={{ uri: shelter.image }} style={styles.image} />
+      )}
       <View style={styles.rightContainer}>
-        <Text style={styles.title}>{shelter.location}</Text>
+        <Text style={styles.title}>{shelter.name}</Text>
         <View style={styles.statusContainer}>
           <View
-            style={[styles.statusCircle, { backgroundColor: statusColor }]} // Dynamic color for the circle
+            style={[styles.statusCircle, { backgroundColor: statusColor }]}
           />
           <Text style={styles.status}>{shelter.status}</Text>
         </View>

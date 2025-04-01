@@ -21,9 +21,9 @@ const StatusButtons: React.FC<StatusButtonsProps> = ({ onReport }) => {
         style={[
           styles.circleButton,
           styles.redButton,
-          activeStatus === 'High Load (Red)' && styles.activeButton,
+          activeStatus === 'גבוה' && styles.activeButton,
         ]}
-        onPress={() => handlePress('High Load (Red)')}
+        onPress={() => handlePress('גבוה')}
       >
         <Text style={styles.buttonText}>High</Text>
       </TouchableOpacity>
@@ -31,9 +31,9 @@ const StatusButtons: React.FC<StatusButtonsProps> = ({ onReport }) => {
         style={[
           styles.circleButton,
           styles.yellowButton,
-          activeStatus === 'Medium Load (Yellow)' && styles.activeButton,
+          activeStatus === 'בינוני' && styles.activeButton,
         ]}
-        onPress={() => handlePress('Medium Load (Yellow)')}
+        onPress={() => handlePress('בינוני')}
       >
         <Text style={styles.buttonText}>Medium</Text>
       </TouchableOpacity>
@@ -41,9 +41,9 @@ const StatusButtons: React.FC<StatusButtonsProps> = ({ onReport }) => {
         style={[
           styles.circleButton,
           styles.greenButton,
-          activeStatus === 'Low Load (Green)' && styles.activeButton,
+          activeStatus === 'נמוך' && styles.activeButton,
         ]}
-        onPress={() => handlePress('Low Load (Green)')}
+        onPress={() => handlePress('נמוך')}
       >
         <Text style={styles.buttonText}>Low</Text>
       </TouchableOpacity>
@@ -74,17 +74,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   redButton: {
-    backgroundColor: 'red',
-    shadowColor: 'rgba(255, 0, 0, 0.5)',
+    backgroundColor: '#FF3B30',
+    shadowColor: 'rgba(255, 59, 48, 0.5)',
   },
   yellowButton: {
-    backgroundColor: 'yellow',
-    shadowColor: 'rgba(255, 255, 0, 0.5)',
+    backgroundColor: '#FFCC00',
+    shadowColor: 'rgba(255, 204, 0, 0.5)',
   },
   greenButton: {
-    backgroundColor: 'green',
-    shadowColor: 'rgba(0, 255, 0, 0.5)',
-  },
+    backgroundColor: '#34C759',
+    shadowColor: 'rgba(52, 199, 89, 0.5)',
+  },  
   activeButton: {
     borderWidth: 3,
     borderColor: '#000', // Black border for the active button

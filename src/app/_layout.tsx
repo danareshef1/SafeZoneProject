@@ -59,6 +59,11 @@ const CustomDrawerContent = () => {
         <MaterialIcons name="dashboard" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Main Screen</Text>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/MyReportsScreen')}>
+   <MaterialIcons name="assignment" size={24} color="#333" />
+       <Text style={styles.drawerItemText}>My Reports</Text>
+        </TouchableOpacity>
+
       <View style={styles.logoutSection}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={24} color="#333" />
@@ -136,6 +141,7 @@ const RootNavigator = () => {
           <Drawer.Screen name="/HospitalScreen" options={{ title: 'Safe Zone' }} />
           <Drawer.Screen name="/AlarmHistoryScreen" options={{ title: 'Safe Zone' }} />
           <Drawer.Screen name="/mainScreen" options={{ title: 'Safe Zone' }} />
+          <Drawer.Screen name="/MyReportsScreen" options={{ title: 'Safe Zone' }} />
         </>
       ) : (
         <>
@@ -155,7 +161,9 @@ export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
+      <ShelterProvider>
         <RootNavigator />
+        </ShelterProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
