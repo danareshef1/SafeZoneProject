@@ -18,7 +18,6 @@ import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
 
-// REPLACE with your real API Gateway URL
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
 const HomeScreen: React.FC = () => {

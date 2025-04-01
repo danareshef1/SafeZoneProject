@@ -12,7 +12,9 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import StatusButtons from '../../components/ui/Map/StatusButtons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/prod/shelters';
+const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
 
 const ShelterDetail: React.FC = () => {
   const { id } = useLocalSearchParams();
@@ -21,18 +23,17 @@ const ShelterDetail: React.FC = () => {
   const [shelter, setShelter] = useState<any>(null);
   const [reportText, setReportText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]); // Images uploaded in current session
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [shelters, setShelters] = useState<any[]>([]);
   const [showComboBox, setShowComboBox] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [filteredShelters, setFilteredShelters] = useState<any[]>([]);
 
-  // Fetch shelter details and all shelters
   useEffect(() => {
     const fetchShelters = async () => {
       try {
-        const storedShelters = await AsyncStorage.getItem('shelters');
-        const allShelters = storedShelters ? JSON.parse(storedShelters) : [];
+        const response = await fetch(`${API_URL}`);
+        const allShelters = await response.json();
         setShelters(allShelters);
         setFilteredShelters(allShelters.filter((s) => s.id !== id));
 
@@ -40,6 +41,8 @@ const ShelterDetail: React.FC = () => {
         if (foundShelter) {
           setShelter(foundShelter);
           setSelectedStatus(foundShelter.status || null);
+          setReportText(foundShelter.reportText || '');
+          setUploadedImages(foundShelter.images || []);
         }
       } catch (error) {
         console.error('Error fetching shelters:', error);
@@ -59,7 +62,7 @@ const ShelterDetail: React.FC = () => {
     const filtered = shelters.filter(
       (s) =>
         s.id !== id &&
-        s.location.toLowerCase().includes(lowercasedText)
+        (s.name?.toLowerCase().includes(lowercasedText) || s.location?.toLowerCase().includes(lowercasedText))
     );
     setFilteredShelters(filtered);
   };
@@ -95,27 +98,45 @@ const ShelterDetail: React.FC = () => {
     }
 
     try {
-      const storedShelters = await AsyncStorage.getItem('shelters');
-      const shelters = storedShelters ? JSON.parse(storedShelters) : [];
-
-      const updatedShelters = shelters.map((shelter: any) =>
-        shelter.id === id
-          ? { ...shelter, status: selectedStatus }
-          : shelter
-      );
-
-      await AsyncStorage.setItem('shelters', JSON.stringify(updatedShelters));
-
+      const updatedShelter = {
+        id: shelter.id,
+        name: shelter.name || '',
+        status: selectedStatus,
+        reportText: reportText || '',
+        images: uploadedImages.length > 0 ? uploadedImages : shelter.images || [],
+      };
+      
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedShelter),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update shelter');
+      }
+      await fetch(REPORTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: shelter.id,
+          status: selectedStatus,
+          reportText,
+          images: uploadedImages,
+        }),
+      });
+      
+      
       Alert.alert('Success', 'Your report has been submitted');
 
-      // Reset state
-      setUploadedImages([]); // Clear uploaded images
-      setReportText(''); // Clear report text
-      setSelectedStatus(null); // Reset status
-      setShowComboBox(false); // Hide combo box
-      setSearchText(''); // Reset search text
+      setUploadedImages([]);
+      setReportText('');
+      setSelectedStatus(null);
+      setShowComboBox(false);
+      setSearchText('');
 
-      // Navigate back to the home screen
       router.push('/');
     } catch (error) {
       console.error('Error updating shelter:', error);
@@ -130,9 +151,8 @@ const ShelterDetail: React.FC = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>דיווח על מקלט</Text>
-      <Text style={styles.shelterName}>{shelter?.location || 'מקלט נבחר'}</Text>
+      <Text style={styles.shelterName}>{shelter?.name || shelter?.location || 'מקלט נבחר'}</Text>
 
-      {/* Change Shelter Button */}
       <TouchableOpacity
         style={styles.changeShelterButton}
         onPress={() => setShowComboBox(!showComboBox)}
@@ -140,12 +160,10 @@ const ShelterDetail: React.FC = () => {
         <Text style={styles.changeShelterButtonText}>שינוי מקלט</Text>
       </TouchableOpacity>
 
-      {/* Shelter Image */}
       {shelter?.image && (
         <Image source={{ uri: shelter.image }} style={styles.shelterImage} />
       )}
 
-      {/* Combo Box */}
       {showComboBox && (
         <View style={styles.comboBox}>
           <TextInput
@@ -164,7 +182,7 @@ const ShelterDetail: React.FC = () => {
                   style={styles.comboBoxItem}
                   onPress={() => handleChangeShelter(shelter.id)}
                 >
-                  <Text style={styles.comboBoxItemText}>{shelter.location}</Text>
+                  <Text style={styles.comboBoxItemText}>{shelter.name || shelter.location}</Text>
                 </TouchableOpacity>
               ))
             )}
@@ -172,12 +190,10 @@ const ShelterDetail: React.FC = () => {
         </View>
       )}
 
-      {/* Add Picture */}
       <TouchableOpacity style={styles.addImageButton} onPress={handleAddImage}>
         <Text style={styles.addImageButtonText}>הוסף תמונה</Text>
       </TouchableOpacity>
 
-      {/* Uploaded Images */}
       {uploadedImages.length > 0 && (
         <ScrollView horizontal style={styles.imageScroll}>
           {uploadedImages.map((uri, index) => (
@@ -187,7 +203,7 @@ const ShelterDetail: React.FC = () => {
       )}
 
       <StatusButtons onReport={handleStatusChange} />
-      
+
       <TextInput
         style={styles.textInput}
         placeholder="דווח על בעיה במקלט"
@@ -258,7 +274,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     fontSize: 16,
-    textAlign: 'right', // For RTL
+    textAlign: 'right',
   },
   comboBoxList: {
     maxHeight: 200,
@@ -307,7 +323,7 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
     marginBottom: 20,
-    textAlign: 'right', // RTL alignment
+    textAlign: 'right',
   },
   buttonContainer: {
     flexDirection: 'row',

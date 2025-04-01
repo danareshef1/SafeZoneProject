@@ -3,7 +3,7 @@ export type Shelter = {
     image: string;
     latitude: number;
     longitude: number;
-    location: string;
+    name: string;
     status: string;
   };
   

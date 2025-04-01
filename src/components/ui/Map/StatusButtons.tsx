@@ -21,9 +21,9 @@ const StatusButtons: React.FC<StatusButtonsProps> = ({ onReport }) => {
         style={[
           styles.circleButton,
           styles.redButton,
-          activeStatus === 'High Load (Red)' && styles.activeButton,
+          activeStatus === 'גבוה' && styles.activeButton,
         ]}
-        onPress={() => handlePress('High Load (Red)')}
+        onPress={() => handlePress('גבוה')}
       >
         <Text style={styles.buttonText}>High</Text>
       </TouchableOpacity>
@@ -31,9 +31,9 @@ const StatusButtons: React.FC<StatusButtonsProps> = ({ onReport }) => {
         style={[
           styles.circleButton,
           styles.yellowButton,
-          activeStatus === 'Medium Load (Yellow)' && styles.activeButton,
+          activeStatus === 'בינוני' && styles.activeButton,
         ]}
-        onPress={() => handlePress('Medium Load (Yellow)')}
+        onPress={() => handlePress('בינוני')}
       >
         <Text style={styles.buttonText}>Medium</Text>
       </TouchableOpacity>
@@ -41,9 +41,9 @@ const StatusButtons: React.FC<StatusButtonsProps> = ({ onReport }) => {
         style={[
           styles.circleButton,
           styles.greenButton,
-          activeStatus === 'Low Load (Green)' && styles.activeButton,
+          activeStatus === 'נמוך' && styles.activeButton,
         ]}
-        onPress={() => handlePress('Low Load (Green)')}
+        onPress={() => handlePress('נמוך')}
       >
         <Text style={styles.buttonText}>Low</Text>
       </TouchableOpacity>
