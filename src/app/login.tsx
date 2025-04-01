@@ -1,14 +1,12 @@
 // app/login.tsx
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, Button, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { AuthContext } from './AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
-
-// Define the validation schema using Yup
 const LoginSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
   password: Yup.string().required('Password is required.'),
@@ -16,103 +14,147 @@ const LoginSchema = Yup.object().shape({
 
 const LoginScreen: React.FC = () => {
   const { login } = useContext(AuthContext);
-  const navigation = useNavigation();
+  const router = useRouter();
 
-  // Handle form submission
   const handleLogin = async (values: { username: string; password: string }) => {
-    const { username, password } = values;
-  
-    if (username === 'A' && password === 'b') {
-      // ✅ Save username (or email) locally
-      await AsyncStorage.setItem('userEmail', username); // or any unique user ID
-  
-      await login(); // Update auth state
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'index' as never }],
-      });
-    } else {
-      Alert.alert('Login Failed', 'Invalid username or password.');
+    try {
+      await login(values.username, values.password);
+      router.replace('/');
+    } catch (error: any) {
+      if (error.code === 'UserNotConfirmedException') {
+        Alert.alert('Account Not Verified', 'Please verify your account before signing in.');
+        router.push(`/verifySignUpScreen?username=${values.username}`);
+      } else {
+        Alert.alert('Login Failed', error.message || 'Invalid username or password.');
+      }
     }
   };
-  
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Please Log In</Text>
-      <Formik
-        initialValues={{ username: '', password: '' }}
-        validationSchema={LoginSchema}
-        onSubmit={handleLogin}
-      >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-          <View style={styles.form}>
-            {/* Username Input */}
-            <TextInput
-              placeholder="Username"
-              style={styles.input}
-              onChangeText={handleChange('username')}
-              onBlur={handleBlur('username')}
-              value={values.username}
-            />
-            {/* Display validation error for username */}
-            {errors.username && touched.username ? (
-              <Text style={styles.error}>{errors.username}</Text>
-            ) : null}
+    <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Welcome Back!</Text>
+        <View style={styles.card}>
+          <Formik
+            initialValues={{ username: '', password: '' }}
+            validationSchema={LoginSchema}
+            onSubmit={handleLogin}
+          >
+            {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+              <>
+                <TextInput
+                  placeholder="Username"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  onChangeText={handleChange('username')}
+                  onBlur={handleBlur('username')}
+                  value={values.username}
+                />
+                {errors.username && touched.username && (
+                  <Text style={styles.error}>{errors.username}</Text>
+                )}
+                <TextInput
+                  placeholder="Password"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  secureTextEntry
+                  onChangeText={handleChange('password')}
+                  onBlur={handleBlur('password')}
+                  value={values.password}
+                />
+                {errors.password && touched.password && (
+                  <Text style={styles.error}>{errors.password}</Text>
+                )}
 
-            {/* Password Input */}
-            <TextInput
-              placeholder="Password"
-              style={styles.input}
-              secureTextEntry
-              onChangeText={handleChange('password')}
-              onBlur={handleBlur('password')}
-              value={values.password}
-            />
-            {/* Display validation error for password */}
-            {errors.password && touched.password ? (
-              <Text style={styles.error}>{errors.password}</Text>
-            ) : null}
+                <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
+                  <Text style={styles.buttonText}>Sign In</Text>
+                </TouchableOpacity>
 
-            {/* Submit Button */}
-            <Button title="Log In" onPress={() => handleSubmit()} />
-          </View>
-        )}
-      </Formik>
-    </View>
+                {/* FORGOT PASSWORD LINK */}
+                <TouchableOpacity
+                  style={styles.linkButton}
+                  onPress={() => router.push('/forgotPassword')}
+                >
+                  <Text style={styles.linkText}>Forgot your password?</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.linkButton}
+                  onPress={() => router.push('/signUpScreen')}
+                >
+                  <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Formik>
+        </View>
+      </View>
+    </LinearGradient>
   );
 };
 
 export default LoginScreen;
 
-// Define your styles
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 20,
-    backgroundColor: '#f0f0f0', // Light gray background
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   title: {
-    fontSize: 28,
-    marginBottom: 30,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#333', // Darker text
-  },
-  form: {
-    width: '100%',
+    color: '#fff',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
+    height: 50,
+    borderColor: '#ddd',
     borderWidth: 1,
-    borderColor: '#ccc', // Light border
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    backgroundColor: '#fff', // White background for inputs
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    fontSize: 16,
+    color: '#333',
   },
   error: {
-    color: 'red',
-    marginBottom: 10,
+    color: '#ff4d4d',
+    marginBottom: 8,
+    fontSize: 14,
+  },
+  button: {
+    backgroundColor: '#11998e',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  linkButton: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#11998e',
+    fontSize: 16,
   },
 });
