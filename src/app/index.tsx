@@ -7,18 +7,20 @@ import {
   ActivityIndicator,
   TouchableWithoutFeedback,
   Button,
+  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
-
 import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
 import { useFocusEffect } from '@react-navigation/native';
 import { getColorByStatus } from '../components/ui/Map/CustomMarker';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
@@ -35,6 +37,7 @@ const HomeScreen: React.FC = () => {
 
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
+
 
   const fetchShelters = async () => {
     try {
@@ -107,7 +110,49 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
-
+  const handleAddImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission required', 'We need permission to access your photos.');
+      return;
+    }
+  
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+  
+    if (!result.canceled && selectedShelter) {
+      const newImageUri = result.assets[0].uri;
+  
+      // Update image in DynamoDB
+      try {
+        const response = await fetch(`${API_URL}/${selectedShelter.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: newImageUri,
+          }),
+        });
+  
+        if (!response.ok) {
+          throw new Error('Failed to update shelter image');
+        }
+  
+        // Refresh shelter list
+        await fetchShelters();
+  
+        // Update selected shelter locally
+        setSelectedShelter((prev) => prev ? { ...prev, image: newImageUri } : null);
+  
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        Alert.alert('Error', 'Failed to upload image.');
+      }
+    }
+  };
+  
   const handleDeselectShelter = () => setSelectedShelter(null);
 
   if (!mapRegion) {
@@ -132,22 +177,37 @@ const HomeScreen: React.FC = () => {
           ))}
         </MapView>
 
-        {/* Selected Shelter Info */}
         {selectedShelter && (
-          <>
-            <View style={styles.selectedShelter}>
-              <ShelterListItem
-                shelter={selectedShelter}
-                containerStyle={{}}
-                statusColor={getColorByStatus(selectedShelter?.status ?? '')}
-                />
-            </View>
-            <View style={styles.reportButtonContainer}>
-              <Button title="Report Shelter" onPress={handleReport} />
-            </View>
-          </>
+  <>
+    <View style={styles.selectedShelter}>
+      <View style={styles.shelterHeader}>
+        <Text style={styles.shelterName}>{selectedShelter.name}</Text>
+        {selectedShelter.image && (
+          <Image
+            source={{ uri: selectedShelter.image }}
+            style={styles.headerImage}
+          />
         )}
+      </View>
 
+      <ShelterListItem
+        shelter={selectedShelter}
+        containerStyle={{}}
+        statusColor={getColorByStatus(selectedShelter?.status ?? '')}
+      />
+    </View>
+
+    <View style={styles.buttonRow}>
+      <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
+        <Text style={styles.actionButtonText}>דווח על מקלט</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.actionButton} onPress={handleAddImage}>
+        <Text style={styles.actionButtonText}>הוסף תמונה</Text>
+      </TouchableOpacity>
+    </View>
+  </>
+)}
         <BottomSheet index={0} snapPoints={snapPoints}>
           <View style={styles.contentContainer}>
             <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
@@ -195,6 +255,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginVertical: 5,
     marginBottom: 20,
+  },
+  imagePreviewContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    resizeMode: 'cover',
+  },
+  
+  buttonRow: {
+    position: 'absolute',
+    bottom: 60,
+    right: 10,
+    left: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
+    elevation: 5,
+  },
+
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#11998e',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

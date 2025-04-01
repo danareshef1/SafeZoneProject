@@ -1,25 +1,9 @@
-//app/AuthContext.tsx
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  CognitoUser,
-  CognitoUserPool,
-  AuthenticationDetails,
-  CognitoUserAttribute,
-} from 'amazon-cognito-identity-js';
-
-// Replace with your own Cognito User Pool details.
-const poolData = {
-  UserPoolId: 'us-east-1_D2gEiWghw',
-  ClientId: '3ari019pia44dhfpb0okane3ir',
-};
-
-const userPool = new CognitoUserPool(poolData);
 
 interface AuthContextProps {
   isLoggedIn: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  signUp: (username: string, password: string, email: string) => Promise<any>;
+  login: () => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -27,7 +11,6 @@ interface AuthContextProps {
 export const AuthContext = createContext<AuthContextProps>({
   isLoggedIn: false,
   login: async () => {},
-  signUp: async () => {},
   logout: async () => {},
   loading: true,
 });
@@ -55,44 +38,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth();
   }, []);
 
-  const signUp = (username: string, password: string, email: string) => {
-    return new Promise((resolve, reject) => {
-      const attributeList = [
-        new CognitoUserAttribute({
-          Name: 'email',
-          Value: email,
-        }),
-      ];
-
-      userPool.signUp(username, password, attributeList, [], (err, result) => {
-        if (err) {
-          console.error('Cognito sign up failed', err);
-          reject(err);
-        } else {
-          console.log('Sign Up Success:', result);
-          resolve(result);
-        }
-      });
-    });
-  };
-
-  const login = async (username: string, password: string) => {
-    return new Promise((resolve, reject) => {
-      const user = new CognitoUser({ Username: username, Pool: userPool });
-      const authDetails = new AuthenticationDetails({ Username: username, Password: password });
-
-      user.authenticateUser(authDetails, {
-        onSuccess: async (result) => {
-          await AsyncStorage.setItem('userToken', result.getIdToken().getJwtToken());
-          setIsLoggedIn(true);
-          resolve(result);
-        },
-        onFailure: (err) => {
-          console.error('Cognito login failed', err);
-          reject(err);
-        },
-      });
-    });
+  const login = async () => {
+    await AsyncStorage.setItem('userToken', 'your-token');
+    setIsLoggedIn(true);
   };
 
   const logout = async () => {
@@ -101,7 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, login, signUp, logout, loading }}>
+    <AuthContext.Provider value={{ isLoggedIn, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

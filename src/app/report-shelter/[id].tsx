@@ -109,25 +109,23 @@ const ShelterDetail: React.FC = () => {
       Alert.alert('Error', 'Please select a status');
       return;
     }
-
+  
     try {
-      const updatedShelter = {
+      const statusOnlyUpdate = {
         id: shelter.id,
-        name: shelter.name || '',
         status: selectedStatus,
-        reportText: reportText || '',
-        images: uploadedImages.length > 0 ? uploadedImages : shelter.images || [],
       };
-
-      const response = await fetch(`${API_URL}/${id}`, {
+  
+      const statusResponse = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedShelter),
+        body: JSON.stringify(statusOnlyUpdate),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update shelter');
+  
+      if (!statusResponse.ok) {
+        throw new Error('Failed to update shelter status');
       }
+  
       await fetch(REPORTS_URL, {
         method: 'POST',
         headers: {
@@ -140,21 +138,22 @@ const ShelterDetail: React.FC = () => {
           images: uploadedImages,
         }),
       });
-
+  
       Alert.alert('Success', 'Your report has been submitted');
-
+  
       setUploadedImages([]);
       setReportText('');
       setSelectedStatus(null);
       setShowComboBox(false);
       setSearchText('');
-
+  
       router.push('/');
     } catch (error) {
-      console.error('Error updating shelter:', error);
+      console.error('Error submitting report:', error);
       Alert.alert('Error', 'Unable to submit your report.');
     }
   };
+  
 
   const handleCancel = () => {
     router.push('/');
