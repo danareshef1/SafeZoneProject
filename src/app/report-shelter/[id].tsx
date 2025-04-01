@@ -16,6 +16,19 @@ import StatusButtons from '../../components/ui/Map/StatusButtons';
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/prod/shelters';
 const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
 
+const getColorByStatus = (status: string | null) => {
+  switch (status) {
+    case 'גבוה':
+      return '#FF3B30'; // Red
+    case 'בינוני':
+      return '#FFCC00'; // Yellow
+    case 'נמוך':
+      return '#34C759'; // Green
+    default:
+      return '#ccc'; // Neutral gray
+  }
+};
+
 const ShelterDetail: React.FC = () => {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -105,13 +118,13 @@ const ShelterDetail: React.FC = () => {
         reportText: reportText || '',
         images: uploadedImages.length > 0 ? uploadedImages : shelter.images || [],
       };
-      
+
       const response = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedShelter),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update shelter');
       }
@@ -127,8 +140,7 @@ const ShelterDetail: React.FC = () => {
           images: uploadedImages,
         }),
       });
-      
-      
+
       Alert.alert('Success', 'Your report has been submitted');
 
       setUploadedImages([]);
@@ -152,6 +164,13 @@ const ShelterDetail: React.FC = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>דיווח על מקלט</Text>
       <Text style={styles.shelterName}>{shelter?.name || shelter?.location || 'מקלט נבחר'}</Text>
+
+      {selectedStatus && (
+        <View style={styles.statusRow}>
+          <View style={[styles.statusCircle, { backgroundColor: getColorByStatus(selectedStatus) }]} />
+          <Text style={styles.statusText}>סטטוס נבחר: {selectedStatus}</Text>
+        </View>
+      )}
 
       <TouchableOpacity
         style={styles.changeShelterButton}
@@ -240,6 +259,23 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 10,
     textAlign: 'center',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  statusCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginHorizontal: 8,
+  },
+  statusText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
   changeShelterButton: {
     backgroundColor: '#4CAF50',

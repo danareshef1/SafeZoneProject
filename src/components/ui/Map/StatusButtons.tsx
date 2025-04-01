@@ -74,17 +74,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   redButton: {
-    backgroundColor: 'red',
-    shadowColor: 'rgba(255, 0, 0, 0.5)',
+    backgroundColor: '#FF3B30',
+    shadowColor: 'rgba(255, 59, 48, 0.5)',
   },
   yellowButton: {
-    backgroundColor: 'yellow',
-    shadowColor: 'rgba(255, 255, 0, 0.5)',
+    backgroundColor: '#FFCC00',
+    shadowColor: 'rgba(255, 204, 0, 0.5)',
   },
   greenButton: {
-    backgroundColor: 'green',
-    shadowColor: 'rgba(0, 255, 0, 0.5)',
-  },
+    backgroundColor: '#34C759',
+    shadowColor: 'rgba(52, 199, 89, 0.5)',
+  },  
   activeButton: {
     borderWidth: 3,
     borderColor: '#000', // Black border for the active button
