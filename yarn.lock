@@ -4738,6 +4738,11 @@ expo-checkbox@^4.0.1:
   resolved "https://registry.yarnpkg.com/expo-checkbox/-/expo-checkbox-4.0.1.tgz#753f0f8423066ada1fc669d591de69cdd6959797"
   integrity sha512-dZECDqNVeAl8bLbho4mvZD+Vvqwr8mpa6lAHU7tBGGXtx4xfkztw05XlvB89yiIcG3FOQX5KhUBVhXOz+S2+VQ==
 
+expo-clipboard@^7.0.1:
+  version "7.0.1"
+  resolved "https://registry.yarnpkg.com/expo-clipboard/-/expo-clipboard-7.0.1.tgz#31d61270e77a37d2a6b7ae9abf79e060497ef43b"
+  integrity sha512-rqYk0+WoqitPcPKxmMxSpLonX1E5Ije3LBYfnYMbH3xU5Gr8EAH9QnOWOi4BgahUPvcot6nbFEnx+DqARrmxKQ==
+
 expo-constants@~17.0.4:
   version "17.0.4"
   resolved "https://registry.yarnpkg.com/expo-constants/-/expo-constants-17.0.4.tgz#d0b653dc9a36fc0b25887c99a46d9806bdfe462d"
@@ -6356,10 +6361,10 @@ jsonfile@^6.0.1:
   optionalDependencies:
     graceful-fs "^4.1.6"
 
-jwt-decode@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/jwt-decode/-/jwt-decode-4.0.0.tgz#2270352425fd413785b2faf11f6e755c5151bd4b"
-  integrity sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==
+jwt-decode@3.1.2:
+  version "3.1.2"
+  resolved "https://registry.yarnpkg.com/jwt-decode/-/jwt-decode-3.1.2.tgz#3fb319f3675a2df0c2895c8f5e9fa4b67b04ed59"
+  integrity sha512-UfpWE/VZn0iP50d8cz9NrZLM9lSWhcJ+0Gt/nm4by88UL+J1SiKN8/5dkjMmbEzwL2CAe+67GsegCbIKtbp75A==
 
 kind-of@^6.0.2:
   version "6.0.3"

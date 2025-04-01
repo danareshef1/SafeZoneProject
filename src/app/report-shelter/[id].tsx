@@ -12,6 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import StatusButtons from '../../components/ui/Map/StatusButtons';
+import { getAuthUserEmail } from '../../../utils/auth'
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/prod/shelters';
 const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
@@ -111,6 +112,12 @@ const ShelterDetail: React.FC = () => {
     }
   
     try {
+      const userEmail = await getAuthUserEmail(); // ✅ Get user email
+      if (!userEmail) {
+        Alert.alert('Error', 'User email not found.');
+        return;
+      }
+  
       const statusOnlyUpdate = {
         id: shelter.id,
         status: selectedStatus,
@@ -133,9 +140,11 @@ const ShelterDetail: React.FC = () => {
         },
         body: JSON.stringify({
           id: shelter.id,
+          name: shelter.name,
           status: selectedStatus,
           reportText,
           images: uploadedImages,
+          email: userEmail, 
         }),
       });
   
@@ -153,6 +162,7 @@ const ShelterDetail: React.FC = () => {
       Alert.alert('Error', 'Unable to submit your report.');
     }
   };
+  
   
 
   const handleCancel = () => {

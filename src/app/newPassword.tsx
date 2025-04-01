@@ -1,4 +1,3 @@
-// app/newPassword.tsx
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
