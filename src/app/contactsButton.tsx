@@ -1,3 +1,4 @@
+// app/contactsButton.tsx
 import React, { useState } from 'react';
 import { TouchableOpacity, Modal, FlatList, Text, View, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -13,13 +14,39 @@ const ContactsButton = () => {
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers],
       });
-
-      if (data.length > 0) {
-        setContacts(data);
+  
+      const phoneNumbers = data
+        .flatMap((contact) => contact.phoneNumbers || [])
+        .map((phone) => phone.number?.replace(/\D/g, '')) 
+        .filter((num) => !!num);
+    try {
+        const response = await fetch('https://lxtu11m70h.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phoneNumbers }),
+          });
+          
+          const json = await response.json(); 
+          const result = json.registeredNumbers; 
+          
+          const registeredSet = new Set(result);
+          
+          const matchedContacts = data.filter((contact) =>
+            contact.phoneNumbers?.some((phone) =>
+              registeredSet.has(phone.number?.replace(/\D/g, ''))
+            )
+          );
+  
+        setContacts(matchedContacts);
         setModalVisible(true);
+      } catch (err) {
+        console.error('Failed to fetch matched users:', err);
       }
     }
   };
+  
 
   return (
     <>
@@ -53,11 +80,11 @@ const ContactsButton = () => {
   );
 };
 
-export default ContactsButton; // ✅ זה חובה
+export default ContactsButton;
 
 const styles = StyleSheet.create({
   button: {
-    marginRight: 10,
+    marginRight: 15,
   },
   modalContainer: {
     flex: 1,

@@ -11,15 +11,18 @@ const SignUpSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
   password: Yup.string().required('Password is required.'),
   email: Yup.string().email('Invalid email').required('Email is required.'),
+  phone: Yup.string()
+  .required('Phone number is required.')
+  .matches(/^\+?[0-9]{10,14}$/, 'Invalid phone number'),
 });
 
 const SignUpScreen: React.FC = () => {
   const { signUp } = useContext(AuthContext);
   const router = useRouter();
 
-  const handleSignUp = async (values: { username: string; password: string; email: string }) => {
+  const handleSignUp = async (values: { username: string; password: string; email: string; phone: string }) => {
     try {
-      await signUp(values.username, values.password, values.email);
+      await signUp(values.username, values.password, values.email, values.phone);
       Alert.alert('Registration Successful', 'Please check your email for the verification code.');
       router.push(`/verifySignUpScreen?username=${values.username}`);
     } catch (error: any) {
@@ -33,7 +36,7 @@ const SignUpScreen: React.FC = () => {
         <Text style={styles.title}>Create Account</Text>
         <View style={styles.card}>
           <Formik
-            initialValues={{ username: '', password: '', email: '' }}
+            initialValues={{ username: '', password: '', email: '', phone: '' }}
             validationSchema={SignUpSchema}
             onSubmit={handleSignUp}
           >
@@ -60,6 +63,17 @@ const SignUpScreen: React.FC = () => {
                 />
                 {errors.email && touched.email && (
                   <Text style={styles.error}>{errors.email}</Text>
+                )}
+                <TextInput
+                  placeholder="Phone Number"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  onChangeText={handleChange('phone')}
+                  onBlur={handleBlur('phone')}
+                  value={values.phone}
+                />
+                {errors.phone && touched.phone && (
+                  <Text style={styles.error}>{errors.phone}</Text>
                 )}
                 <TextInput
                   placeholder="Password"
