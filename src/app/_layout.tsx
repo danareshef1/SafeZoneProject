@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
 import ContactsButton from './contactsButton';
+import { ShelterProvider } from './contexts/ShelterContext';
 
 const HomeButton = () => {
   const router = useRouter();

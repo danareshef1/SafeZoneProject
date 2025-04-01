@@ -1,4 +1,3 @@
-// app.index.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -181,12 +180,10 @@ const HomeScreen: React.FC = () => {
         {selectedShelter && (
   <>
     <View style={styles.selectedShelter}>
-      <View style={styles.shelterHeader}>
-        <Text style={styles.shelterName}>{selectedShelter.name}</Text>
+      <View>
         {selectedShelter.image && (
           <Image
             source={{ uri: selectedShelter.image }}
-            style={styles.headerImage}
           />
         )}
       </View>
