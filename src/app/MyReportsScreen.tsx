@@ -37,7 +37,6 @@ const MyReportsScreen = () => {
         try {
           const response = await fetch(`${REPORTS_URL}?email=${email}`);
           const data = await response.json();
-          console.log('Fetched report data:', data);
           setReports(data);
         } catch (error) {
           console.error('Error fetching reports:', error);
@@ -89,7 +88,9 @@ const MyReportsScreen = () => {
                   <Text style={styles.reportId}>   מספר פנייה: <Text style={styles.reportIdValue}>{report.reportId}</Text> </Text>
              </View>
              <TouchableOpacity onPress={() => copyToClipboard(report.reportId)}>
-                  <Text style={styles.copyText}>העתק</Text> </TouchableOpacity>
+            <Text style={styles.copyText}>העתק</Text>
+            </TouchableOpacity>
+
                   </View>
             <Text style={styles.status}>עומס: <Text style={{ color: getStatusColor(report.status), fontWeight: 'bold' }}>{report.status}</Text></Text>
             <Text style={styles.label}>תיאור:</Text>

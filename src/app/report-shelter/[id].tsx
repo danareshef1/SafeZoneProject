@@ -286,7 +286,7 @@ const ShelterDetail: React.FC = () => {
         </View>
       )}
 <TouchableOpacity
-  style={styles.addImageButton}git checkout
+  style={styles.addImageButton}
   onPress={handleAddImage}
   disabled={isUploadingImage}
 >
