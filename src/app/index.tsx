@@ -21,15 +21,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
-import * as FileSystem from 'expo-file-system'; // 🔄 לצורך קריאת קובץ
-import { Buffer } from 'buffer'; // 🔄 תוודא ש־buffer מותקן: `npm install buffer`
+import * as FileSystem from 'expo-file-system'; 
+import { Buffer } from 'buffer'; 
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
-
 const HomeScreen: React.FC = () => {
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
   const [shelters, setShelters] = useState<Shelter[]>([]);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const [mapRegion, setMapRegion] = useState<null | {
     latitude: number;
     longitude: number;
@@ -39,7 +40,6 @@ const HomeScreen: React.FC = () => {
 
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
-
 
   const fetchShelters = async () => {
     try {
@@ -51,7 +51,6 @@ const HomeScreen: React.FC = () => {
       setShelters(data);
       await AsyncStorage.setItem('shelters', JSON.stringify(data));
     } catch (error) {
-      console.error('Error fetching shelters from API:', error);
       Alert.alert('Error', 'Unable to fetch shelter data.');
     }
   };
@@ -59,12 +58,12 @@ const HomeScreen: React.FC = () => {
   useEffect(() => {
     fetchShelters();
   }, []);
+
   useFocusEffect(
     React.useCallback(() => {
       fetchShelters();
     }, [])
   );
-  
 
   useEffect(() => {
     (async () => {
@@ -80,7 +79,7 @@ const HomeScreen: React.FC = () => {
             longitude: 34.7818,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
-          });
+          });ן
           return;
         }
 
@@ -91,8 +90,7 @@ const HomeScreen: React.FC = () => {
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         });
-      } catch (error) {
-        console.error('Error fetching location:', error);
+      } catch {
         Alert.alert('Error', 'Unable to fetch your location. Defaulting to Tel Aviv.');
         setMapRegion({
           latitude: 32.0853,
@@ -112,6 +110,7 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
+
   const getSignedUploadUrl = async (type: 'shelter') => {
     const response = await fetch(
       'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
@@ -121,51 +120,52 @@ const HomeScreen: React.FC = () => {
         body: JSON.stringify({ type }),
       }
     );
-  
+
     if (!response.ok) {
       throw new Error('Failed to get signed URL');
     }
-  
-    return await response.json(); // { uploadUrl, imageUrl }
+
+    return await response.json();
   };
-  
+
   const uploadImageToS3 = async (localUri: string, type: 'shelter') => {
     const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
-  
+
     const base64 = await FileSystem.readAsStringAsync(localUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-  
+
     const buffer = Buffer.from(base64, 'base64');
-  
+
     await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'image/jpeg' },
       body: buffer,
     });
-  
+
     return imageUrl;
   };
-  
+
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Permission required', 'We need permission to access your photos.');
       return;
     }
-  
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-  
+
     if (!result.canceled && selectedShelter) {
       const localUri = result.assets[0].uri;
-  
+
       try {
+        setIsImageUploading(true);
         const uploadedImageUrl = await uploadImageToS3(localUri, 'shelter');
-  
+
         const response = await fetch(`${API_URL}/${selectedShelter.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -173,22 +173,24 @@ const HomeScreen: React.FC = () => {
             image: uploadedImageUrl,
           }),
         });
-  
+
         if (!response.ok) {
           throw new Error('Failed to update shelter image');
         }
-  
+
         await fetchShelters();
-  
-        setSelectedShelter((prev) => (prev ? { ...prev, image: uploadedImageUrl } : null));
-      } catch (error) {
-        console.error('Error uploading image:', error);
+
+        setSelectedShelter((prev) =>
+          prev ? { ...prev, image: uploadedImageUrl } : null
+        );
+      } catch {
         Alert.alert('Error', 'Failed to upload image.');
+      } finally {
+        setIsImageUploading(false);
       }
     }
   };
-  
-  
+
   const handleDeselectShelter = () => setSelectedShelter(null);
 
   if (!mapRegion) {
@@ -216,14 +218,6 @@ const HomeScreen: React.FC = () => {
         {selectedShelter && (
   <>
     <View style={styles.selectedShelter}>
-      <View>
-        {selectedShelter.image && (
-          <Image
-            source={{ uri: selectedShelter.image }}
-          />
-        )}
-      </View>
-
       <ShelterListItem
         shelter={selectedShelter}
         containerStyle={{}}
@@ -236,12 +230,22 @@ const HomeScreen: React.FC = () => {
         <Text style={styles.actionButtonText}>דווח על מקלט</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.actionButton} onPress={handleAddImage}>
-        <Text style={styles.actionButtonText}>הוסף תמונה</Text>
+      <TouchableOpacity
+        style={styles.actionButton}
+        onPress={handleAddImage}
+        disabled={isImageUploading}
+      >
+        {isImageUploading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.actionButtonText}>הוסף תמונה</Text>
+        )}
       </TouchableOpacity>
     </View>
   </>
 )}
+
+
         <BottomSheet index={0} snapPoints={snapPoints}>
           <View style={styles.contentContainer}>
             <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
@@ -253,7 +257,7 @@ const HomeScreen: React.FC = () => {
                   shelter={item}
                   containerStyle={{}}
                   statusColor={getColorByStatus(item.status)}
-                  />
+                />
               )}
             />
           </View>
@@ -262,7 +266,6 @@ const HomeScreen: React.FC = () => {
     </TouchableWithoutFeedback>
   );
 };
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { width: '100%', height: '50%' },
@@ -314,7 +317,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     elevation: 5,
   },
-
+  imageLoaderOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -10,
+    marginTop: -10,
+  },
   actionButton: {
     flex: 1,
     backgroundColor: '#11998e',

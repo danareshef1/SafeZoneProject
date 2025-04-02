@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -33,9 +34,10 @@ const getColorByStatus = (status: string | null) => {
 };
 
 const ShelterDetail: React.FC = () => {
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { id } = useLocalSearchParams();
   const router = useRouter();
-
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const [shelter, setShelter] = useState<any>(null);
   const [reportText, setReportText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -89,8 +91,7 @@ const ShelterDetail: React.FC = () => {
   };
 
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
-    const response = await fetch(
-      'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
+    const response = await fetch('https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl', 
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,12 +99,16 @@ const ShelterDetail: React.FC = () => {
       }
     );
   
+    const text = await response.text();
+    console.log('📦 getSignedUploadUrl response:', response.status, text); // 💥 חשוב
+  
     if (!response.ok) {
       throw new Error('Failed to get signed URL');
     }
   
-    return await response.json(); // { uploadUrl, imageUrl }
+    return JSON.parse(text);
   };
+  
   
   const uploadImageToS3 = async (localUri: string, type: 'shelter' | 'report') => {
     const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
@@ -139,11 +144,14 @@ const ShelterDetail: React.FC = () => {
     if (!result.canceled) {
       const localUri = result.assets[0].uri;
       try {
+        setIsUploadingImage(true); 
         const uploadedUrl = await uploadImageToS3(localUri, 'report'); 
         setUploadedImages((prev) => [...prev, uploadedUrl]);
       } catch (error) {
         console.error('Image upload failed:', error);
         Alert.alert('Error', 'Image upload failed.');
+      } finally {
+        setIsUploadingImage(false); 
       }
     }
   };
@@ -233,8 +241,24 @@ const ShelterDetail: React.FC = () => {
       </TouchableOpacity>
 
       {shelter?.image && (
-        <Image source={{ uri: shelter.image }} style={styles.shelterImage} />
-      )}
+  <View style={styles.imageWrapper}>
+    <Image
+      source={{ uri: shelter.image }}
+      style={styles.shelterImage}
+      onLoadStart={() => setIsImageLoading(true)}
+      onLoadEnd={() => setIsImageLoading(false)}
+      blurRadius={isImageLoading ? 5 : 0}
+    />
+    {isImageLoading && (
+      <ActivityIndicator
+        size="large"
+        color="#0000ff"
+        style={styles.imageLoaderOverlay}
+      />
+    )}
+  </View>
+)}
+
 
       {showComboBox && (
         <View style={styles.comboBox}>
@@ -261,10 +285,17 @@ const ShelterDetail: React.FC = () => {
           </ScrollView>
         </View>
       )}
-
-      <TouchableOpacity style={styles.addImageButton} onPress={handleAddImage}>
-        <Text style={styles.addImageButtonText}>הוסף תמונה</Text>
-      </TouchableOpacity>
+<TouchableOpacity
+  style={styles.addImageButton}
+  onPress={handleAddImage}
+  disabled={isUploadingImage}
+>
+  {isUploadingImage ? (
+    <ActivityIndicator color="#fff" />
+  ) : (
+    <Text style={styles.addImageButtonText}>הוסף תמונה</Text>
+  )}
+</TouchableOpacity>
 
       {uploadedImages.length > 0 && (
         <ScrollView horizontal style={styles.imageScroll}>
@@ -444,6 +475,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  imageWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+    marginBottom: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  imageLoaderOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -12,
+    marginLeft: -12,
+  },  
 });
 
 export default ShelterDetail;

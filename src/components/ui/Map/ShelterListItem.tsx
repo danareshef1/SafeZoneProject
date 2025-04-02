@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, ViewStyle, Button } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, ViewStyle, Button, ActivityIndicator } from 'react-native';
 import { Shelter } from '../../../types/Shelter';
 
 type ShelterListItemProps = {
@@ -17,10 +17,27 @@ const ShelterListItem: React.FC<ShelterListItemProps> = ({
   showReportButton = false,
   onReport,
 }) => {
+  const [isImageLoading, setIsImageLoading] = useState(false);
+
   return (
     <View style={[styles.card, containerStyle]}>
       {shelter.image && (
-        <Image source={{ uri: shelter.image }} style={styles.image} />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: shelter.image }}
+            style={styles.image}
+            onLoadStart={() => setIsImageLoading(true)}
+            onLoadEnd={() => setIsImageLoading(false)}
+            blurRadius={isImageLoading ? 5 : 0}
+          />
+          {isImageLoading && (
+            <ActivityIndicator
+              size="small"
+              color="#0000ff"
+              style={styles.imageLoaderOverlay}
+            />
+          )}
+        </View>
       )}
       <View style={styles.rightContainer}>
         <Text style={styles.title}>{shelter.name}</Text>
@@ -49,11 +66,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
   },
-  image: {
+  imageContainer: {
     width: 100,
-    aspectRatio: 1,
-    borderRadius: 10,
+    height: 100,
     margin: 10,
+    position: 'relative',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageLoaderOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -10,
+    marginTop: -10,
   },
   rightContainer: {
     flex: 1,

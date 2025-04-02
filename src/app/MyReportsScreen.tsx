@@ -85,10 +85,12 @@ const MyReportsScreen = () => {
           <View key={idx} style={[styles.card, { borderColor: getStatusColor(report.status) }]}>
             <Text style={styles.shelterName}>{report.name || 'שם המקלט: לא זמין'}</Text>
             <View style={styles.reportIdRow}>
-           <Text style={styles.reportId}> מספר פנייה: <Text style={styles.reportIdValue}>{report.reportId}</Text>
-           </Text><TouchableOpacity onPress={() => copyToClipboard(report.reportId)}>  <Text style={styles.copyText}>העתק</Text>
-            </TouchableOpacity>
-            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.reportId}>   מספר פנייה: <Text style={styles.reportIdValue}>{report.reportId}</Text> </Text>
+             </View>
+             <TouchableOpacity onPress={() => copyToClipboard(report.reportId)}>
+                  <Text style={styles.copyText}>העתק</Text> </TouchableOpacity>
+                  </View>
             <Text style={styles.status}>עומס: <Text style={{ color: getStatusColor(report.status), fontWeight: 'bold' }}>{report.status}</Text></Text>
             <Text style={styles.label}>תיאור:</Text>
             <Text style={styles.text}>{report.reportText}</Text>
