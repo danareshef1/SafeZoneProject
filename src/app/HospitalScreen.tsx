@@ -35,43 +35,27 @@ const HospitalsScreen: React.FC = () => {
           setLoading(false);
           return;
         }
-  
+
         const location = await Location.getCurrentPositionAsync({});
         setCurrentLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
-  
+
         const response = await fetch('https://vkkdzdn7n6.execute-api.us-east-1.amazonaws.com/hospitals');
         const data = await response.json();
-  
-        console.log('Fetched hospitals data:', data);
-  
-        if (Array.isArray(data)) {
-          setHospitals(data.map((hospital: any) => ({
-            id: hospital.name,
-            name: hospital.name,
-            distance: 'N/A', 
-            latitude: hospital.lat,
-            longitude: hospital.lon,
-          })));
-        } else if (data && data.Items && Array.isArray(data.Items)) {
-          setHospitals(data.Items.map((hospital: any) => ({
-            id: hospital.name,
-            name: hospital.name,
-            distance: 'N/A', 
-            latitude: hospital.lat,
-            longitude: hospital.lon,
-          })));
-        } else {
-          throw new Error('Data is not an array or does not contain Items');
-        }
+        setHospitals(data.map((hospital: any) => ({
+          id: hospital.name,
+          name: hospital.name,
+          distance: 'N/A', 
+          latitude: hospital.lat,
+          longitude: hospital.lon,
+        })));
       } catch (error) {
-        console.error('Error:', error);
+        console.error(error);
         Alert.alert('Error', 'Unable to fetch location or hospitals.');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
-  
 
   const handleCall = (phone: string) => {
     Linking.openURL(`tel:${phone}`);
@@ -135,32 +119,35 @@ const HospitalsScreen: React.FC = () => {
         ListHeaderComponent={<Text style={styles.sectionTitle}>Nearest Hospitals</Text>}
       />
 
-      <FlatList
-        data={emergencyContacts}
-        keyExtractor={(item) => item.phone}
-        renderItem={({ item }) => (
-          <View style={styles.contactItem}>
-            <Text style={styles.contactName}>{item.name}</Text>
-            <TouchableOpacity style={styles.phoneContainer} onPress={() => handleCall(item.phone)}>
-              <MaterialIcons name="phone" size={20} color="blue" />
-              <Text style={styles.contactPhone}>{item.phone}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        contentContainerStyle={styles.listContainer}
-        ListHeaderComponent={<Text style={styles.sectionTitle}>Emergency Contacts</Text>}
-      />
+      {/* Emergency Contacts */}
+      <View style={styles.fixedBottomContainer}>
+        <FlatList
+          data={emergencyContacts}
+          keyExtractor={(item) => item.phone}
+          renderItem={({ item }) => (
+            <View style={styles.contactItem}>
+              <Text style={styles.contactName}>{item.name}</Text>
+              <TouchableOpacity style={styles.phoneContainer} onPress={() => handleCall(item.phone)}>
+                <MaterialIcons name="phone" size={20} color="blue" />
+                <Text style={styles.contactPhone}>{item.phone}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={<Text style={styles.sectionTitle}>Emergency Contacts</Text>}
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  map: { width: '100%', height: '40%' },
+  map: { width: '100%', height: '50%' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   selectedHospitalContainer: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 150,
     left: 10,
     right: 10,
     backgroundColor: 'white',
@@ -185,6 +172,14 @@ const styles = StyleSheet.create({
   contactPhone: { fontSize: 16, color: 'blue', marginLeft: 5, textDecorationLine: 'underline' },
   listContainer: { padding: 10 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
+  fixedBottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    elevation: 5,
+  },
 });
 
 export default HospitalsScreen;
