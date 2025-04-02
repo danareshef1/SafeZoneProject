@@ -8,7 +8,6 @@ import {
   CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 
-// Replace with your own Cognito User Pool details.
 const poolData = {
   UserPoolId: 'us-east-1_D2gEiWghw',
   ClientId: '3ari019pia44dhfpb0okane3ir',
