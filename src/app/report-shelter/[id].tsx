@@ -35,6 +35,7 @@ const getColorByStatus = (status: string | null) => {
 
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(false);
@@ -164,7 +165,8 @@ const ShelterDetail: React.FC = () => {
     }
   
     try {
-      const userEmail = await getAuthUserEmail(); // ✅ Get user email
+      setIsSubmitting(true); 
+      const userEmail = await getAuthUserEmail();
       if (!userEmail) {
         Alert.alert('Error', 'User email not found.');
         return;
@@ -196,7 +198,7 @@ const ShelterDetail: React.FC = () => {
           status: selectedStatus,
           reportText,
           images: uploadedImages,
-          email: userEmail, 
+          email: userEmail,
         }),
       });
   
@@ -212,8 +214,11 @@ const ShelterDetail: React.FC = () => {
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert('Error', 'Unable to submit your report.');
+    } finally {
+      setIsSubmitting(false); 
     }
   };
+  
   
   
 
@@ -315,9 +320,18 @@ const ShelterDetail: React.FC = () => {
         multiline
       />
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmitReport}>
-          <Text style={styles.submitButtonText}>שלח דיווח</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+  style={styles.submitButton}
+  onPress={handleSubmitReport}
+  disabled={isSubmitting}
+>
+  {isSubmitting ? (
+    <ActivityIndicator color="#fff" />
+  ) : (
+    <Text style={styles.submitButtonText}>שלח דיווח</Text>
+  )}
+</TouchableOpacity>
+
         <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
           <Text style={styles.cancelButtonText}>ביטול</Text>
         </TouchableOpacity>
