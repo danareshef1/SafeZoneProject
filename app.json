@@ -11,11 +11,16 @@
     "ios": {
       "supportsTablet": true
     },
+    
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+        
+      },
+      "permissions": [
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -31,6 +36,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        },
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SafeZone needs your location to notify you during alerts.",
+          "locationAlwaysPermission": "SafeZone needs your location to work in the background.",
+          "locationWhenInUsePermission": "SafeZone needs your location when the app is open."
         }
       ],
       "expo-font"

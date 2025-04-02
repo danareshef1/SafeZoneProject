@@ -1,3 +1,4 @@
+import TASK_NAME from '../../utils/backgroundLocationTask'; 
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -79,9 +80,22 @@ const HomeScreen: React.FC = () => {
             longitude: 34.7818,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
-          });ן
+          });
+const started = await Location.hasStartedLocationUpdatesAsync(TASK_NAME);
+if (!started) {
+  await Location.startLocationUpdatesAsync(TASK_NAME, {
+    accuracy: Location.Accuracy.High,
+    timeInterval: 60000, // every 60 seconds
+    distanceInterval: 50, // or when moved 50 meters
+    showsBackgroundLocationIndicator: true,
+    foregroundService: {
+      notificationTitle: 'SafeZone is active',
+      notificationBody: 'We are monitoring alerts for your location.',
+    },
+  });
+}
           return;
-        }
+}
 
         const location = await Location.getCurrentPositionAsync({});
         setMapRegion({

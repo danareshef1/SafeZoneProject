@@ -40,13 +40,11 @@ const ShelterInfoScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Location Information */}
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>מיקומך: תל אביב</Text>
         <Text style={styles.infoText}>זמן כניסה למקלט - דקה וחצי</Text>
       </View>
 
-      {/* Map Section */}
       <View style={styles.mapContainer}>
         <Image
           source={{
@@ -57,9 +55,7 @@ const ShelterInfoScreen = () => {
         />
       </View>
 
-      {/* Bottom Section with Timer and Buttons */}
       <View style={styles.bottomContainer}>
-        {/* Timer with Decreasing Circle */}
         <View style={styles.timerContainer}>
           <Svg width={100} height={100}>
             <Circle
