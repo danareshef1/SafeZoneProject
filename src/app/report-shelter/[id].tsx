@@ -13,6 +13,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import StatusButtons from '../../components/ui/Map/StatusButtons';
 import { getAuthUserEmail } from '../../../utils/auth'
+import * as FileSystem from 'expo-file-system';
+import { Buffer } from 'buffer'; 
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/prod/shelters';
 const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
@@ -86,24 +88,66 @@ const ShelterDetail: React.FC = () => {
     router.push({ pathname: '/report-shelter/[id]', params: { id: selectedId } });
   };
 
+  const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
+    const response = await fetch(
+      'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      }
+    );
+  
+    if (!response.ok) {
+      throw new Error('Failed to get signed URL');
+    }
+  
+    return await response.json(); // { uploadUrl, imageUrl }
+  };
+  
+  const uploadImageToS3 = async (localUri: string, type: 'shelter' | 'report') => {
+    const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
+  
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  
+    const buffer = Buffer.from(base64, 'base64');
+  
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: buffer,
+    });
+  
+    return imageUrl;
+  };
+  
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Permission required', 'We need permission to access your photos.');
       return;
     }
-
+  
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-
+  
     if (!result.canceled) {
-      const newImageUri = result.assets[0].uri;
-      setUploadedImages((prev) => [...prev, newImageUri]);
+      const localUri = result.assets[0].uri;
+      try {
+        const uploadedUrl = await uploadImageToS3(localUri, 'report'); 
+        setUploadedImages((prev) => [...prev, uploadedUrl]);
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        Alert.alert('Error', 'Image upload failed.');
+      }
     }
   };
+  
 
   const handleSubmitReport = async () => {
     if (!selectedStatus) {

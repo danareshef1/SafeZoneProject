@@ -21,6 +21,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
+import * as FileSystem from 'expo-file-system'; // 🔄 לצורך קריאת קובץ
+import { Buffer } from 'buffer'; // 🔄 תוודא ש־buffer מותקן: `npm install buffer`
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
@@ -110,6 +112,41 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
+  const getSignedUploadUrl = async (type: 'shelter') => {
+    const response = await fetch(
+      'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      }
+    );
+  
+    if (!response.ok) {
+      throw new Error('Failed to get signed URL');
+    }
+  
+    return await response.json(); // { uploadUrl, imageUrl }
+  };
+  
+  const uploadImageToS3 = async (localUri: string, type: 'shelter') => {
+    const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
+  
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  
+    const buffer = Buffer.from(base64, 'base64');
+  
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: buffer,
+    });
+  
+    return imageUrl;
+  };
+  
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -124,15 +161,16 @@ const HomeScreen: React.FC = () => {
     });
   
     if (!result.canceled && selectedShelter) {
-      const newImageUri = result.assets[0].uri;
+      const localUri = result.assets[0].uri;
   
-      // Update image in DynamoDB
       try {
+        const uploadedImageUrl = await uploadImageToS3(localUri, 'shelter');
+  
         const response = await fetch(`${API_URL}/${selectedShelter.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            image: newImageUri,
+            image: uploadedImageUrl,
           }),
         });
   
@@ -140,18 +178,16 @@ const HomeScreen: React.FC = () => {
           throw new Error('Failed to update shelter image');
         }
   
-        // Refresh shelter list
         await fetchShelters();
   
-        // Update selected shelter locally
-        setSelectedShelter((prev) => prev ? { ...prev, image: newImageUri } : null);
-  
+        setSelectedShelter((prev) => (prev ? { ...prev, image: uploadedImageUrl } : null));
       } catch (error) {
         console.error('Error uploading image:', error);
         Alert.alert('Error', 'Failed to upload image.');
       }
     }
   };
+  
   
   const handleDeselectShelter = () => setSelectedShelter(null);
 
