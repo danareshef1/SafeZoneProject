@@ -1,4 +1,3 @@
-// app/mainScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';

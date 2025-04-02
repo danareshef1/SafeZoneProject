@@ -9,18 +9,30 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "location"
+        ],
+        "NSLocationAlwaysUsageDescription": "SafeZone needs your location even when the app is in the background.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "SafeZone needs your location to notify you during alerts, even in the background.",
+        "NSLocationWhenInUseUsageDescription": "SafeZone needs your location when the app is open.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.SafeZone"
     },
-    
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-        
       },
       "permissions": [
-        "ACCESS_BACKGROUND_LOCATION"
-      ]
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.SafeZone"
     },
     "web": {
       "bundler": "metro",
@@ -36,7 +48,9 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
-        },
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "SafeZone needs your location to notify you during alerts.",
@@ -46,8 +60,14 @@
       ],
       "expo-font"
     ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "b02089af-97ef-4a80-9497-858d9065c224"
+      }
+    },
+    "owner": "noyzion"
   }
 }

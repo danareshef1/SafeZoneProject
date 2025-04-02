@@ -15,6 +15,7 @@ import { AuthContext, AuthProvider } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
 import ContactsButton from './contactsButton';
 import { ShelterProvider } from './contexts/ShelterContext';
+import * as Notifications from 'expo-notifications';
 
 const HomeButton = () => {
   const router = useRouter();
@@ -79,8 +80,35 @@ const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
   const segments = useSegments();
+  useEffect(() => {
+  
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const screen = notification.request.content.data?.screen;
+      console.log('📥 פוש ב־Foreground:', screen);
+  
+      if (screen === 'ShelterInfo') {
+        router.push('/mainScreen');
+      }
+    });
+  
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const screen = response.notification.request.content.data?.screen;
+      console.log('📥 פוש בלחיצה:', screen);
+  
+      if (screen === 'ShelterInfo') {
+        router.push('/mainScreen');
+      }
+    });
+  
+    return () => {
+      Notifications.removeNotificationSubscription(receivedSubscription);
+      Notifications.removeNotificationSubscription(responseSubscription);
+    };
+  }, []);
+  
 
   useEffect(() => {
+    
     if (!loading) {
       if (isLoggedIn) {
         // Redirect away from auth screens if logged in
@@ -117,7 +145,6 @@ const RootNavigator = () => {
       </View>
     );
   }
-
   return (
     <Drawer
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}

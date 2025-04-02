@@ -1,4 +1,3 @@
-import TASK_NAME from '../../utils/backgroundLocationTask'; 
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -21,9 +20,10 @@ import { Shelter } from '../types/Shelter';
 import { useFocusEffect } from '@react-navigation/native';
 import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'react-native';
 import * as FileSystem from 'expo-file-system'; 
 import { Buffer } from 'buffer'; 
+import { sendLocationToBackend } from '../../utils/api'; // תוודאי שהנתיב נכון
+
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
 
@@ -68,35 +68,20 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            'Permission Denied',
-            'Permission to access location was denied. Defaulting to Tel Aviv.'
-          );
-          setMapRegion({
-            latitude: 32.0853,
-            longitude: 34.7818,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          });
-const started = await Location.hasStartedLocationUpdatesAsync(TASK_NAME);
-if (!started) {
-  await Location.startLocationUpdatesAsync(TASK_NAME, {
-    accuracy: Location.Accuracy.High,
-    timeInterval: 60000, // every 60 seconds
-    distanceInterval: 50, // or when moved 50 meters
-    showsBackgroundLocationIndicator: true,
-    foregroundService: {
-      notificationTitle: 'SafeZone is active',
-      notificationBody: 'We are monitoring alerts for your location.',
-    },
-  });
-}
-          return;
-}
-
+      const { status } = await Location.requestForegroundPermissionsAsync();
+  
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Permission to access location was denied. Defaulting to Tel Aviv.'
+        );
+        setMapRegion({
+          latitude: 32.0853,
+          longitude: 34.7818,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      } else {
         const location = await Location.getCurrentPositionAsync({});
         setMapRegion({
           latitude: location.coords.latitude,
@@ -104,18 +89,14 @@ if (!started) {
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         });
-      } catch {
-        Alert.alert('Error', 'Unable to fetch your location. Defaulting to Tel Aviv.');
-        setMapRegion({
-          latitude: 32.0853,
-          longitude: 34.7818,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        });
+  
+        await sendLocationToBackend(
+          location.coords.latitude,
+          location.coords.longitude
+        );
       }
     })();
   }, []);
-
   const handleReport = () => {
     if (selectedShelter) {
       router.push({
@@ -124,7 +105,34 @@ if (!started) {
       });
     }
   };
-
+  const refreshLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission was denied');
+        return;
+      }
+  
+      const location = await Location.getCurrentPositionAsync({});
+      setMapRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+  
+      await sendLocationToBackend(
+        location.coords.latitude,
+        location.coords.longitude
+      );
+  
+      Alert.alert('Success', 'Location refreshed!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to get current location.');
+      console.error('Error refreshing location:', error);
+    }
+  };
+  
   const getSignedUploadUrl = async (type: 'shelter') => {
     const response = await fetch(
       'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
@@ -220,6 +228,10 @@ if (!started) {
     <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={styles.container}>
         <MapView style={styles.map} region={mapRegion}>
+        <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
+  <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
+</TouchableOpacity>
+
           {shelters.map((shelter) => (
             <CustomMarker
               key={`${shelter.id}-${shelter.status}`}
@@ -243,7 +255,6 @@ if (!started) {
       <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
         <Text style={styles.actionButtonText}>דווח על מקלט</Text>
       </TouchableOpacity>
-
       <TouchableOpacity
         style={styles.actionButton}
         onPress={handleAddImage}
@@ -350,6 +361,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  refreshButton: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 10,
+  },
+  
+  refreshButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  }
+  
 });
 
 export default HomeScreen;
