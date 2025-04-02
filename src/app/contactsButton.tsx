@@ -1,17 +1,34 @@
 // app/contactsButton.tsx
 import React, { useState } from 'react';
-import { TouchableOpacity, Modal, FlatList, Text, View, StyleSheet } from 'react-native';
+import { 
+  TouchableOpacity, 
+  Modal, 
+  FlatList, 
+  Text, 
+  View, 
+  StyleSheet, 
+  ActivityIndicator 
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import Checkbox from 'expo-checkbox'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+interface ContactItem {
+  id: string;
+  name: string;
+  phoneNumbers?: { number: string }[];
+}
+
 const ContactsButton = () => {
-  const [contacts, setContacts] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [modalVisible, setModalVisible] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState(false);
 
   const fetchContacts = async () => {
+    setLoadingContacts(true);
     const { status } = await Contacts.requestPermissionsAsync();
     if (status === 'granted') {
       const { data } = await Contacts.getContactsAsync({
@@ -34,9 +51,7 @@ const ContactsButton = () => {
 
         const json = await response.json();
         const result = json.registeredNumbers;
-
         const registeredSet = new Set(result);
-
         const matchedContacts = data.filter((contact) =>
           contact.phoneNumbers?.some((phone) =>
             registeredSet.has(phone.number?.replace(/\D/g, ''))
@@ -46,68 +61,96 @@ const ContactsButton = () => {
         setContacts(matchedContacts);
         const stored = await AsyncStorage.getItem('selectedContacts');
         if (stored) {
-            setSelectedContacts(new Set(JSON.parse(stored)));
+          setSelectedContacts(new Set(JSON.parse(stored)));
         }
         setModalVisible(true);
       } catch (err) {
         console.error('Failed to fetch matched users:', err);
       }
     }
+    setLoadingContacts(false);
   };
 
-  const toggleSelect = async (id: string, phoneNumber: string, name: string) => {
-    const newSet = new Set(selectedContacts);
-    const normalizedPhone = phoneNumber.replace(/\D/g, '');
-    
-    if (newSet.has(id)) {
-      newSet.delete(id);
-      const updatedList = [...newSet];
-      await AsyncStorage.setItem('selectedContacts', JSON.stringify(updatedList));
-      
-      await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/removeContact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, phone: normalizedPhone }),
-      });
-    } else {
-      newSet.add(id);
-      const updatedList = [...newSet];
-      await AsyncStorage.setItem('selectedContacts', JSON.stringify(updatedList));
-      
-      await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/saveContact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, phone: normalizedPhone, name }),
-      });
-    }
-    
-    setSelectedContacts(newSet);
+  const toggleSelect = (id: string, phoneNumber: string, name: string) => {
+    setSelectedContacts((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      AsyncStorage.setItem('selectedContacts', JSON.stringify([...newSet]));
+      return newSet;
+    });
+    doToggleAPICall(id, phoneNumber, name);
   };
-  
-  
-  
+
+  const doToggleAPICall = async (id: string, phoneNumber: string, name: string) => {
+    try {
+      setToggleLoading(true);
+      const normalizedPhone = phoneNumber.replace(/\D/g, '');
+      const stored = await AsyncStorage.getItem('selectedContacts');
+      const currentSet = new Set(stored ? JSON.parse(stored) : []);
+      if (currentSet.has(id)) {
+        await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/saveContact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, phone: normalizedPhone, name }),
+        });
+      } else {
+        await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/removeContact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, phone: normalizedPhone }),
+        });
+      }
+    } catch (error) {
+      console.error('Error in doToggleAPICall:', error);
+    } finally {
+      setToggleLoading(false);
+    }
+  };
 
   return (
     <>
       <TouchableOpacity onPress={fetchContacts} style={styles.button}>
-        <MaterialIcons name="phone" size={24} color="#fff" />
+        {loadingContacts ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <MaterialIcons name="phone" size={24} color="#fff" />
+        )}
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} animationType="slide">
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Select Contacts to Notify</Text>
+          <View style={styles.titleWrapper}>
+            <Text style={styles.title}>Select Contacts</Text>
+            <View style={styles.titleUnderline} />
+          </View>
+
+          {toggleLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#11998e" />
+            </View>
+          )}
+
           <FlatList
             data={contacts}
             keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
             renderItem={({ item }) => {
               const isChecked = selectedContacts.has(item.id);
               return (
                 <View style={styles.contactItem}>
                   <Checkbox
                     value={isChecked}
-                    onValueChange={() => toggleSelect(item.id, item.phoneNumbers[0]?.number, item.name)}
+                    onValueChange={() => toggleSelect(item.id, item.phoneNumbers?.[0]?.number ?? '', item.name)}
                     style={styles.checkbox}
-                    />
+                  />
                   <View>
                     <Text style={styles.contactName}>{item.name}</Text>
                     {item.phoneNumbers?.length > 0 && (
@@ -118,6 +161,7 @@ const ContactsButton = () => {
               );
             }}
           />
+
           <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
@@ -135,13 +179,31 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    padding: 20,
+    marginTop: 50,
     backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
   },
-  modalTitle: {
-    fontSize: 20,
+  titleWrapper: {
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#2C3E50',
+    textAlign: 'center',
+  },
+  titleUnderline: {
+    marginTop: 6,
+    width: 120,
+    height: 4,
+    backgroundColor: '#11998e',
+    borderRadius: 2,
+  },
+  listContent: {
+    paddingBottom: 80,
   },
   contactItem: {
     flexDirection: 'row',
@@ -154,20 +216,31 @@ const styles = StyleSheet.create({
   contactName: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 2,
   },
   contactPhone: {
     fontSize: 14,
     color: 'gray',
   },
   closeButton: {
-    marginTop: 20,
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
     backgroundColor: '#11998e',
-    padding: 10,
+    padding: 12,
     borderRadius: 10,
+    width: '50%',
     alignItems: 'center',
   },
   closeButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
 });
