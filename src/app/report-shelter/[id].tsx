@@ -100,9 +100,7 @@ const ShelterDetail: React.FC = () => {
       }
     );
   
-    const text = await response.text();
-    console.log('📦 getSignedUploadUrl response:', response.status, text); // 💥 חשוב
-  
+    const text = await response.text();  
     if (!response.ok) {
       throw new Error('Failed to get signed URL');
     }
