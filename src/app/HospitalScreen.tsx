@@ -99,13 +99,6 @@ const HospitalsScreen: React.FC = () => {
         ))}
       </MapView>
 
-      {selectedHospital && (
-        <View style={styles.selectedHospitalContainer}>
-          <Text style={styles.selectedHospitalName}>{selectedHospital.name}</Text>
-          <Text style={styles.selectedHospitalDistance}>Distance: {selectedHospital.distance}</Text>
-        </View>
-      )}
-
       <FlatList
         data={hospitals}
         keyExtractor={(item) => item.id}
@@ -117,6 +110,8 @@ const HospitalsScreen: React.FC = () => {
         )}
         contentContainerStyle={styles.listContainer}
         ListHeaderComponent={<Text style={styles.sectionTitle}>Nearest Hospitals</Text>}
+        style={styles.hospitalList}
+        scrollEnabled={true}
       />
 
       {/* Emergency Contacts */}
@@ -135,6 +130,7 @@ const HospitalsScreen: React.FC = () => {
           )}
           contentContainerStyle={styles.listContainer}
           ListHeaderComponent={<Text style={styles.sectionTitle}>Emergency Contacts</Text>}
+          style={styles.emergencyList}
         />
       </View>
     </View>
@@ -145,24 +141,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { width: '100%', height: '50%' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  selectedHospitalContainer: {
-    position: 'absolute',
-    bottom: 150,
-    left: 10,
-    right: 10,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 8,
-    elevation: 5,
-  },
-  selectedHospitalName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  selectedHospitalDistance: {
-    fontSize: 14,
-    color: '#555',
-  },
   hospitalItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#ccc' },
   hospitalName: { fontSize: 16, fontWeight: 'bold' },
   hospitalDistance: { fontSize: 14, color: '#555' },
@@ -172,6 +150,10 @@ const styles = StyleSheet.create({
   contactPhone: { fontSize: 16, color: 'blue', marginLeft: 5, textDecorationLine: 'underline' },
   listContainer: { padding: 10 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
+  hospitalList: {
+    marginBottom: 100, // Give some space for the fixed emergency contact section
+    height: '45%', // Limit the height of hospital list to avoid overlap
+  },
   fixedBottomContainer: {
     position: 'absolute',
     bottom: 0,
@@ -179,6 +161,10 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: 'white',
     elevation: 5,
+    padding: 5,
+  },
+  emergencyList: {
+    maxHeight: 120, // Shrink the height of emergency contact section
   },
 });
 
