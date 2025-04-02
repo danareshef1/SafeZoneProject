@@ -8,11 +8,14 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import StatusButtons from '../../components/ui/Map/StatusButtons';
 import { getAuthUserEmail } from '../../../utils/auth'
+import * as FileSystem from 'expo-file-system';
+import { Buffer } from 'buffer'; 
 
 const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/prod/shelters';
 const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
@@ -31,9 +34,10 @@ const getColorByStatus = (status: string | null) => {
 };
 
 const ShelterDetail: React.FC = () => {
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { id } = useLocalSearchParams();
   const router = useRouter();
-
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const [shelter, setShelter] = useState<any>(null);
   const [reportText, setReportText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -86,24 +90,72 @@ const ShelterDetail: React.FC = () => {
     router.push({ pathname: '/report-shelter/[id]', params: { id: selectedId } });
   };
 
+  const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
+    const response = await fetch('https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl', 
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      }
+    );
+  
+    const text = await response.text();
+    console.log('📦 getSignedUploadUrl response:', response.status, text); // 💥 חשוב
+  
+    if (!response.ok) {
+      throw new Error('Failed to get signed URL');
+    }
+  
+    return JSON.parse(text);
+  };
+  
+  
+  const uploadImageToS3 = async (localUri: string, type: 'shelter' | 'report') => {
+    const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
+  
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  
+    const buffer = Buffer.from(base64, 'base64');
+  
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: buffer,
+    });
+  
+    return imageUrl;
+  };
+  
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Permission required', 'We need permission to access your photos.');
       return;
     }
-
+  
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-
+  
     if (!result.canceled) {
-      const newImageUri = result.assets[0].uri;
-      setUploadedImages((prev) => [...prev, newImageUri]);
+      const localUri = result.assets[0].uri;
+      try {
+        setIsUploadingImage(true); 
+        const uploadedUrl = await uploadImageToS3(localUri, 'report'); 
+        setUploadedImages((prev) => [...prev, uploadedUrl]);
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        Alert.alert('Error', 'Image upload failed.');
+      } finally {
+        setIsUploadingImage(false); 
+      }
     }
   };
+  
 
   const handleSubmitReport = async () => {
     if (!selectedStatus) {
@@ -189,8 +241,24 @@ const ShelterDetail: React.FC = () => {
       </TouchableOpacity>
 
       {shelter?.image && (
-        <Image source={{ uri: shelter.image }} style={styles.shelterImage} />
-      )}
+  <View style={styles.imageWrapper}>
+    <Image
+      source={{ uri: shelter.image }}
+      style={styles.shelterImage}
+      onLoadStart={() => setIsImageLoading(true)}
+      onLoadEnd={() => setIsImageLoading(false)}
+      blurRadius={isImageLoading ? 5 : 0}
+    />
+    {isImageLoading && (
+      <ActivityIndicator
+        size="large"
+        color="#0000ff"
+        style={styles.imageLoaderOverlay}
+      />
+    )}
+  </View>
+)}
+
 
       {showComboBox && (
         <View style={styles.comboBox}>
@@ -217,10 +285,17 @@ const ShelterDetail: React.FC = () => {
           </ScrollView>
         </View>
       )}
-
-      <TouchableOpacity style={styles.addImageButton} onPress={handleAddImage}>
-        <Text style={styles.addImageButtonText}>הוסף תמונה</Text>
-      </TouchableOpacity>
+<TouchableOpacity
+  style={styles.addImageButton}git checkout
+  onPress={handleAddImage}
+  disabled={isUploadingImage}
+>
+  {isUploadingImage ? (
+    <ActivityIndicator color="#fff" />
+  ) : (
+    <Text style={styles.addImageButtonText}>הוסף תמונה</Text>
+  )}
+</TouchableOpacity>
 
       {uploadedImages.length > 0 && (
         <ScrollView horizontal style={styles.imageScroll}>
@@ -400,6 +475,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  imageWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+    marginBottom: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  imageLoaderOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -12,
+    marginLeft: -12,
+  },  
 });
 
 export default ShelterDetail;
