@@ -35,7 +35,7 @@ const CustomDrawerContent = () => {
   };
 
   const navigateTo = (path: string) => {
-    router.push(path);
+    router.push(path as any);
   };
 
   return (

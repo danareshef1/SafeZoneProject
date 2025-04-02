@@ -17,7 +17,7 @@ const ResetSchema = Yup.object().shape({
   verificationCode: Yup.string().required('Verification code is required.'),
   newPassword: Yup.string().required('New password is required.'),
   confirmNewPassword: Yup.string()
-    .oneOf([Yup.ref('newPassword'), null], 'Passwords must match')
+    .oneOf([Yup.ref('newPassword'), undefined], 'Passwords must match')
     .required('Please confirm your new password.'),
 });
 

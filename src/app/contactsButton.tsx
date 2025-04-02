@@ -55,34 +55,36 @@ const ContactsButton = () => {
     }
   };
 
-  const toggleSelect = async (id: string, phoneNumber: string) => {
+  const toggleSelect = async (id: string, phoneNumber: string, name: string) => {
     const newSet = new Set(selectedContacts);
     const normalizedPhone = phoneNumber.replace(/\D/g, '');
-  
+    
     if (newSet.has(id)) {
       newSet.delete(id);
       const updatedList = [...newSet];
       await AsyncStorage.setItem('selectedContacts', JSON.stringify(updatedList));
-  
-      await fetch('https://YOUR_API_URL/removeContact', {
+      
+      await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/removeContact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ id, phone: normalizedPhone }),
       });
     } else {
       newSet.add(id);
       const updatedList = [...newSet];
       await AsyncStorage.setItem('selectedContacts', JSON.stringify(updatedList));
-  
-      await fetch('https://YOUR_API_URL/saveContact', {
+      
+      await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/saveContact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ id, phone: normalizedPhone, name }),
       });
     }
-  
+    
     setSelectedContacts(newSet);
   };
+  
+  
   
 
   return (
@@ -103,9 +105,9 @@ const ContactsButton = () => {
                 <View style={styles.contactItem}>
                   <Checkbox
                     value={isChecked}
-                    onValueChange={() => toggleSelect(item.id, item.phoneNumbers[0]?.number)}
+                    onValueChange={() => toggleSelect(item.id, item.phoneNumbers[0]?.number, item.name)}
                     style={styles.checkbox}
-                  />
+                    />
                   <View>
                     <Text style={styles.contactName}>{item.name}</Text>
                     {item.phoneNumbers?.length > 0 && (
