@@ -64,7 +64,7 @@ const HospitalsScreen: React.FC = () => {
         const location = await Location.getCurrentPositionAsync({});
         setCurrentLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
 
-        const response = await fetch('https://vkkdzdn7n6.execute-api.us-east-1.amazonaws.com/hospitals');
+        const response = await fetch('https://p7543alg74.execute-api.us-east-1.amazonaws.com/prod/hospitals');
         const data = await response.json();
 
         const hospitalsWithDistance = data.map((hospital: any) => {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   navigateButtonContainer: {
     position: 'absolute',
-    bottom: 380,
+    bottom: 450,
     right: 10,
     zIndex: 999,
   },
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
-    width: 150, // Adjust width for the button
+    width: 150, 
   },
   navigateButtonText: {
     color: 'white',

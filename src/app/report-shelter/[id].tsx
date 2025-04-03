@@ -17,8 +17,8 @@ import { getAuthUserEmail } from '../../../utils/auth'
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer'; 
 
-const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/prod/shelters';
-const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
+const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
+const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
 
 const getColorByStatus = (status: string | null) => {
   switch (status) {

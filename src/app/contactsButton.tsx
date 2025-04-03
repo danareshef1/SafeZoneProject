@@ -41,7 +41,7 @@ const ContactsButton = () => {
         .filter((num) => !!num);
 
       try {
-        const response = await fetch('https://lxtu11m70h.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
+        const response = await fetch('hhttps://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -92,13 +92,13 @@ const ContactsButton = () => {
       const stored = await AsyncStorage.getItem('selectedContacts');
       const currentSet = new Set(stored ? JSON.parse(stored) : []);
       if (currentSet.has(id)) {
-        await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/saveContact', {
+        await fetch(' https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/saveContact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, phone: normalizedPhone, name }),
         });
       } else {
-        await fetch('https://vkykumkkof.execute-api.us-east-1.amazonaws.com/removeContact', {
+        await fetch('https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/removeContact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, phone: normalizedPhone }),

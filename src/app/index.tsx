@@ -24,7 +24,7 @@ import { Image } from 'react-native';
 import * as FileSystem from 'expo-file-system'; 
 import { Buffer } from 'buffer'; 
 
-const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
+const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
 
 const HomeScreen: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
@@ -79,7 +79,7 @@ const HomeScreen: React.FC = () => {
             longitude: 34.7818,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
-          });ן
+          });
           return;
         }
 
@@ -113,7 +113,7 @@ const HomeScreen: React.FC = () => {
 
   const getSignedUploadUrl = async (type: 'shelter') => {
     const response = await fetch(
-      'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
+      'https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
