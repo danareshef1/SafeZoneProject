@@ -28,18 +28,17 @@ const HospitalsScreen: React.FC = () => {
 
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
 
-  // Haversine formula to calculate distance between two latitudes and longitudes
   const toRad = (value: number) => (value * Math.PI) / 180;
 
   const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of Earth in kilometers
+    const R = 6371; 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in kilometers
+    return R * c; 
   };
 
   useEffect(() => {
@@ -75,18 +74,15 @@ const HospitalsScreen: React.FC = () => {
           };
         });
 
-        // Filter hospitals within 20 km
-        const nearbyHospitals = hospitalsWithDistance.filter((hospital) => {
-          const distanceInKm = parseFloat(hospital.distance.replace(' km', ''));
+        const nearbyHospitals: Hospital[] = hospitalsWithDistance.filter((hospital: Hospital) => {
+          const distanceInKm: number = parseFloat(hospital.distance.replace(' km', ''));
           return distanceInKm <= 20;
         });
 
-        // Sort hospitals by distance from closest to farthest
         nearbyHospitals.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
 
         setNearbyHospitals(nearbyHospitals);
 
-        // Set all hospitals (for displaying markers on the map)
         setHospitals(hospitalsWithDistance);
       } catch (error) {
         console.error(error);
@@ -121,6 +117,18 @@ const HospitalsScreen: React.FC = () => {
           longitudeDelta: 0.05,
         }}
       >
+        {/* Add a blue marker for the user's current location */}
+        {currentLocation && (
+          <Marker
+            coordinate={{
+              latitude: currentLocation.latitude,
+              longitude: currentLocation.longitude,
+            }}
+            title="Your Location"
+            pinColor="blue" // Set the color to blue for the current location
+          />
+        )}
+
         {hospitals.map((hospital) => (
           <Marker
             key={hospital.id}
@@ -149,7 +157,6 @@ const HospitalsScreen: React.FC = () => {
         style={styles.hospitalList}
       />
 
-      {/* BottomSheet with Emergency Contacts */}
       <BottomSheet index={0} snapPoints={snapPoints} style={styles.bottomSheet}>
         <View style={styles.bottomSheetContent}>
           <Text style={styles.emergencyContactsTitle}>מספרי חירום</Text>
