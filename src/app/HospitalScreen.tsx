@@ -16,7 +16,7 @@ interface Hospital {
 const HospitalsScreen: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]); // Stores hospitals within 20 km
+  const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]); 
   const [loading, setLoading] = useState<boolean>(true);
 
   const emergencyContacts = [
@@ -39,6 +39,31 @@ const HospitalsScreen: React.FC = () => {
       Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; 
+  };
+
+  // Function to open Waze navigation only after confirmation
+  const handleNavigateToHospital = (hospital: Hospital) => {
+    if (currentLocation) {
+      // Show a confirmation dialog
+      Alert.alert(
+        "ניווט לוויז",
+        `האם אתה רוצה לנווט ל${hospital.name} ב-Waze?`,
+        [
+          {
+            text: "לא",
+            style: "cancel",
+          },
+          {
+            text: "כן",
+            onPress: () => {
+              const wazeURL = `https://waze.com/ul?ll=${hospital.latitude},${hospital.longitude}&navigate=yes&zoom=17`;
+              Linking.openURL(wazeURL); // Open Waze with the hospital's coordinates
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    }
   };
 
   useEffect(() => {
@@ -82,7 +107,6 @@ const HospitalsScreen: React.FC = () => {
         nearbyHospitals.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
 
         setNearbyHospitals(nearbyHospitals);
-
         setHospitals(hospitalsWithDistance);
       } catch (error) {
         console.error(error);
@@ -117,7 +141,7 @@ const HospitalsScreen: React.FC = () => {
           longitudeDelta: 0.05,
         }}
       >
-        {/* Add a blue marker for the user's current location */}
+        {/* Marker for current location */}
         {currentLocation && (
           <Marker
             coordinate={{
@@ -125,10 +149,11 @@ const HospitalsScreen: React.FC = () => {
               longitude: currentLocation.longitude,
             }}
             title="Your Location"
-            pinColor="blue" // Set the color to blue for the current location
+            pinColor="blue"
           />
         )}
 
+        {/* Markers for all hospitals */}
         {hospitals.map((hospital) => (
           <Marker
             key={hospital.id}
@@ -137,8 +162,9 @@ const HospitalsScreen: React.FC = () => {
               longitude: hospital.longitude,
             }}
             title={hospital.name}
-            description={`Distance from me: ${hospital.distance}`}
+            description={`Distance: ${hospital.distance}`}
             pinColor="#FF7043"
+            onPress={() => handleNavigateToHospital(hospital)} // Navigate to Waze on marker press
           />
         ))}
       </MapView>
