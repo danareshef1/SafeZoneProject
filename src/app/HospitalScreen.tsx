@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, Linking, TouchableOpacity } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, Linking, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
@@ -16,8 +16,9 @@ interface Hospital {
 const HospitalsScreen: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]); 
+  const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null); // Track selected hospital
 
   const emergencyContacts = [
     { name: 'משטרה', phone: '100' },
@@ -41,28 +42,11 @@ const HospitalsScreen: React.FC = () => {
     return R * c; 
   };
 
-  // Function to open Waze navigation only after confirmation
+  // Function to handle navigation to Waze when the user presses the "Navigate" button
   const handleNavigateToHospital = (hospital: Hospital) => {
     if (currentLocation) {
-      // Show a confirmation dialog
-      Alert.alert(
-        "ניווט לוויז",
-        `האם אתה רוצה לנווט ל${hospital.name} ב-Waze?`,
-        [
-          {
-            text: "לא",
-            style: "cancel",
-          },
-          {
-            text: "כן",
-            onPress: () => {
-              const wazeURL = `https://waze.com/ul?ll=${hospital.latitude},${hospital.longitude}&navigate=yes&zoom=17`;
-              Linking.openURL(wazeURL); // Open Waze with the hospital's coordinates
-            },
-          },
-        ],
-        { cancelable: true }
-      );
+      const wazeURL = `https://waze.com/ul?ll=${hospital.latitude},${hospital.longitude}&navigate=yes&zoom=17`;
+      Linking.openURL(wazeURL);
     }
   };
 
@@ -121,6 +105,26 @@ const HospitalsScreen: React.FC = () => {
     Linking.openURL(`tel:${phone}`);
   };
 
+  const handleSelectHospital = (hospital: Hospital) => {
+    setSelectedHospital(hospital); // Update the selected hospital
+  };
+
+  const handleDeselectHospital = () => {
+    setSelectedHospital(null); // Deselect hospital when clicking outside
+  };
+
+  // Only show navigation button if a hospital is selected
+  const renderNavigateButton = selectedHospital && (
+    <View style={styles.navigateButtonContainer}>
+      <TouchableOpacity
+        style={styles.navigateButton}
+        onPress={() => handleNavigateToHospital(selectedHospital)}
+      >
+        <Text style={styles.navigateButtonText}>נווט עם Waze</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -131,79 +135,89 @@ const HospitalsScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: currentLocation?.latitude || 32.0853,
-          longitude: currentLocation?.longitude || 34.7818,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}
-      >
-        {/* Marker for current location */}
-        {currentLocation && (
-          <Marker
-            coordinate={{
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
-            }}
-            title="Your Location"
-            pinColor="blue"
-          />
-        )}
+    <TouchableWithoutFeedback onPress={handleDeselectHospital}>
+      <View style={styles.container}>
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: currentLocation?.latitude || 32.0853,
+            longitude: currentLocation?.longitude || 34.7818,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }}
+        >
+          {currentLocation && (
+            <Marker
+              coordinate={{
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+              }}
+              title="Your Location"
+              pinColor="blue"
+            />
+          )}
 
-        {/* Markers for all hospitals */}
-        {hospitals.map((hospital) => (
-          <Marker
-            key={hospital.id}
-            coordinate={{
-              latitude: hospital.latitude,
-              longitude: hospital.longitude,
-            }}
-            title={hospital.name}
-            description={`Distance: ${hospital.distance}`}
-            pinColor="#FF7043"
-            onPress={() => handleNavigateToHospital(hospital)} // Navigate to Waze on marker press
-          />
-        ))}
-      </MapView>
+          {hospitals.map((hospital) => (
+            <Marker
+              key={hospital.id}
+              coordinate={{
+                latitude: hospital.latitude,
+                longitude: hospital.longitude,
+              }}
+              title={hospital.name}
+              description={`Distance: ${hospital.distance}`}
+              pinColor="#FF7043"
+              onPress={() => handleSelectHospital(hospital)} // Store the selected hospital
+            >
+              <Callout>
+                <View style={styles.calloutContainer}>
+                  <Text style={styles.hospitalName}>{hospital.name}</Text>
+                  <Text style={styles.hospitalDistance}>{hospital.distance}</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+        </MapView>
 
-      <FlatList
-        data={nearbyHospitals}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.hospitalItem}>
-            <Text style={styles.hospitalName}>{item.name}</Text>
-            <Text style={styles.hospitalDistance}>{item.distance}</Text>
+        {/* Only show the navigation button if a hospital is selected */}
+        {selectedHospital && renderNavigateButton}
+
+        <FlatList
+          data={nearbyHospitals}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.hospitalItem}>
+              <Text style={styles.hospitalName}>{item.name}</Text>
+              <Text style={styles.hospitalDistance}>{item.distance}</Text>
+            </View>
+          )}
+          contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={<Text style={styles.sectionTitle}>Nearest Hospitals</Text>}
+          style={styles.hospitalList}
+        />
+
+        <BottomSheet index={0} snapPoints={snapPoints} style={styles.bottomSheet}>
+          <View style={styles.bottomSheetContent}>
+            <Text style={styles.emergencyContactsTitle}>מספרי חירום</Text>
+            
+            <BottomSheetFlatList
+              data={emergencyContacts}
+              keyExtractor={(item) => item.phone}
+              renderItem={({ item }) => (
+                <View style={styles.contactItem}>
+                  <Text style={styles.contactName}>{item.name}</Text>
+                  <TouchableOpacity style={styles.phoneContainer} onPress={() => handleCall(item.phone)}>
+                    <MaterialIcons name="phone" size={20} color="white" />
+                    <Text style={styles.contactPhone}>{item.phone}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              contentContainerStyle={styles.listContainer}
+            />
           </View>
-        )}
-        contentContainerStyle={styles.listContainer}
-        ListHeaderComponent={<Text style={styles.sectionTitle}>Nearest Hospitals</Text>}
-        style={styles.hospitalList}
-      />
-
-      <BottomSheet index={0} snapPoints={snapPoints} style={styles.bottomSheet}>
-        <View style={styles.bottomSheetContent}>
-          <Text style={styles.emergencyContactsTitle}>מספרי חירום</Text>
-          
-          <BottomSheetFlatList
-            data={emergencyContacts}
-            keyExtractor={(item) => item.phone}
-            renderItem={({ item }) => (
-              <View style={styles.contactItem}>
-                <Text style={styles.contactName}>{item.name}</Text>
-                <TouchableOpacity style={styles.phoneContainer} onPress={() => handleCall(item.phone)}>
-                  <MaterialIcons name="phone" size={20} color="white" />
-                  <Text style={styles.contactPhone}>{item.phone}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            contentContainerStyle={styles.listContainer}
-          />
-        </View>
-      </BottomSheet>
-    </View>
+        </BottomSheet>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -222,6 +236,40 @@ const styles = StyleSheet.create({
   },
   hospitalName: { fontSize: 14, fontWeight: 'bold', color: '#FF7043' },
   hospitalDistance: { fontSize: 12, color: '#757575' },
+  selectedHospitalContainer: {
+    padding: 12,
+    marginVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
+  },
+  calloutContainer: {
+    padding: 10,
+    backgroundColor: '#fff',
+    maxWidth: 200,
+  },
+  navigateButtonContainer: {
+    position: 'absolute',
+    bottom: 380,
+    right: 10,
+    zIndex: 999,
+  },
+  navigateButton: {
+    backgroundColor: '#FF7043',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: 150, // Adjust width for the button
+  },
+  navigateButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
   contactItem: {
     padding: 14,
     flexDirection: 'row',
