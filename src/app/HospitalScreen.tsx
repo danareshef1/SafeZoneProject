@@ -16,6 +16,7 @@ interface Hospital {
 const HospitalsScreen: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]); // Stores hospitals within 20 km
   const [loading, setLoading] = useState<boolean>(true);
 
   const emergencyContacts = [
@@ -25,8 +26,21 @@ const HospitalsScreen: React.FC = () => {
     { name: '(ער״ן) מוקד תמיכה נפשית', phone: '1201' },
   ];
 
-  // Configure BottomSheet snap points
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
+
+  // Haversine formula to calculate distance between two latitudes and longitudes
+  const toRad = (value: number) => (value * Math.PI) / 180;
+
+  const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of Earth in kilometers
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  };
 
   useEffect(() => {
     (async () => {
@@ -44,13 +58,36 @@ const HospitalsScreen: React.FC = () => {
 
         const response = await fetch('https://vkkdzdn7n6.execute-api.us-east-1.amazonaws.com/hospitals');
         const data = await response.json();
-        setHospitals(data.map((hospital: any) => ({
-          id: hospital.name,
-          name: hospital.name,
-          distance: 'N/A',
-          latitude: hospital.lat,
-          longitude: hospital.lon,
-        })));
+
+        const hospitalsWithDistance = data.map((hospital: any) => {
+          const distance = haversineDistance(
+            location.coords.latitude,
+            location.coords.longitude,
+            hospital.lat,
+            hospital.lon
+          );
+          return {
+            id: hospital.name,
+            name: hospital.name,
+            distance: `${distance.toFixed(2)} km`,
+            latitude: hospital.lat,
+            longitude: hospital.lon,
+          };
+        });
+
+        // Filter hospitals within 20 km
+        const nearbyHospitals = hospitalsWithDistance.filter((hospital) => {
+          const distanceInKm = parseFloat(hospital.distance.replace(' km', ''));
+          return distanceInKm <= 20;
+        });
+
+        // Sort hospitals by distance from closest to farthest
+        nearbyHospitals.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+
+        setNearbyHospitals(nearbyHospitals);
+
+        // Set all hospitals (for displaying markers on the map)
+        setHospitals(hospitalsWithDistance);
       } catch (error) {
         console.error(error);
         Alert.alert('Error', 'Unable to fetch location or hospitals.');
@@ -92,14 +129,14 @@ const HospitalsScreen: React.FC = () => {
               longitude: hospital.longitude,
             }}
             title={hospital.name}
-            description={`Distance: ${hospital.distance}`}
+            description={`Distance from me: ${hospital.distance}`}
             pinColor="#FF7043"
           />
         ))}
       </MapView>
 
       <FlatList
-        data={hospitals}
+        data={nearbyHospitals}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.hospitalItem}>
@@ -115,7 +152,6 @@ const HospitalsScreen: React.FC = () => {
       {/* BottomSheet with Emergency Contacts */}
       <BottomSheet index={0} snapPoints={snapPoints} style={styles.bottomSheet}>
         <View style={styles.bottomSheetContent}>
-          {/* Adjusting the marginTop to bring the title up */}
           <Text style={styles.emergencyContactsTitle}>מספרי חירום</Text>
           
           <BottomSheetFlatList
