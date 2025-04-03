@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, Linking, TouchableOpacity } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
+import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
 interface Hospital {
   id: string;
@@ -15,7 +16,6 @@ interface Hospital {
 const HospitalsScreen: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   const emergencyContacts = [
@@ -24,6 +24,9 @@ const HospitalsScreen: React.FC = () => {
     { name: 'מכבי אש', phone: '103' },
     { name: '(ער״ן) מוקד תמיכה נפשית', phone: '1201' },
   ];
+
+  // Configure BottomSheet snap points
+  const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
 
   useEffect(() => {
     (async () => {
@@ -44,7 +47,7 @@ const HospitalsScreen: React.FC = () => {
         setHospitals(data.map((hospital: any) => ({
           id: hospital.name,
           name: hospital.name,
-          distance: 'N/A', 
+          distance: 'N/A',
           latitude: hospital.lat,
           longitude: hospital.lon,
         })));
@@ -61,15 +64,11 @@ const HospitalsScreen: React.FC = () => {
     Linking.openURL(`tel:${phone}`);
   };
 
-  const handleMarkerPress = (hospital: Hospital) => {
-    setSelectedHospital(hospital);
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading location and data...</Text>
+        <ActivityIndicator size="large" color="#000000" />
+        <Text style={styles.loadingText}>Loading location and data...</Text>
       </View>
     );
   }
@@ -94,7 +93,7 @@ const HospitalsScreen: React.FC = () => {
             }}
             title={hospital.name}
             description={`Distance: ${hospital.distance}`}
-            onPress={() => handleMarkerPress(hospital)}
+            pinColor="#FF7043"
           />
         ))}
       </MapView>
@@ -111,28 +110,30 @@ const HospitalsScreen: React.FC = () => {
         contentContainerStyle={styles.listContainer}
         ListHeaderComponent={<Text style={styles.sectionTitle}>Nearest Hospitals</Text>}
         style={styles.hospitalList}
-        scrollEnabled={true}
       />
 
-      {/* Emergency Contacts */}
-      <View style={styles.fixedBottomContainer}>
-        <FlatList
-          data={emergencyContacts}
-          keyExtractor={(item) => item.phone}
-          renderItem={({ item }) => (
-            <View style={styles.contactItem}>
-              <Text style={styles.contactName}>{item.name}</Text>
-              <TouchableOpacity style={styles.phoneContainer} onPress={() => handleCall(item.phone)}>
-                <MaterialIcons name="phone" size={20} color="blue" />
-                <Text style={styles.contactPhone}>{item.phone}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          contentContainerStyle={styles.listContainer}
-          ListHeaderComponent={<Text style={styles.sectionTitle}>Emergency Contacts</Text>}
-          style={styles.emergencyList}
-        />
-      </View>
+      {/* BottomSheet with Emergency Contacts */}
+      <BottomSheet index={0} snapPoints={snapPoints} style={styles.bottomSheet}>
+        <View style={styles.bottomSheetContent}>
+          {/* Adjusting the marginTop to bring the title up */}
+          <Text style={styles.emergencyContactsTitle}>מספרי חירום</Text>
+          
+          <BottomSheetFlatList
+            data={emergencyContacts}
+            keyExtractor={(item) => item.phone}
+            renderItem={({ item }) => (
+              <View style={styles.contactItem}>
+                <Text style={styles.contactName}>{item.name}</Text>
+                <TouchableOpacity style={styles.phoneContainer} onPress={() => handleCall(item.phone)}>
+                  <MaterialIcons name="phone" size={20} color="white" />
+                  <Text style={styles.contactPhone}>{item.phone}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            contentContainerStyle={styles.listContainer}
+          />
+        </View>
+      </BottomSheet>
     </View>
   );
 };
@@ -141,30 +142,51 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { width: '100%', height: '50%' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  hospitalItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#ccc' },
-  hospitalName: { fontSize: 16, fontWeight: 'bold' },
-  hospitalDistance: { fontSize: 14, color: '#555' },
-  contactItem: { padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  contactName: { fontSize: 16 },
-  phoneContainer: { flexDirection: 'row', alignItems: 'center' },
-  contactPhone: { fontSize: 16, color: 'blue', marginLeft: 5, textDecorationLine: 'underline' },
-  listContainer: { padding: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
+  loadingText: { fontSize: 14, color: '#000000', marginTop: 10 },
+  hospitalItem: {
+    padding: 12,
+    marginVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  hospitalName: { fontSize: 14, fontWeight: 'bold', color: '#FF7043' },
+  hospitalDistance: { fontSize: 12, color: '#757575' },
+  contactItem: {
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#FF7043',
+    borderRadius: 8,
+    marginVertical: 6,
+  },
+  contactName: { fontSize: 16, color: 'white' },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactPhone: {
+    fontSize: 16,
+    color: 'white',
+    marginLeft: 5,
+    textDecorationLine: 'underline',
+  },
+  listContainer: { padding: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginVertical: 12, color: '#FF7043' },
   hospitalList: {
-    marginBottom: 100, // Give some space for the fixed emergency contact section
-    height: '45%', // Limit the height of hospital list to avoid overlap
+    marginBottom: 80,
+    height: '35%',
   },
-  fixedBottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    elevation: 5,
-    padding: 5,
-  },
-  emergencyList: {
-    maxHeight: 120, // Shrink the height of emergency contact section
+  bottomSheet: { flex: 1, backgroundColor: 'white', elevation: 5 },
+  bottomSheetContent: { flex: 1, padding: 16 },
+  emergencyContactsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF7043',
+    marginBottom: 10, 
+    marginTop: -20, 
+    textAlign: 'center',
   },
 });
 
