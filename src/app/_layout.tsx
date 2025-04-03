@@ -83,7 +83,6 @@ const RootNavigator = () => {
   useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
-        // Redirect away from auth screens if logged in
         if (
           segments[0] === 'login' ||
           segments[0] === 'signUpScreen' ||
@@ -95,7 +94,6 @@ const RootNavigator = () => {
           router.replace('/');
         }
       } else {
-        // If not logged in, only allow access to auth screens
         if (
           segments[0] !== 'login' &&
           segments[0] !== 'signUpScreen' &&
@@ -122,38 +120,35 @@ const RootNavigator = () => {
     <Drawer
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
       screenOptions={{
-        headerShown: true,
+        headerShown: !(
+          segments[0] === 'login' ||
+          segments[0] === 'signUpScreen' ||
+          segments[0] === 'verifySignUpScreen' ||
+          segments[0] === 'forgotPassword' ||
+          segments[0] === 'verification' ||
+          segments[0] === 'newPassword'
+        ),
         headerStyle: { backgroundColor: '#11998e' },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
         headerTitle: 'Safe Zone',
         headerRight: () => (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <ContactsButton />
-            <HomeButton />
-          </View>
+          !(
+            segments[0] === 'login' ||
+            segments[0] === 'signUpScreen' ||
+            segments[0] === 'verifySignUpScreen' ||
+            segments[0] === 'forgotPassword' ||
+            segments[0] === 'verification' ||
+            segments[0] === 'newPassword'
+          ) ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <ContactsButton />
+              <HomeButton />
+            </View>
+          ) : null
         ),
       }}
     >
-      {isLoggedIn ? (
-        <>
-          <Drawer.Screen name="/" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/QnAScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/HospitalScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/AlarmHistoryScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/mainScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/MyReportsScreen" options={{ title: 'Safe Zone' }} />
-        </>
-      ) : (
-        <>
-          <Drawer.Screen name="/login" options={{ title: 'Safe Zone', headerLeft: () => null }} />
-          <Drawer.Screen name="/signUpScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/verifySignUpScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/forgotPassword" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/verification" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/newPassword" options={{ title: 'Safe Zone' }} />
-        </>
-      )}
     </Drawer>
   );
 };

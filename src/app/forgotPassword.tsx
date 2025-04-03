@@ -1,4 +1,4 @@
-// app/forgotPassword.tsx
+// ap[p/forgotPassword.tsx
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -6,7 +6,7 @@ import { CognitoUser, CognitoUserPool } from 'amazon-cognito-identity-js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import { useFocusEffect } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const poolData = {
   UserPoolId: 'us-east-1_D2gEiWghw',
@@ -23,19 +23,13 @@ const ForgotPasswordScreen: React.FC = () => {
   const router = useRouter();
   const [formKey, setFormKey] = useState(0);
 
-  // Reset formKey each time the screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      setFormKey((prev) => prev + 1);
-    }, [])
-  );
-
-  const handleRequestReset = (values: { email: string }) => {
+  const handleRequestReset = (values: { email: string }, resetForm: () => void) => {
     const { email } = values;
     const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
     cognitoUser.forgotPassword({
       onSuccess: () => {
         Alert.alert('Check your email', 'A verification code has been sent.');
+        resetForm(); // איפוס השדות אחרי השליחה
         router.push({ pathname: '/newPassword', params: { email } });
       },
       onFailure: (err) => {
@@ -47,15 +41,18 @@ const ForgotPasswordScreen: React.FC = () => {
   return (
     <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
       <View style={styles.container}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={30} color="#fff" />
+        </TouchableOpacity>
         <Text style={styles.title}>Reset Your Password</Text>
         <View style={styles.card}>
           <Formik
             key={formKey}  // Formik remounts when key changes
-            initialValues={{ email: '' }}
+            initialValues={{ email: '' }} // שדה המייל ריק בהתחלה
             validationSchema={EmailSchema}
-            onSubmit={handleRequestReset}
+            onSubmit={(values, { resetForm }) => handleRequestReset(values, resetForm)}
           >
-            {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+            {({ handleChange, handleBlur, handleSubmit, values, errors, touched, resetForm }) => (
               <>
                 <TextInput
                   placeholder="Email"
@@ -80,8 +77,6 @@ const ForgotPasswordScreen: React.FC = () => {
   );
 };
 
-export default ForgotPasswordScreen;
-
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   container: { flex: 1, padding: 16, justifyContent: 'center', alignItems: 'center' },
@@ -91,4 +86,13 @@ const styles = StyleSheet.create({
   error: { color: '#ff4d4d', marginBottom: 8, fontSize: 14 },
   button: { backgroundColor: '#11998e', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  backButton: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    padding: 10,
+    borderRadius: 8,
+  },
 });
+
+export default ForgotPasswordScreen;

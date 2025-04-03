@@ -17,8 +17,6 @@ const VerificationScreen: React.FC = () => {
   const [formKey, setFormKey] = useState(0);
 
   const handleVerification = (values: { verificationCode: string }) => {
-    // Here, you could add additional format checks.
-    // Then navigate to the new password screen, passing email and the entered code.
     router.push({
       pathname: '/newPassword',
       params: { email, verificationCode: values.verificationCode },

@@ -11,6 +11,7 @@ interface Hospital {
   distance: string;
   latitude: number;
   longitude: number;
+  phone: string;  
 }
 
 const HospitalsScreen: React.FC = () => {
@@ -18,7 +19,7 @@ const HospitalsScreen: React.FC = () => {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null); // Track selected hospital
+  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
 
   const emergencyContacts = [
     { name: 'משטרה', phone: '100' },
@@ -39,7 +40,7 @@ const HospitalsScreen: React.FC = () => {
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; 
+    return R * c;
   };
 
   // Function to handle navigation to Waze when the user presses the "Navigate" button
@@ -80,6 +81,7 @@ const HospitalsScreen: React.FC = () => {
             distance: `${distance.toFixed(2)} km`,
             latitude: hospital.lat,
             longitude: hospital.lon,
+            phone: hospital.phone,  
           };
         });
 
@@ -106,14 +108,13 @@ const HospitalsScreen: React.FC = () => {
   };
 
   const handleSelectHospital = (hospital: Hospital) => {
-    setSelectedHospital(hospital); // Update the selected hospital
+    setSelectedHospital(hospital);
   };
 
   const handleDeselectHospital = () => {
-    setSelectedHospital(null); // Deselect hospital when clicking outside
+    setSelectedHospital(null);
   };
 
-  // Only show navigation button if a hospital is selected
   const renderNavigateButton = selectedHospital && (
     <View style={styles.navigateButtonContainer}>
       <TouchableOpacity
@@ -167,19 +168,21 @@ const HospitalsScreen: React.FC = () => {
               title={hospital.name}
               description={`Distance: ${hospital.distance}`}
               pinColor="#FF7043"
-              onPress={() => handleSelectHospital(hospital)} // Store the selected hospital
+              onPress={() => handleSelectHospital(hospital)} 
             >
               <Callout>
                 <View style={styles.calloutContainer}>
                   <Text style={styles.hospitalName}>{hospital.name}</Text>
                   <Text style={styles.hospitalDistance}>{hospital.distance}</Text>
+                  <Text style={styles.hospitalPhone} onPress={() => handleCall(hospital.phone)}>
+                    {hospital.phone}
+                  </Text>
                 </View>
               </Callout>
             </Marker>
           ))}
         </MapView>
 
-        {/* Only show the navigation button if a hospital is selected */}
         {selectedHospital && renderNavigateButton}
 
         <FlatList
@@ -189,6 +192,9 @@ const HospitalsScreen: React.FC = () => {
             <View style={styles.hospitalItem}>
               <Text style={styles.hospitalName}>{item.name}</Text>
               <Text style={styles.hospitalDistance}>{item.distance}</Text>
+              <Text style={styles.hospitalPhone} onPress={() => handleCall(item.phone)}>
+                {item.phone}
+              </Text>
             </View>
           )}
           contentContainerStyle={styles.listContainer}
@@ -199,7 +205,6 @@ const HospitalsScreen: React.FC = () => {
         <BottomSheet index={0} snapPoints={snapPoints} style={styles.bottomSheet}>
           <View style={styles.bottomSheetContent}>
             <Text style={styles.emergencyContactsTitle}>מספרי חירום</Text>
-            
             <BottomSheetFlatList
               data={emergencyContacts}
               keyExtractor={(item) => item.phone}
@@ -236,17 +241,10 @@ const styles = StyleSheet.create({
   },
   hospitalName: { fontSize: 14, fontWeight: 'bold', color: '#FF7043' },
   hospitalDistance: { fontSize: 12, color: '#757575' },
-  selectedHospitalContainer: {
-    padding: 12,
-    marginVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
+  hospitalPhone: {
+    fontSize: 12,
+    color: '#007AFF',
+    textDecorationLine: 'underline',
   },
   calloutContainer: {
     padding: 10,
@@ -255,8 +253,8 @@ const styles = StyleSheet.create({
   },
   navigateButtonContainer: {
     position: 'absolute',
-    bottom: 380,
-    right: 10,
+    top: 10,
+    left: 10,
     zIndex: 999,
   },
   navigateButton: {
@@ -264,7 +262,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
-    width: 150, // Adjust width for the button
+    width: 150, 
   },
   navigateButtonText: {
     color: 'white',
@@ -301,8 +299,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FF7043',
-    marginBottom: 10, 
-    marginTop: -20, 
+    marginBottom: 10,
+    marginTop: -20,
     textAlign: 'center',
   },
 });

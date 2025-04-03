@@ -42,10 +42,13 @@ const VerifySignUpScreen: React.FC = () => {
           <Formik
             initialValues={{ code: '' }}
             validationSchema={VerifySchema}
-            onSubmit={handleVerify}
+            onSubmit={(values, { resetForm }) => {
+              handleVerify(values);
+              resetForm();
+            }}
           >
             {({ handleChange, handleSubmit, values, errors, touched }) => (
-              <>
+              <View>
                 <TextInput
                   placeholder="Verification Code"
                   placeholderTextColor="#888"
@@ -59,7 +62,7 @@ const VerifySignUpScreen: React.FC = () => {
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Verify</Text>
                 </TouchableOpacity>
-              </>
+              </View>
             )}
           </Formik>
         </View>
