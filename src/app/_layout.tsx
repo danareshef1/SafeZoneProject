@@ -57,10 +57,6 @@ const CustomDrawerContent = () => {
         <MaterialIcons name="history" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Alarm History</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/mainScreen')}>
-        <MaterialIcons name="dashboard" size={24} color="#333" />
-        <Text style={styles.drawerItemText}>Main Screen</Text>
-      </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/MyReportsScreen')}>
    <MaterialIcons name="assignment" size={24} color="#333" />
        <Text style={styles.drawerItemText}>My Reports</Text>
@@ -168,7 +164,6 @@ const RootNavigator = () => {
           <Drawer.Screen name="/QnAScreen" options={{ title: 'Safe Zone' }} />
           <Drawer.Screen name="/HospitalScreen" options={{ title: 'Safe Zone' }} />
           <Drawer.Screen name="/AlarmHistoryScreen" options={{ title: 'Safe Zone' }} />
-          <Drawer.Screen name="/mainScreen" options={{ title: 'Safe Zone' }} />
           <Drawer.Screen name="/MyReportsScreen" options={{ title: 'Safe Zone' }} />
         </>
       ) : (
