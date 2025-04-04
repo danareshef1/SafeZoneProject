@@ -41,7 +41,7 @@ const ContactsButton = () => {
         .filter((num) => !!num);
 
       try {
-        const response = await fetch('hhttps://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
+        const response = await fetch('https://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

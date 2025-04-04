@@ -9,8 +9,8 @@ import {
 } from 'amazon-cognito-identity-js';
 
 const poolData = {
-  UserPoolId: 'us-east-1_D2gEiWghw',
-  ClientId: '3ari019pia44dhfpb0okane3ir',
+  UserPoolId: 'us-east-1_TgQIZsQBQ',
+  ClientId: '5tthevvlvskttb7ec21j5u1gtj',
 };
 
 const userPool = new CognitoUserPool(poolData);
@@ -89,8 +89,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     });
   };
-  
-  
 
   const login = async (username: string, password: string) => {
     return new Promise((resolve, reject) => {

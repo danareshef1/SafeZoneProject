@@ -9,9 +9,10 @@ import * as Yup from 'yup';
 import { useFocusEffect } from '@react-navigation/native';
 
 const poolData = {
-  UserPoolId: 'us-east-1_D2gEiWghw',
-  ClientId: '3ari019pia44dhfpb0okane3ir',
+  UserPoolId: 'us-east-1_TgQIZsQBQ',
+  ClientId: '5tthevvlvskttb7ec21j5u1gtj',
 };
+
 
 const userPool = new CognitoUserPool(poolData);
 
@@ -23,7 +24,6 @@ const ForgotPasswordScreen: React.FC = () => {
   const router = useRouter();
   const [formKey, setFormKey] = useState(0);
 
-  // Reset formKey each time the screen is focused
   useFocusEffect(
     React.useCallback(() => {
       setFormKey((prev) => prev + 1);
@@ -50,7 +50,7 @@ const ForgotPasswordScreen: React.FC = () => {
         <Text style={styles.title}>Reset Your Password</Text>
         <View style={styles.card}>
           <Formik
-            key={formKey}  // Formik remounts when key changes
+            key={formKey} 
             initialValues={{ email: '' }}
             validationSchema={EmailSchema}
             onSubmit={handleRequestReset}

@@ -1,4 +1,3 @@
-// app/signUpScreen.tsx
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { AuthContext } from './AuthContext';

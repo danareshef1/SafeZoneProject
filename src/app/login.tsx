@@ -1,4 +1,3 @@
-// app/login.tsx
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { AuthContext } from './AuthContext';
@@ -69,8 +68,6 @@ const LoginScreen: React.FC = () => {
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign In</Text>
                 </TouchableOpacity>
-
-                {/* FORGOT PASSWORD LINK */}
                 <TouchableOpacity
                   style={styles.linkButton}
                   onPress={() => router.push('/forgotPassword')}

@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
@@ -83,7 +82,6 @@ const RootNavigator = () => {
   useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
-        // Redirect away from auth screens if logged in
         if (
           segments[0] === 'login' ||
           segments[0] === 'signUpScreen' ||
@@ -95,7 +93,6 @@ const RootNavigator = () => {
           router.replace('/');
         }
       } else {
-        // If not logged in, only allow access to auth screens
         if (
           segments[0] !== 'login' &&
           segments[0] !== 'signUpScreen' &&

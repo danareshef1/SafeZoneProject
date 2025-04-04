@@ -1,4 +1,3 @@
-// src/App/AlarmHistoryScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 

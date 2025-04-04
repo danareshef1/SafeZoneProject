@@ -1,4 +1,3 @@
-// app/verifySignUpScreen.tsx
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -8,8 +7,8 @@ import { CognitoUser, CognitoUserPool } from 'amazon-cognito-identity-js';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const poolData = {
-  UserPoolId: 'us-east-1_D2gEiWghw',
-  ClientId: '3ari019pia44dhfpb0okane3ir',
+  UserPoolId: 'us-east-1_TgQIZsQBQ',
+  ClientId: '5tthevvlvskttb7ec21j5u1gtj',
 };
 
 const userPool = new CognitoUserPool(poolData);
