@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { CognitoUser, CognitoUserPool } from 'amazon-cognito-identity-js';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Formik } from 'formik';
@@ -102,3 +102,7 @@ const styles = StyleSheet.create({
 });
 
 export default ForgotPasswordScreen;
+function resetForm() {
+  throw new Error('Function not implemented.');
+}
+
