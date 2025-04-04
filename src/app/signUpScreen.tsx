@@ -5,14 +5,15 @@ import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons'; 
 
 const SignUpSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
   password: Yup.string().required('Password is required.'),
   email: Yup.string().email('Invalid email').required('Email is required.'),
   phone: Yup.string()
-  .required('Phone number is required.')
-  .matches(/^\+?[0-9]{10,14}$/, 'Invalid phone number'),
+    .required('Phone number is required.')
+    .matches(/^\+?[0-9]{10,14}$/, 'Invalid phone number'),
 });
 
 const SignUpScreen: React.FC = () => {
@@ -32,15 +33,21 @@ const SignUpScreen: React.FC = () => {
   return (
     <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
       <View style={styles.container}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialIcons name="arrow-back" size={30} color="#fff" />
+        </TouchableOpacity>
         <Text style={styles.title}>Create Account</Text>
         <View style={styles.card}>
           <Formik
             initialValues={{ username: '', password: '', email: '', phone: '' }}
             validationSchema={SignUpSchema}
-            onSubmit={handleSignUp}
+            onSubmit={async (values, { resetForm }) => {
+              await handleSignUp(values);
+              resetForm();
+            }}
           >
             {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-              <>
+              <View>
                 <TextInput
                   placeholder="Username"
                   placeholderTextColor="#888"
@@ -89,7 +96,7 @@ const SignUpScreen: React.FC = () => {
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign Up</Text>
                 </TouchableOpacity>
-              </>
+              </View>
             )}
           </Formik>
         </View>
@@ -151,6 +158,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 40,
+    zIndex: 1,
   },
 });
 
