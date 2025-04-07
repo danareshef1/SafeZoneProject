@@ -12,7 +12,6 @@ const poolData = {
   ClientId: '5tthevvlvskttb7ec21j5u1gtj',
 };
 
-
 const userPool = new CognitoUserPool(poolData);
 
 const EmailSchema = Yup.object().shape({

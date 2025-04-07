@@ -40,7 +40,38 @@ const HomeScreen: React.FC = () => {
 
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
+  const [alerts, setAlerts] = useState<Alarm[]>([]);
 
+  type Alarm = {
+    id: string;
+    time: string;
+    description: string;
+  };
+  
+  const fetchAlerts = async () => {
+    try {
+      const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts'); 
+      const rawData = await response.json();
+  
+      const body = typeof rawData.body === 'string' ? JSON.parse(rawData.body) : rawData.body ?? rawData;
+  
+      if (!Array.isArray(body)) {
+        console.error('❌ Alerts are not in array format:', body);
+        return;
+      }
+  
+      const formatted = body.map((item: any, index: number) => ({
+        id: item.alertId || index.toString(),
+        time: new Date(item.timestamp).toLocaleTimeString('he-IL'),
+        description: `אזעקה ב${item.city}`,
+      }));
+  
+      setAlerts(formatted);
+    } catch (error) {
+      console.error('שגיאה בקבלת התראות:', error);
+    }
+  };
+  
   const fetchShelters = async () => {
     try {
       const response = await fetch(API_URL);
@@ -57,6 +88,7 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     fetchShelters();
+    fetchAlerts();
   }, []);
 
   useFocusEffect(
@@ -214,6 +246,21 @@ const HomeScreen: React.FC = () => {
             />
           ))}
         </MapView>
+        {alerts.length > 0 && (
+  <View style={styles.alertsContainer}>
+    <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
+    {alerts.slice(0, 5).map((alert) => (
+      <View key={alert.id} style={styles.alertItem}>
+        <Text style={styles.alertIcon}>🚨</Text>
+        <View style={styles.alertTextContainer}>
+          <Text style={styles.alertDescription}>{alert.description}</Text>
+          <Text style={styles.alertTime}>{alert.time}</Text>
+        </View>
+      </View>
+    ))}
+  </View>
+)}
+
 
         {selectedShelter && (
   <>
@@ -336,6 +383,65 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  alertsContainer: {
+    backgroundColor: '#f9f9f9',
+    marginHorizontal: 10,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  
+  alertsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'right',
+    color: '#333',
+  },
+  
+  alertItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e74c3c',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  
+  alertIcon: {
+    fontSize: 22,
+    marginLeft: 10,
+  },
+  
+  alertTextContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  
+  alertDescription: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#444',
+    marginBottom: 2,
+  },
+  
+  alertTime: {
+    fontSize: 13,
+    color: '#888',
+  },  
 });
 
 export default HomeScreen;
