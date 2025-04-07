@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { getAuthUserEmail } from './auth';
 import * as Location from 'expo-location';
 
-const API_URL = 'https://ker0ncay9f.execute-api.us-east-1.amazonaws.com/prod/update-location';
+const API_URL = 'https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/update-location';
 
 const getCityFromCoordinates = async (lat: number, lon: number): Promise<string | null> => {
     const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });

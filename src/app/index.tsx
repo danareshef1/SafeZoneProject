@@ -467,6 +467,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#888',
   },  
+  refreshButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  
+  refreshButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  
 });
 
 export default HomeScreen;

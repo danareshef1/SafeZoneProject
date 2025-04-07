@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { LinearGradient } from 'expo-linear-gradient';
+import { sendLocationToBackend } from '../../utils/api';
+import * as Location from 'expo-location';
 
 const LoginSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
@@ -18,6 +20,13 @@ const LoginScreen: React.FC = () => {
   const handleLogin = async (values: { username: string; password: string }) => {
     try {
       await login(values.username, values.password);
+  
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
+      }
+  
       router.replace('/');
     } catch (error: any) {
       if (error.code === 'UserNotConfirmedException') {
@@ -26,7 +35,7 @@ const LoginScreen: React.FC = () => {
       } else {
         Alert.alert('Login Failed', error.message || 'Invalid username or password.');
       }
-    }
+    }  
   };
 
   return (
