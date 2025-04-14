@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
   Button,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
@@ -22,10 +23,11 @@ import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system'; 
 import { Buffer } from 'buffer'; 
-import { sendLocationToBackend } from '../../utils/api'; // תוודאי שהנתיב נכון
+import { sendLocationToBackend } from '../../utils/api'; 
+import { Ionicons } from '@expo/vector-icons';
 
 
-const API_URL = 'https://3izjdv6ao0.execute-api.us-east-1.amazonaws.com/shelters';
+const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
 
 const HomeScreen: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
@@ -46,7 +48,8 @@ const HomeScreen: React.FC = () => {
   type Alarm = {
     id: string;
     time: string;
-    description: string;
+    descriptions: string[];
+    expanded?: boolean;
   };
   
   const fetchAlerts = async () => {
@@ -61,17 +64,40 @@ const HomeScreen: React.FC = () => {
         return;
       }
   
-      const formatted = body.map((item: any, index: number) => ({
-        id: item.alertId || index.toString(),
-        time: new Date(item.timestamp).toLocaleTimeString('he-IL'),
-        description: `אזעקה ב${item.city}`,
-      }));
+      const grouped: Record<string, Alarm> = {};
   
-      setAlerts(formatted);
+      body.forEach((item: any, index: number) => {
+        const timestamp = new Date(item.timestamp);
+        const israelTime = new Intl.DateTimeFormat('he-IL', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Jerusalem',
+        }).format(timestamp);
+                const timeIL = new Intl.DateTimeFormat('he-IL', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Jerusalem',
+        }).format(timestamp); // HH:mm Israel time
+  
+        if (!grouped[timeIL]) {
+          grouped[timeIL] = {
+            id: index.toString(),
+            time: israelTime,
+            descriptions: [],
+            expanded: false,
+          };
+        }
+  
+        grouped[timeIL].descriptions.push(`${item.city}`);
+      });
+  
+      const groupedAlerts = Object.values(grouped);
+      setAlerts(groupedAlerts);
     } catch (error) {
       console.error('שגיאה בקבלת התראות:', error);
     }
   };
+  
   
   const fetchShelters = async () => {
     try {
@@ -167,7 +193,7 @@ const HomeScreen: React.FC = () => {
   
   const getSignedUploadUrl = async (type: 'shelter') => {
     const response = await fetch(
-      'https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl',
+      'https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -273,18 +299,66 @@ const HomeScreen: React.FC = () => {
           ))}
         </MapView>
         {alerts.length > 0 && (
-  <View style={styles.alertsContainer}>
-    <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
-    {alerts.slice(0, 5).map((alert) => (
-      <View key={alert.id} style={styles.alertItem}>
-        <Text style={styles.alertIcon}>🚨</Text>
-        <View style={styles.alertTextContainer}>
-          <Text style={styles.alertDescription}>{alert.description}</Text>
+          <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
+  <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
+  <View style={{ flexGrow: 1 }}>
+    <ScrollView>
+    {alerts.map((alert, idx) => {
+  const isMultiple = alert.descriptions.length > 1;
+  const Container = isMultiple ? TouchableOpacity : View;
+
+  return (
+    <Container
+      key={alert.id}
+      style={styles.alertItem}
+      {...(isMultiple && {
+        onPress: () =>
+          setAlerts((prev) =>
+            prev.map((a, i) => ({
+              ...a,
+              expanded: i === idx ? !a.expanded : false,
+            }))
+          ),
+      })}
+    >
+      <Text style={styles.alertIcon}>🚨</Text>
+      <View style={[styles.alertTextContainer, { flexDirection: 'row-reverse', alignItems: 'center' }]}>
+      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          {isMultiple && alert.expanded ? (
+            alert.descriptions.map((desc, i) => (
+              <Text key={i} style={styles.alertDescription}>
+                {desc}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.alertDescription}>
+              {isMultiple
+                ? `${alert.descriptions.length} איזורי התראה`
+                : alert.descriptions[0]}
+            </Text>
+          )}
           <Text style={styles.alertTime}>{alert.time}</Text>
         </View>
+        {isMultiple && (
+          <Ionicons
+  name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+  size={20}
+  color="#666"
+  style={{ marginRight: 10, alignSelf: 'flex-start' }}
+/>
+
+        )}
       </View>
-    ))}
+    </Container>
+  );
+})}
+
+
+    </ScrollView>
   </View>
+</View>
+
+
 )}
 
 

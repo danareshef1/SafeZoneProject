@@ -57,7 +57,7 @@ const ShelterInfoScreen = () => {
         const email = await getAuthUserEmail();
         if (!email) return;
   
-        const res = await fetch(`https://ker0ncay9f.execute-api.us-east-1.amazonaws.com/prod/get-user-location?email=${email}`);
+        const res = await fetch(` https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const data = await res.json();
   
         if (data.city) {

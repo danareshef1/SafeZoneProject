@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { ToastAndroid, Platform, Alert, TouchableOpacity } from 'react-native';
 
-const REPORTS_URL = 'https://ghidbhwemf.execute-api.us-east-1.amazonaws.com/prod/report';
+const REPORTS_URL = ' https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
 
 type Report = {
   reportId: string;
