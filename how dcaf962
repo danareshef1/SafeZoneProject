@@ -1,0 +1,83 @@
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{0}: reset: moving to dcaf962
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{1}: reset: moving to dcaf962
+[33m497aafd[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{2}: reset: moving to 497aafd
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{3}: reset: moving to HEAD~1
+[33m629bbf7[m HEAD@{4}: pull: Fast-forward
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{5}: reset: moving to HEAD~1
+[33m629bbf7[m HEAD@{6}: commit (merge): merge
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{7}: checkout: moving from alertsNotifications to main
+[33m614d767[m[33m ([m[1;31morigin/alertsNotifications[m[33m, [m[1;32malertsNotifications[m[33m)[m HEAD@{8}: commit: update alerts history
+[33md042e79[m HEAD@{9}: commit: update user locaion
+[33m6874929[m HEAD@{10}: commit (cherry-pick): add alerts history screen
+[33m7041667[m HEAD@{11}: checkout: moving from alertsNotifications to alertsNotifications
+[33m7041667[m HEAD@{12}: reset: moving to HEAD
+[33m7041667[m HEAD@{13}: checkout: moving from alertsNotifications to alertsNotifications
+[33m7041667[m HEAD@{14}: checkout: moving from main to alertsNotifications
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{15}: checkout: moving from alertNotifications to main
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{16}: checkout: moving from main to alertNotifications
+[33mdcaf962[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{17}: commit: add alerts history screen
+[33mf4bd0cd[m HEAD@{18}: reset: moving to HEAD
+[33mf4bd0cd[m HEAD@{19}: commit: merge with loginScreen
+[33m497aafd[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{20}: commit (merge): Merge remote-tracking branch 'origin/loginScreen'
+[33m261745f[m HEAD@{21}: checkout: moving from main to main
+[33m261745f[m HEAD@{22}: reset: moving to HEAD
+[33m261745f[m HEAD@{23}: commit: move to new lab - done
+[33m730f185[m HEAD@{24}: commit: move to new lab - no shelters no cognito
+[33m24a314a[m[33m ([m[1;31morigin/hospitals[m[33m)[m HEAD@{25}: pull --tags origin main: Fast-forward
+[33m4f3486b[m HEAD@{26}: checkout: moving from alertsNotifications to main
+[33m7041667[m HEAD@{27}: commit: getL location from data base
+[33me69d8c0[m HEAD@{28}: commit: remove alert screen from drawer
+[33m439c15a[m HEAD@{29}: commit: notifications works
+[33m6c710c9[m HEAD@{30}: commit: start find user location
+[33m4f3486b[m HEAD@{31}: checkout: moving from main to alertsNotifications
+[33m4f3486b[m HEAD@{32}: commit: remove logs
+[33m3d2d7b7[m HEAD@{33}: commit: add loading time after sending report
+[33m01ec33e[m HEAD@{34}: commit: merge fixes
+[33m30d4d32[m HEAD@{35}: commit (merge): Merge branch 'saveImagesToBucket'
+[33mc291553[m HEAD@{36}: pull origin main: Fast-forward
+[33m3e3c144[m[33m ([m[1;31morigin/saveReports[m[33m, [m[1;32msaveReports[m[33m)[m HEAD@{37}: checkout: moving from saveImagesToBucket to main
+[33mc4a8a93[m[33m ([m[1;31morigin/saveImagesToBucket[m[33m, [m[1;32msaveImagesToBucket[m[33m)[m HEAD@{38}: checkout: moving from saveImagesToBucket to saveImagesToBucket
+[33mc4a8a93[m[33m ([m[1;31morigin/saveImagesToBucket[m[33m, [m[1;32msaveImagesToBucket[m[33m)[m HEAD@{39}: commit: done
+[33m176a1e5[m HEAD@{40}: commit: Describe the changes
+[33m3e3c144[m[33m ([m[1;31morigin/saveReports[m[33m, [m[1;32msaveReports[m[33m)[m HEAD@{41}: checkout: moving from main to saveImagesToBucket
+[33m3e3c144[m[33m ([m[1;31morigin/saveReports[m[33m, [m[1;32msaveReports[m[33m)[m HEAD@{42}: merge saveReports: Fast-forward
+[33m5e7edc8[m HEAD@{43}: checkout: moving from saveReports to main
+[33m3e3c144[m[33m ([m[1;31morigin/saveReports[m[33m, [m[1;32msaveReports[m[33m)[m HEAD@{44}: commit: reports history - working
+[33m5e7edc8[m HEAD@{45}: checkout: moving from main to saveReports
+[33m5e7edc8[m HEAD@{46}: commit: fix merge
+[33me9d9b3f[m HEAD@{47}: commit: merge fix
+[33ma97db72[m HEAD@{48}: commit (merge): Merge branch 'reportShelter'
+[33m314f344[m[33m ([m[1;31morigin/contacts[m[33m)[m HEAD@{49}: pull origin main: Fast-forward
+[33mdfd7e9a[m HEAD@{50}: checkout: moving from reportShelter to main
+[33m4a0cb8a[m[33m ([m[1;31morigin/reportShelter[m[33m, [m[1;32mreportShelter[m[33m)[m HEAD@{51}: commit: save reports
+[33m2f1d3e6[m HEAD@{52}: commit: add photo to shelter
+[33m7d6882a[m HEAD@{53}: commit: color working
+[33maa7498b[m HEAD@{54}: commit: colors show on map after report
+[33m3f888c8[m HEAD@{55}: commit: start fix colors
+[33m7df9b39[m HEAD@{56}: commit: Add shelter report feature
+[33mdfd7e9a[m HEAD@{57}: checkout: moving from main to reportShelter
+[33mdfd7e9a[m HEAD@{58}: pull --tags origin main: Fast-forward
+[33m412c6c8[m HEAD@{59}: pull --tags origin main: Fast-forward
+[33m9ef0e40[m HEAD@{60}: pull --tags origin main: Fast-forward
+[33m9acf9d6[m HEAD@{61}: commit: timer
+[33m9c1d0ef[m HEAD@{62}: commit: report screen working
+[33m82442ef[m HEAD@{63}: pull: Fast-forward
+[33m055ac0a[m HEAD@{64}: checkout: moving from home-page to main
+[33m30340da[m[33m ([m[1;31morigin/home-page[m[33m, [m[1;32mhome-page[m[33m)[m HEAD@{65}: commit: report shelter screen
+[33mef67d32[m HEAD@{66}: checkout: moving from main to home-page
+[33m055ac0a[m HEAD@{67}: reset: moving to HEAD
+[33m055ac0a[m HEAD@{68}: pull: Fast-forward
+[33meeac5e3[m HEAD@{69}: pull --tags origin main: Fast-forward
+[33md3a3fe4[m HEAD@{70}: checkout: moving from home-page to main
+[33mef67d32[m HEAD@{71}: commit: report shelters
+[33m5071ef7[m HEAD@{72}: checkout: moving from main to home-page
+[33md3a3fe4[m HEAD@{73}: pull --tags origin main: Fast-forward
+[33md43e4e4[m HEAD@{74}: pull --tags origin main: Fast-forward
+[33me1a17c4[m HEAD@{75}: checkout: moving from home-page to main
+[33m5071ef7[m HEAD@{76}: commit: color change after report
+[33mc7dcf0a[m HEAD@{77}: commit: status buttons
+[33m10376cf[m HEAD@{78}: commit: start from my location
+[33m865432b[m HEAD@{79}: commit: start shelters map
+[33me1a17c4[m HEAD@{80}: checkout: moving from main to home-page
+[33me1a17c4[m HEAD@{81}: commit: added yarn
+[33mafc30cf[m HEAD@{82}: clone: from https://github.com/danareshef1/SafeZoneProject.git
