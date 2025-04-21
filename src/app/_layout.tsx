@@ -1,6 +1,7 @@
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
+import { Slot, useSegments, useRouter } from 'expo-router';
 import {
   TouchableOpacity,
   StyleSheet,
@@ -11,14 +12,13 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
-import { useRouter, useSegments } from 'expo-router';
 import ContactsButton from './contactsButton';
 import { ShelterProvider } from './contexts/ShelterContext';
 
 const HomeButton = () => {
   const router = useRouter();
   return (
-    <TouchableOpacity onPress={() => router.push('/')} style={styles.homeButton}>
+    <TouchableOpacity onPress={() => router.push('/home')} style={styles.homeButton}>
       <MaterialIcons name="home" size={24} color="#fff" />
     </TouchableOpacity>
   );
@@ -39,7 +39,7 @@ const CustomDrawerContent = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.drawerContainer}>
-      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/')}>
+      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/home')}>
         <MaterialIcons name="home" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Home</Text>
       </TouchableOpacity>
@@ -60,9 +60,9 @@ const CustomDrawerContent = () => {
         <Text style={styles.drawerItemText}>Main Screen</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/MyReportsScreen')}>
-   <MaterialIcons name="assignment" size={24} color="#333" />
-       <Text style={styles.drawerItemText}>My Reports</Text>
-        </TouchableOpacity>
+        <MaterialIcons name="assignment" size={24} color="#333" />
+        <Text style={styles.drawerItemText}>My Reports</Text>
+      </TouchableOpacity>
 
       <View style={styles.logoutSection}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -115,6 +115,12 @@ const RootNavigator = () => {
     );
   }
 
+  // אם זה מסך הספלש (index) – לא מציגים Drawer או Header
+  if ((segments[0] as string) === 'index') {
+    return <Slot />;
+  }
+
+  // בשאר המסכים – מציגים Drawer ו־Header
   return (
     <Drawer
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}
@@ -148,6 +154,7 @@ const RootNavigator = () => {
         ),
       }}
     >
+      <Slot />
     </Drawer>
   );
 };
@@ -156,8 +163,8 @@ export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-      <ShelterProvider>
-        <RootNavigator />
+        <ShelterProvider>
+          <RootNavigator />
         </ShelterProvider>
       </AuthProvider>
     </GestureHandlerRootView>

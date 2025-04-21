@@ -208,7 +208,7 @@ const ShelterDetail: React.FC = () => {
       setShowComboBox(false);
       setSearchText('');
   
-      router.push('/');
+      router.push('/home');
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert('Error', 'Unable to submit your report.');
@@ -221,7 +221,7 @@ const ShelterDetail: React.FC = () => {
   
 
   const handleCancel = () => {
-    router.push('/');
+    router.push('/home');
   };
 
   return (
