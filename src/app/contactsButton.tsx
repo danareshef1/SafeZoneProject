@@ -92,7 +92,7 @@ const ContactsButton = () => {
       const stored = await AsyncStorage.getItem('selectedContacts');
       const currentSet = new Set(stored ? JSON.parse(stored) : []);
       if (currentSet.has(id)) {
-        await fetch(' https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/saveContact', {
+        await fetch('https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/saveContact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, phone: normalizedPhone, name }),
