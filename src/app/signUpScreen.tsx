@@ -1,11 +1,18 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ImageBackground,
+} from 'react-native';
 import { AuthContext } from './AuthContext';
 import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons'; 
+import { MaterialIcons } from '@expo/vector-icons';
 
 const SignUpSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
@@ -19,20 +26,30 @@ const SignUpSchema = Yup.object().shape({
 const SignUpScreen: React.FC = () => {
   const { signUp } = useContext(AuthContext);
   const router = useRouter();
-
-  const handleSignUp = async (values: { username: string; password: string; email: string; phone: string }) => {
+  const handleSignUp = async (values: {
+    username: string;
+    password: string;
+    email: string;
+    phone: string;
+  }) => {
     try {
       await signUp(values.username, values.password, values.email, values.phone);
       Alert.alert('Registration Successful', 'Please check your email for the verification code.');
       router.push(`/verifySignUpScreen?username=${values.username}`);
     } catch (error: any) {
       Alert.alert('Sign Up Failed', error.message || 'An error occurred during registration.');
+      throw error; // 🔥 נזרוק הלאה כדי ש־resetForm לא יקרה
     }
   };
+  
 
   return (
-    <LinearGradient colors={['#11998e', '#38ef7d']} style={styles.gradient}>
-      <View style={styles.container}>
+    <ImageBackground
+      source={require('../../assets/images/newLogo-removebg-preview.png')}
+      style={styles.background}
+      imageStyle={styles.backgroundImage}
+    >
+      <View style={styles.overlay}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={30} color="#fff" />
         </TouchableOpacity>
@@ -42,12 +59,17 @@ const SignUpScreen: React.FC = () => {
             initialValues={{ username: '', password: '', email: '', phone: '' }}
             validationSchema={SignUpSchema}
             onSubmit={async (values, { resetForm }) => {
-              await handleSignUp(values);
-              resetForm();
-            }}
+              try {
+                await handleSignUp(values);
+                resetForm(); // ✅ רק אחרי הצלחה
+              } catch (error) {
+                // ❌ אל תאפסי את הטופס אם יש שגיאה
+                console.error('Sign up failed:', error);
+              }
+            }}            
           >
             {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-              <View>
+              <>
                 <TextInput
                   placeholder="Username"
                   placeholderTextColor="#888"
@@ -63,6 +85,8 @@ const SignUpScreen: React.FC = () => {
                   placeholder="Email"
                   placeholderTextColor="#888"
                   style={styles.input}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                   onChangeText={handleChange('email')}
                   onBlur={handleBlur('email')}
                   value={values.email}
@@ -74,6 +98,7 @@ const SignUpScreen: React.FC = () => {
                   placeholder="Phone Number"
                   placeholderTextColor="#888"
                   style={styles.input}
+                  keyboardType="phone-pad"
                   onChangeText={handleChange('phone')}
                   onBlur={handleBlur('phone')}
                   value={values.phone}
@@ -96,75 +121,81 @@ const SignUpScreen: React.FC = () => {
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign Up</Text>
                 </TouchableOpacity>
-              </View>
+              </>
             )}
           </Formik>
         </View>
       </View>
-    </LinearGradient>
+    </ImageBackground>
   );
 };
 
+export default SignUpScreen;
 const styles = StyleSheet.create({
-  gradient: {
+  background: {
     flex: 1,
   },
-  container: {
+  backgroundImage: {
+    resizeMode: 'contain',
+    transform: [{ scale: 1.2 }],
+    alignSelf: 'center',
+  },
+  overlay: {
     flex: 1,
+    backgroundColor: 'rgba(176, 255, 247, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#11998e',
     marginBottom: 20,
-    textAlign: 'center',
+  },
+  card: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   input: {
-    height: 50,
+    height: 45,
+    backgroundColor: '#f9f9f9',
     borderColor: '#ddd',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingHorizontal: 15,
     marginBottom: 12,
     fontSize: 16,
     color: '#333',
   },
   error: {
     color: '#ff4d4d',
-    marginBottom: 8,
     fontSize: 14,
+    marginBottom: 8,
   },
   button: {
     backgroundColor: '#11998e',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   backButton: {
     position: 'absolute',
-    left: 20,
     top: 40,
-    zIndex: 1,
+    left: 20,
+    padding: 10,
   },
 });
-
-export default SignUpScreen;

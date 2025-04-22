@@ -139,12 +139,13 @@ const RootNavigator = () => {
     );
   }
 
-  // אם זה מסך הספלש (index) – לא מציגים Drawer או Header
   if ((segments[0] as string) === 'index') {
+    
+
     return <Slot />;
+
   }
 
-  // בשאר המסכים – מציגים Drawer ו־Header
   return (
     <Drawer
       drawerContent={() => (isLoggedIn ? <CustomDrawerContent /> : undefined)}

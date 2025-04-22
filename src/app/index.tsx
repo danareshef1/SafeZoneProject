@@ -19,6 +19,7 @@ export default function SplashScreen() {
         style={styles.logo}
       />
     </View>
+    
   );
 }
 
