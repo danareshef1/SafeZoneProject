@@ -1,4 +1,3 @@
-// app/home.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -7,7 +6,9 @@ import {
   Alert,
   ActivityIndicator,
   TouchableWithoutFeedback,
+  Button,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView from 'react-native-maps';
@@ -20,9 +21,11 @@ import { Shelter } from '../types/Shelter';
 import { useFocusEffect } from '@react-navigation/native';
 import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 import * as ImagePicker from 'expo-image-picker';
-import { Image, Text as RNText } from 'react-native';
 import * as FileSystem from 'expo-file-system'; 
 import { Buffer } from 'buffer'; 
+import { sendLocationToBackend } from '../../utils/api'; 
+import { Ionicons } from '@expo/vector-icons';
+
 
 const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
 
@@ -40,7 +43,62 @@ const HomeScreen: React.FC = () => {
 
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
+  const [alerts, setAlerts] = useState<Alarm[]>([]);
 
+  type Alarm = {
+    id: string;
+    time: string;
+    descriptions: string[];
+    expanded?: boolean;
+  };
+  
+  const fetchAlerts = async () => {
+    try {
+      const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts'); 
+      const rawData = await response.json();
+  
+      const body = typeof rawData.body === 'string' ? JSON.parse(rawData.body) : rawData.body ?? rawData;
+  
+      if (!Array.isArray(body)) {
+        console.error('❌ Alerts are not in array format:', body);
+        return;
+      }
+  
+      const grouped: Record<string, Alarm> = {};
+  
+      body.forEach((item: any, index: number) => {
+        const timestamp = new Date(item.timestamp);
+        const israelTime = new Intl.DateTimeFormat('he-IL', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Jerusalem',
+        }).format(timestamp);
+                const timeIL = new Intl.DateTimeFormat('he-IL', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Jerusalem',
+        }).format(timestamp); // HH:mm Israel time
+  
+        if (!grouped[timeIL]) {
+          grouped[timeIL] = {
+            id: index.toString(),
+            time: israelTime,
+            descriptions: [],
+            expanded: false,
+          };
+        }
+  
+        grouped[timeIL].descriptions.push(`${item.city}`);
+      });
+  
+      const groupedAlerts = Object.values(grouped);
+      setAlerts(groupedAlerts);
+    } catch (error) {
+      console.error('שגיאה בקבלת התראות:', error);
+    }
+  };
+  
+  
   const fetchShelters = async () => {
     try {
       const response = await fetch(API_URL);
@@ -57,6 +115,7 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     fetchShelters();
+    fetchAlerts();
   }, []);
 
   useFocusEffect(
@@ -67,22 +126,20 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            'Permission Denied',
-            'Permission to access location was denied. Defaulting to Tel Aviv.'
-          );
-          setMapRegion({
-            latitude: 32.0853,
-            longitude: 34.7818,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          });
-          return;
-        }
-
+      const { status } = await Location.requestForegroundPermissionsAsync();
+  
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Permission to access location was denied. Defaulting to Tel Aviv.'
+        );
+        setMapRegion({
+          latitude: 32.0853,
+          longitude: 34.7818,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      } else {
         const location = await Location.getCurrentPositionAsync({});
         setMapRegion({
           latitude: location.coords.latitude,
@@ -90,18 +147,14 @@ const HomeScreen: React.FC = () => {
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         });
-      } catch {
-        Alert.alert('Error', 'Unable to fetch your location. Defaulting to Tel Aviv.');
-        setMapRegion({
-          latitude: 32.0853,
-          longitude: 34.7818,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        });
+  
+        await sendLocationToBackend(
+          location.coords.latitude,
+          location.coords.longitude
+        );
       }
     })();
   }, []);
-
   const handleReport = () => {
     if (selectedShelter) {
       router.push({
@@ -110,7 +163,34 @@ const HomeScreen: React.FC = () => {
       });
     }
   };
-
+  const refreshLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission was denied');
+        return;
+      }
+  
+      const location = await Location.getCurrentPositionAsync({});
+      setMapRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+  
+      await sendLocationToBackend(
+        location.coords.latitude,
+        location.coords.longitude
+      );
+  
+      Alert.alert('Success', 'Location refreshed!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to get current location.');
+      console.error('Error refreshing location:', error);
+    }
+  };
+  
   const getSignedUploadUrl = async (type: 'shelter') => {
     const response = await fetch(
       'https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl',
@@ -197,7 +277,7 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
-        <RNText>Fetching your location...</RNText>
+        <Text>Fetching your location...</Text>
       </View>
     );
   }
@@ -206,6 +286,10 @@ const HomeScreen: React.FC = () => {
     <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={styles.container}>
         <MapView style={styles.map} region={mapRegion}>
+        <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
+  <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
+</TouchableOpacity>
+
           {shelters.map((shelter) => (
             <CustomMarker
               key={`${shelter.id}-${shelter.status}`}
@@ -214,40 +298,103 @@ const HomeScreen: React.FC = () => {
             />
           ))}
         </MapView>
+        {alerts.length > 0 && (
+          <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
+  <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
+  <View style={{ flexGrow: 1 }}>
+    <ScrollView>
+    {alerts.map((alert, idx) => {
+  const isMultiple = alert.descriptions.length > 1;
+  const Container = isMultiple ? TouchableOpacity : View;
+
+  return (
+    <Container
+      key={alert.id}
+      style={styles.alertItem}
+      {...(isMultiple && {
+        onPress: () =>
+          setAlerts((prev) =>
+            prev.map((a, i) => ({
+              ...a,
+              expanded: i === idx ? !a.expanded : false,
+            }))
+          ),
+      })}
+    >
+      <Text style={styles.alertIcon}>🚨</Text>
+      <View style={[styles.alertTextContainer, { flexDirection: 'row-reverse', alignItems: 'center' }]}>
+      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          {isMultiple && alert.expanded ? (
+            alert.descriptions.map((desc, i) => (
+              <Text key={i} style={styles.alertDescription}>
+                {desc}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.alertDescription}>
+              {isMultiple
+                ? `${alert.descriptions.length} איזורי התראה`
+                : alert.descriptions[0]}
+            </Text>
+          )}
+          <Text style={styles.alertTime}>{alert.time}</Text>
+        </View>
+        {isMultiple && (
+          <Ionicons
+  name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+  size={20}
+  color="#666"
+  style={{ marginRight: 10, alignSelf: 'flex-start' }}
+/>
+
+        )}
+      </View>
+    </Container>
+  );
+})}
+
+
+    </ScrollView>
+  </View>
+</View>
+
+
+)}
+
 
         {selectedShelter && (
-          <>
-            <View style={styles.selectedShelter}>
-              <ShelterListItem
-                shelter={selectedShelter}
-                containerStyle={{}}
-                statusColor={getColorByStatus(selectedShelter?.status ?? '')}
-              />
-            </View>
+  <>
+    <View style={styles.selectedShelter}>
+      <ShelterListItem
+        shelter={selectedShelter}
+        containerStyle={{}}
+        statusColor={getColorByStatus(selectedShelter?.status ?? '')}
+      />
+    </View>
 
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
-                <RNText style={styles.actionButtonText}>דווח על מקלט</RNText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleAddImage}
-                disabled={isImageUploading}
-              >
-                {isImageUploading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <RNText style={styles.actionButtonText}>הוסף תמונה</RNText>
-                )}
-              </TouchableOpacity>
-            </View>
-          </>
+    <View style={styles.buttonRow}>
+      <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
+        <Text style={styles.actionButtonText}>דווח על מקלט</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionButton}
+        onPress={handleAddImage}
+        disabled={isImageUploading}
+      >
+        {isImageUploading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.actionButtonText}>הוסף תמונה</Text>
         )}
+      </TouchableOpacity>
+    </View>
+  </>
+)}
+
 
         <BottomSheet index={0} snapPoints={snapPoints}>
           <View style={styles.contentContainer}>
-            <RNText style={styles.listTitle}>Over {shelters.length} shelters</RNText>
+            <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
             <BottomSheetFlatList
               data={shelters}
               contentContainerStyle={{ gap: 10, padding: 10 }}
@@ -265,7 +412,6 @@ const HomeScreen: React.FC = () => {
     </TouchableWithoutFeedback>
   );
 };
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { width: '100%', height: '50%' },
@@ -303,6 +449,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     resizeMode: 'cover',
   },
+  
   buttonRow: {
     position: 'absolute',
     bottom: 60,
@@ -335,6 +482,87 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  alertsContainer: {
+    backgroundColor: '#f9f9f9',
+    marginHorizontal: 10,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  
+  alertsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'right',
+    color: '#333',
+  },
+  
+  alertItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e74c3c',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  
+  alertIcon: {
+    fontSize: 22,
+    marginLeft: 10,
+  },
+  
+  alertTextContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  
+  alertDescription: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#444',
+    marginBottom: 2,
+  },
+  
+  alertTime: {
+    fontSize: 13,
+    color: '#888',
+  },  
+  refreshButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  
+  refreshButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  
 });
 
 export default HomeScreen;
