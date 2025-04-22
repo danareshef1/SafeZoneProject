@@ -55,12 +55,14 @@ const CustomDrawerContent = () => {
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/AlarmHistoryScreen')}>
         <MaterialIcons name="history" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Alarm History</Text>
+      </TouchableOpacity><TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/SearchScreen')}>
+      <MaterialIcons name="search" size={24} color="#333" />
+        <Text style={styles.drawerItemText}>Search</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/MyReportsScreen')}>
         <MaterialIcons name="assignment" size={24} color="#333" />
         <Text style={styles.drawerItemText}>My Reports</Text>
       </TouchableOpacity>
-
       <View style={styles.logoutSection}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={24} color="#333" />

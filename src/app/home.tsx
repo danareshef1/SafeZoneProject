@@ -358,7 +358,7 @@ const HomeScreen: React.FC = () => {
           ) : (
             <Text style={styles.alertDescription}>
               {isMultiple
-                ? `${alert.descriptions.length} איזורי התראה`
+                ? `${alert.descriptions.length} איזורי התרעה`
                 : alert.descriptions[0]}
             </Text>
           )}
