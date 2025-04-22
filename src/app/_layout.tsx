@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import ContactsButton from './contactsButton';
 import { ShelterProvider } from './contexts/ShelterContext';
+import * as Notifications from 'expo-notifications';
 
 const HomeButton = () => {
   const router = useRouter();
@@ -55,10 +56,6 @@ const CustomDrawerContent = () => {
         <MaterialIcons name="history" size={24} color="#333" />
         <Text style={styles.drawerItemText}>Alarm History</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/mainScreen')}>
-        <MaterialIcons name="dashboard" size={24} color="#333" />
-        <Text style={styles.drawerItemText}>Main Screen</Text>
-      </TouchableOpacity>
       <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/MyReportsScreen')}>
         <MaterialIcons name="assignment" size={24} color="#333" />
         <Text style={styles.drawerItemText}>My Reports</Text>
@@ -78,8 +75,35 @@ const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
   const segments = useSegments();
+  useEffect(() => {
+  
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const screen = notification.request.content.data?.screen;
+      console.log('📥 פוש ב־Foreground:', screen);
+  
+      if (screen === 'ShelterInfo') {
+        router.push('/mainScreen');
+      }
+    });
+  
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const screen = response.notification.request.content.data?.screen;
+      console.log('📥 פוש בלחיצה:', screen);
+  
+      if (screen === 'ShelterInfo') {
+        router.push('/mainScreen');
+      }
+    });
+  
+    return () => {
+      Notifications.removeNotificationSubscription(receivedSubscription);
+      Notifications.removeNotificationSubscription(responseSubscription);
+    };
+  }, []);
+  
 
   useEffect(() => {
+    
     if (!loading) {
       if (isLoggedIn) {
         if (

@@ -92,7 +92,7 @@ const ShelterDetail: React.FC = () => {
   };
 
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
-    const response = await fetch('https://uvapisjdkh.execute-api.us-east-1.amazonaws.com/prod/getSignedUploadUrl', 
+    const response = await fetch('https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl', 
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

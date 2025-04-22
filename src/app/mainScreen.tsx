@@ -1,12 +1,14 @@
-// app/mainScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { getAuthUserEmail } from '../../utils/auth';
 
 const ShelterInfoScreen = () => {
   const [minutes, setMinutes] = useState(10); // Initialize to 10 minutes
   const [seconds, setSeconds] = useState(0); // Initialize to 0 seconds
   const [progress, setProgress] = useState(1); // Full progress initially (100%)
+  const [shelterLocation, setShelterLocation] = useState('תל אביב'); // Set default location
+  const [timeToShelter, setTimeToShelter] = useState('דקה וחצי'); // Default time message
 
   useEffect(() => {
     const totalSeconds = 10 * 60; // Total countdown time in seconds (10 minutes)
@@ -38,15 +40,62 @@ const ShelterInfoScreen = () => {
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circleCircumference * (1 - progress);
 
+  const handleUpdate = () => {
+    Alert.alert('עדכון', 'המידע עודכן בהצלחה');
+  };
+
+  const handleChat = () => {
+    Alert.alert('צ\'אט', 'הצ\'אט נפתח');
+  };
+
+  const handleReport = () => {
+    Alert.alert('דיווח', 'הדיווח בוצע בהצלחה');
+  };
+  useEffect(() => {
+    const fetchCityFromServer = async () => {
+      try {
+        const email = await getAuthUserEmail();
+        if (!email) return;
+  
+        const res = await fetch(` https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
+        const data = await res.json();
+  
+        if (data.city) {
+          setShelterLocation(data.city);
+  
+          // קביעת זמן לפי עיר
+          const times: Record<string, { label: string; seconds: number }> = {
+            'שדרות': { label: '15 שניות', seconds: 15 },
+            'עוטף עזה': { label: '15 שניות', seconds: 15 },
+            'אשקלון': { label: '30 שניות', seconds: 30 },
+            'אשדוד': { label: '30 שניות', seconds: 30 },
+            'תל אביב': { label: 'דקה וחצי', seconds: 90 },
+            'ירושלים': { label: 'דקה וחצי', seconds: 90 },
+          };
+  
+          const fallback = { label: 'דקה', seconds: 60 };
+          const cityTime = times[data.city] || fallback;
+  
+          setTimeToShelter(cityTime.label);
+          setMinutes(Math.floor(cityTime.seconds / 60));
+          setSeconds(cityTime.seconds % 60);
+        }
+      } catch (err) {
+        console.log('❌ שגיאה בשליפת עיר מהשרת:', err);
+      }
+    };
+  
+    fetchCityFromServer();
+  }, []);
+  
   return (
+    
     <View style={styles.container}>
-      {/* Location Information */}
       <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>מיקומך: תל אביב</Text>
-        <Text style={styles.infoText}>זמן כניסה למקלט - דקה וחצי</Text>
+        <Text style={styles.infoText}>מיקומך: {shelterLocation}</Text>
+        <Text style={styles.infoText}>זמן כניסה למקלט: {timeToShelter}</Text>
       </View>
 
-      {/* Map Section */}
       <View style={styles.mapContainer}>
         <Image
           source={{
@@ -57,9 +106,7 @@ const ShelterInfoScreen = () => {
         />
       </View>
 
-      {/* Bottom Section with Timer and Buttons */}
       <View style={styles.bottomContainer}>
-        {/* Timer with Decreasing Circle */}
         <View style={styles.timerContainer}>
           <Svg width={100} height={100}>
             <Circle
@@ -89,13 +136,13 @@ const ShelterInfoScreen = () => {
 
         {/* Buttons */}
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity style={styles.button} onPress={handleUpdate}>
             <Text style={styles.buttonText}>עדכון</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity style={styles.button} onPress={handleChat}>
             <Text style={styles.buttonText}>פתיחת צ'אט</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity style={styles.button} onPress={handleReport}>
             <Text style={styles.buttonText}>דיווח</Text>
           </TouchableOpacity>
         </View>
