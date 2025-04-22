@@ -6,7 +6,6 @@ import {
   Alert,
   ActivityIndicator,
   TouchableWithoutFeedback,
-  Button,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
@@ -47,10 +46,12 @@ const HomeScreen: React.FC = () => {
 
   type Alarm = {
     id: string;
+    date: string;
     time: string;
     descriptions: string[];
     expanded?: boolean;
   };
+  
   
   const fetchAlerts = async () => {
     try {
@@ -68,35 +69,59 @@ const HomeScreen: React.FC = () => {
   
       body.forEach((item: any, index: number) => {
         const timestamp = new Date(item.timestamp);
-        const israelTime = new Intl.DateTimeFormat('he-IL', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'Asia/Jerusalem',
-        }).format(timestamp);
-                const timeIL = new Intl.DateTimeFormat('he-IL', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'Asia/Jerusalem',
-        }).format(timestamp); // HH:mm Israel time
   
-        if (!grouped[timeIL]) {
-          grouped[timeIL] = {
+        const formatter = new Intl.DateTimeFormat('he-IL', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Jerusalem',
+          hour12: false,
+        });
+  
+        const [dateIL, timeIL] = formatter.format(timestamp).split(',').map(s => s.trim());
+        const key = `${dateIL} ${timeIL}`; // קיבוץ לפי תאריך+שעה
+  
+        if (!grouped[key]) {
+          grouped[key] = {
             id: index.toString(),
-            time: israelTime,
+            date: dateIL,
+            time: timeIL,
             descriptions: [],
             expanded: false,
           };
         }
   
-        grouped[timeIL].descriptions.push(`${item.city}`);
+        grouped[key].descriptions.push(`${item.city}`);
       });
-  
-      const groupedAlerts = Object.values(grouped);
+      const groupedAlerts = Object.values(grouped).sort((a, b) => {
+        const [dayA, monthA, yearA] = a.date.split('.');
+        const [dayB, monthB, yearB] = b.date.split('.');
+      
+        const formatTime = (time: string) => {
+          const [h, m] = time.split(':');
+          return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+        };
+      
+        const dateStrA = `${yearA}-${monthA}-${dayA}T${formatTime(a.time)}`;
+        const dateStrB = `${yearB}-${monthB}-${dayB}T${formatTime(b.time)}`;
+      
+        const dateA = new Date(dateStrA);
+        const dateB = new Date(dateStrB);
+      
+        return dateB.getTime() - dateA.getTime(); // מהחדש לישן
+      });
+      
+      console.log(groupedAlerts.map(a => `${a.date} ${a.time}`));
+
+      
       setAlerts(groupedAlerts);
     } catch (error) {
       console.error('שגיאה בקבלת התראות:', error);
     }
   };
+  
   
   
   const fetchShelters = async () => {
@@ -337,8 +362,8 @@ const HomeScreen: React.FC = () => {
                 : alert.descriptions[0]}
             </Text>
           )}
-          <Text style={styles.alertTime}>{alert.time}</Text>
-        </View>
+<Text style={styles.alertTime}>{alert.date} - {alert.time}</Text>
+</View>
         {isMultiple && (
           <Ionicons
   name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
