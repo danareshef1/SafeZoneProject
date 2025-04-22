@@ -28,7 +28,7 @@ const ForgotPasswordScreen: React.FC = () => {
     }, [])
   );
 
-  const handleRequestReset = (values: { email: string }) => {
+  const handleRequestReset = (values: { email: string; }, resetForm: unknown) => {
     const { email } = values;
     const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
     cognitoUser.forgotPassword({
