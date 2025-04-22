@@ -5,6 +5,7 @@ type Alarm = {
   id: string;
   time: string;
   description: string;
+  dateObj: Date;
 };
 
 const AlarmHistoryScreen = () => {
@@ -15,19 +16,22 @@ const AlarmHistoryScreen = () => {
   useEffect(() => {
     const fetchAlarms = async () => {
       try {
-        const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts'); 
+        const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts');
         const rawData = await response.json();
-  
-        const body = typeof rawData.body === 'string'
-          ? JSON.parse(rawData.body)
-          : rawData.body ?? rawData;
-  
-        const formatted = body.map((item: any) => ({
-          id: item.alertId,
-          time: new Date(item.timestamp).toLocaleTimeString("he-IL"),
-          description: `אזעקה ב${item.city}`,
-        }));
-  
+        const body = typeof rawData.body === 'string' ? JSON.parse(rawData.body) : rawData.body ?? rawData;
+
+        const formatted = body
+          .filter((item: any) => item.timestamp && item.city)
+          .map((item: any) => {
+            const date = new Date(item.timestamp);
+            return {
+              id: `${item.city}-${item.timestamp}`,
+              time: date.toLocaleTimeString("he-IL"),
+              dateObj: date,
+              description: `${item.city}`,
+            };
+          });
+
         setAlarms(formatted);
       } catch (error) {
         console.error('שגיאה בקבלת התראות:', error);
@@ -35,46 +39,84 @@ const AlarmHistoryScreen = () => {
         setLoading(false);
       }
     };
-  
+
     fetchAlarms();
   }, []);
-  const filteredAlarms = alarms;
+
+  const now = new Date();
+  let filteredAlarms = alarms;
+
+  if (filter === 'this week') {
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay());
+    filteredAlarms = alarms.filter(a => a.dateObj >= sunday && a.dateObj <= now);
+  } else if (filter === 'this month') {
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    filteredAlarms = alarms.filter(a => a.dateObj >= firstOfMonth && a.dateObj <= now);
+  } else if (filter === 'today') {
+    filteredAlarms = alarms.filter(a =>
+      a.dateObj.getDate() === now.getDate() &&
+      a.dateObj.getMonth() === now.getMonth() &&
+      a.dateObj.getFullYear() === now.getFullYear()
+    );
+  }
+
+  // 🔁 קיבוץ לפי דקה
+  const groupedMap: Record<string, Alarm[]> = {};
+  filteredAlarms.forEach(alarm => {
+    const d = alarm.dateObj;
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+    if (!groupedMap[key]) groupedMap[key] = [];
+    groupedMap[key].push(alarm);
+  });
+
+  const groupedAlarms: Alarm[] = Object.entries(groupedMap)
+    .sort((a, b) => b[1][0].dateObj.getTime() - a[1][0].dateObj.getTime())
+    .map(([key, group]) => ({
+      id: key,
+      time: group[0].time,
+      dateObj: group[0].dateObj,
+      description: group.map(a => a.description).join(', '),
+    }));
 
   const renderAlarm = ({ item }: { item: Alarm }) => (
     <View style={styles.alarmItem}>
-      <Text style={styles.alarmTime}>{item.time}</Text>
-      <Text style={styles.alarmDescription}>{item.description}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.alarmDescription}>{item.description}
+        </Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+  <Text style={styles.alarmTime}>{item.time}</Text>
+  {filter !== 'today' && (
+    <Text style={styles.alarmDate}>
+      {item.dateObj.toLocaleDateString('he-IL')}
+    </Text>
+  )}
+</View>
     </View>
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'today' && styles.activeFilter]}
-          onPress={() => setFilter('today')}
-        >
-          <Text style={styles.filterText}>היום</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'this week' && styles.activeFilter]}
-          onPress={() => setFilter('this week')}
-        >
-          <Text style={styles.filterText}>השבוע</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'this month' && styles.activeFilter]}
-          onPress={() => setFilter('this month')}
-        >
-          <Text style={styles.filterText}>החודש</Text>
-        </TouchableOpacity>
+        {['today', 'this week', 'this month'].map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterButton, filter === f && styles.activeFilter]}
+            onPress={() => setFilter(f as any)}
+          >
+            <Text style={styles.filterText}>
+              {f === 'today' ? 'היום' : f === 'this week' ? 'השבוע' : 'החודש'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color="#007bff" />
       ) : (
         <FlatList
-          data={filteredAlarms}
+          data={groupedAlarms}
           keyExtractor={(item) => item.id}
           renderItem={renderAlarm}
           contentContainerStyle={styles.listContainer}
@@ -108,6 +150,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     color: '#000',
+    fontWeight: 'bold',
   },
   listContainer: {
     paddingBottom: 20,
@@ -122,10 +165,16 @@ const styles = StyleSheet.create({
   alarmTime: {
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   alarmDescription: {
     fontSize: 16,
     color: '#555',
+  },
+  alarmDate: {
+    fontSize: 13,
+    color: '#777',
+    marginTop: 2,
   },
   emptyText: {
     textAlign: 'center',
