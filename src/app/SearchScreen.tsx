@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { getAuthUserEmail } from '../../utils/auth';
+import { FontAwesome, Ionicons } from '@expo/vector-icons'; // Importing Ionicons for icons
 
 export default function EmergencyStatusScreen() {
   const [userZone, setUserZone] = useState<any>(null);
@@ -105,17 +106,25 @@ export default function EmergencyStatusScreen() {
 
   const renderZone = (zone: any) => (
     <View key={zone.id} style={styles.zoneBox}>
-      <Text style={styles.searchText}>{zone.name || 'Unknown'} | {zone.zone || 'Unknown'}</Text>
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Time to Shelter</Text>
-        <Text style={styles.sectionValue}>{zone.countdown} Seconds</Text>
+      <View style={styles.zoneHeader}>
+      <Ionicons name="location-sharp" size={24} color="#11998e" />
+        <Text style={styles.zoneName}>{zone.name || 'Unknown'} | {zone.zone || 'Unknown'}</Text>
       </View>
+      <View style={styles.section}>
+  <Ionicons name="timer" size={20} color="#11998e" />
+  <Text style={styles.sectionLabel}>זמן כניסה למרחב מוגן:</Text>
+  <Text style={styles.sectionValue}>
+    {zone.countdown === 0 ? 'מיידי' : `${zone.countdown} שניות`}
+  </Text>
+</View>
+
       {/* Display alerts count only if zone is selected */}
       {selectedZone && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Alerts in Last Month</Text>
+          <Ionicons name="notifications" size={20} color="#11998e" />
+          <Text style={styles.sectionLabel}>אזעקות בחודש האחרון:</Text>
           <Text style={styles.sectionValue}>
-            {alertsCount !== null ? alertsCount : 'No data available'}
+            {alertsCount !== null ? alertsCount : 'אין נתונים'}
           </Text>
         </View>
       )}
@@ -128,29 +137,36 @@ export default function EmergencyStatusScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Only show the selected zone info if a zone is selected */}
-      <Text style={styles.title}>Search Other Areas</Text>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search by name or region"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
+      {/* Search bar */}
+      <Text style={styles.title}>חפש אזורים נוספים</Text>
+      <View style={styles.searchWrapper}>
+        <FontAwesome name="search" size={20} color="#11998e" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="חפש לפי שם או אזור"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+      {/* Display filtered zones */}
       {filteredZones.length > 0 && (
         <FlatList
           data={filteredZones}
           keyExtractor={(item) => item.id?.toString()}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => handleZoneSelect(item)}>
-              <Text style={styles.searchText}>{item.name || 'Unknown'}</Text>
+              <View style={styles.searchItem}>
+                <Ionicons name="search" size={18} color="#11998e" />
+                <Text style={styles.searchText}>{item.name || 'לא ידוע'}</Text>
+              </View>
             </TouchableOpacity>
           )}
         />
       )}
-      {/* Only display selected zone details after selection */}
+      {/* Display selected zone details */}
       {selectedZone && (
         <View style={styles.selectedZoneContainer}>
-          <Text style={styles.title}>Current Status for {selectedZone.name}</Text>
+          <Text style={styles.selectedZoneTitle}>סטטוס נוכחי עבור {selectedZone.name}</Text>
           {renderZone(selectedZone)}
         </View>
       )}
@@ -170,6 +186,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+  searchWrapper: {
+    flexDirection: 'row-reverse', // Aligning the search input to the right
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   searchInput: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -178,30 +199,82 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    marginBottom: 10,
+    flex: 1, // Make input field take available space
+    marginLeft: 10, // Add space between the input and the icon
+    textAlign: 'right', // Align text to the right for Hebrew
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingLeft: 10,
   },
   searchText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginRight: 10, // Margin between icon and text
   },
   zoneBox: {
     marginBottom: 30,
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2, // Add elevation for Android
+  },
+  zoneHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  zoneName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'right',
   },
   section: {
-    marginBottom: 8,
+    marginBottom: 10,
+    flexDirection: 'row-reverse', // Align icon and text to the right
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionLabel: {
     fontSize: 14,
     color: '#888',
+    marginRight: 8,
+    marginLeft: 5,
   },
   sectionValue: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+    textAlign: 'right',
   },
   selectedZoneContainer: {
     marginTop: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
+    backgroundColor: '#f1f1f1',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  selectedZoneTitle: {
+    fontSize: 18,
+    color: '#11998e',
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 });
