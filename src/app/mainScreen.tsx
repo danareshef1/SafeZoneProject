@@ -4,36 +4,36 @@ import Svg, { Circle } from 'react-native-svg';
 import { getAuthUserEmail } from '../../utils/auth';
 
 const ShelterInfoScreen = () => {
-  const [minutes, setMinutes] = useState(10); // Initialize to 10 minutes
-  const [seconds, setSeconds] = useState(0); // Initialize to 0 seconds
-  const [progress, setProgress] = useState(1); // Full progress initially (100%)
-  const [shelterLocation, setShelterLocation] = useState('תל אביב'); // Set default location
-  const [timeToShelter, setTimeToShelter] = useState('דקה וחצי'); // Default time message
+  const [minutes, setMinutes] = useState(10);
+  const [seconds, setSeconds] = useState(0);
+  const [progress, setProgress] = useState(1);
+  const [shelterLocation, setShelterLocation] = useState('תל אביב');
+  const [zoneInfo, setZoneInfo] = useState<any>(null);
 
   useEffect(() => {
-    const totalSeconds = 10 * 60; // Total countdown time in seconds (10 minutes)
+    const totalSeconds = 10 * 60;
     const updateProgress = (remainingSeconds: number) => {
-      setProgress(remainingSeconds / totalSeconds); // Update progress based on remaining time
+      setProgress(remainingSeconds / totalSeconds);
     };
 
     const timer = setInterval(() => {
       setSeconds((prevSeconds) => {
         if (prevSeconds === 0) {
           if (minutes === 0) {
-            clearInterval(timer); // Stop the timer when it reaches 0
+            clearInterval(timer);
             return 0;
           }
-          setMinutes((prevMinutes) => prevMinutes - 1); // Decrease the minute
-          updateProgress((minutes - 1) * 60 + 59); // Update progress
-          return 59; // Reset seconds to 59
+          setMinutes((prevMinutes) => prevMinutes - 1);
+          updateProgress((minutes - 1) * 60 + 59);
+          return 59;
         }
         const remainingSeconds = minutes * 60 + prevSeconds - 1;
-        updateProgress(remainingSeconds); // Update progress
-        return prevSeconds - 1; // Decrease seconds
+        updateProgress(remainingSeconds);
+        return prevSeconds - 1;
       });
     }, 1000);
 
-    return () => clearInterval(timer); // Cleanup the interval on component unmount
+    return () => clearInterval(timer);
   }, [minutes]);
 
   const circleRadius = 45;
@@ -51,56 +51,44 @@ const ShelterInfoScreen = () => {
   const handleReport = () => {
     Alert.alert('דיווח', 'הדיווח בוצע בהצלחה');
   };
+
   useEffect(() => {
     const fetchCityFromServer = async () => {
       try {
         const email = await getAuthUserEmail();
         if (!email) return;
-  
-        const res = await fetch(` https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
+
+        const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const data = await res.json();
-  
+
         if (data.city) {
           setShelterLocation(data.city);
-  
-          // קביעת זמן לפי עיר
-          const times: Record<string, { label: string; seconds: number }> = {
-            'שדרות': { label: '15 שניות', seconds: 15 },
-            'עוטף עזה': { label: '15 שניות', seconds: 15 },
-            'אשקלון': { label: '30 שניות', seconds: 30 },
-            'אשדוד': { label: '30 שניות', seconds: 30 },
-            'תל אביב': { label: 'דקה וחצי', seconds: 90 },
-            'ירושלים': { label: 'דקה וחצי', seconds: 90 },
-          };
-  
-          const fallback = { label: 'דקה', seconds: 60 };
-          const cityTime = times[data.city] || fallback;
-  
-          setTimeToShelter(cityTime.label);
-          setMinutes(Math.floor(cityTime.seconds / 60));
-          setSeconds(cityTime.seconds % 60);
+
+          const zonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
+          const zonesRaw = await zonesRes.json();
+          const zones = Array.isArray(zonesRaw) ? zonesRaw : JSON.parse(zonesRaw.body ?? '[]');
+          const matched = zones.find((z) => z.name === data.city);
+          if (matched) setZoneInfo(matched);
         }
       } catch (err) {
         console.log('❌ שגיאה בשליפת עיר מהשרת:', err);
       }
     };
-  
+
     fetchCityFromServer();
   }, []);
-  
+
   return (
-    
     <View style={styles.container}>
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>מיקומך: {shelterLocation}</Text>
-        <Text style={styles.infoText}>זמן כניסה למקלט: {timeToShelter}</Text>
+        <Text style={styles.infoText}>זמן כניסה למקלט: {zoneInfo?.countdown ? `${zoneInfo.countdown} שניות` : 'לא ידוע'}</Text>
+        {zoneInfo && <Text style={styles.infoText}>אזור: {zoneInfo.zone}</Text>}
       </View>
 
       <View style={styles.mapContainer}>
         <Image
-          source={{
-            uri: 'https://upload.wikimedia.org/wikipedia/commons/4/47/OpenStreetMap_Project_logo.svg',
-          }}
+          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/4/47/OpenStreetMap_Project_logo.svg' }}
           style={styles.mapImage}
           resizeMode="cover"
         />
@@ -109,14 +97,7 @@ const ShelterInfoScreen = () => {
       <View style={styles.bottomContainer}>
         <View style={styles.timerContainer}>
           <Svg width={100} height={100}>
-            <Circle
-              cx="50"
-              cy="50"
-              r={circleRadius}
-              stroke="#e0e0e0"
-              strokeWidth="10"
-              fill="none"
-            />
+            <Circle cx="50" cy="50" r={circleRadius} stroke="#e0e0e0" strokeWidth="10" fill="none" />
             <Circle
               cx="50"
               cy="50"
@@ -134,7 +115,6 @@ const ShelterInfoScreen = () => {
           </Text>
         </View>
 
-        {/* Buttons */}
         <View style={styles.buttonsContainer}>
           <TouchableOpacity style={styles.button} onPress={handleUpdate}>
             <Text style={styles.buttonText}>עדכון</Text>

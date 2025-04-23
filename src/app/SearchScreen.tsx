@@ -9,15 +9,16 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { getAuthUserEmail } from '../../utils/auth';
-import { FontAwesome, Ionicons } from '@expo/vector-icons'; // Importing Ionicons for icons
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { findUserZone, AlertZone } from '../../utils/zoneUtils';
 
 export default function EmergencyStatusScreen() {
   const [userZone, setUserZone] = useState<any>(null);
   const [zones, setZones] = useState<any[]>([]);
   const [filteredZones, setFilteredZones] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedZone, setSelectedZone] = useState<any>(null); // Store selected zone
-  const [alertsCount, setAlertsCount] = useState<number | null>(null); // Store alerts count per zone
+  const [selectedZone, setSelectedZone] = useState<any>(null);
+  const [alertsCount, setAlertsCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function EmergencyStatusScreen() {
 
         const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const userLocation = await res.json();
+        console.log("📍 מיקום המשתמש:", userLocation);
 
         const allZonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
         const allZonesData = await allZonesRes.json();
@@ -42,19 +44,16 @@ export default function EmergencyStatusScreen() {
           zonesArray = JSON.parse(allZonesData.body);
         }
 
-        if (!Array.isArray(zonesArray)) throw new Error('Zones data is not an array');
+        if (!Array.isArray(zonesArray)) throw new Error('המידע על האזורים אינו מערך');
 
         setZones(zonesArray);
 
-        const closest = zonesArray.find(
-          (zone: any) =>
-            Math.abs(zone.lat - userLocation.lat) < 0.01 &&
-            Math.abs(zone.lng - userLocation.lng) < 0.01
-        );
-
+        const closest = findUserZone(userLocation.lat, userLocation.lng, zonesArray, userLocation.city);
         setUserZone(closest);
+        console.log("✅ האזור שזוהה למשתמש:", closest);
+
       } catch (e) {
-        console.error('❌ Error loading zones:', e);
+        console.error('❌ שגיאה בטעינת האזורים:', e);
       } finally {
         setLoading(false);
       }
@@ -65,7 +64,7 @@ export default function EmergencyStatusScreen() {
 
   useEffect(() => {
     const q = searchQuery.toLowerCase();
-    if (q.trim() === '') return setFilteredZones([]); // Do not show suggestions if input is empty
+    if (q.trim() === '') return setFilteredZones([]);
 
     const filtered = zones.filter((z) =>
       z.name?.toLowerCase().includes(q) || z.zone?.toLowerCase().includes(q)
@@ -73,61 +72,64 @@ export default function EmergencyStatusScreen() {
     setFilteredZones(filtered);
   }, [searchQuery]);
 
-  // Function to fetch alert data for the given zone
+  useEffect(() => {
+    const fetchUserZoneAlerts = async () => {
+      if (userZone && !selectedZone) {
+        const alerts = await getAlertsForZone(userZone.name);
+        setAlertsCount(alerts);
+      }
+    };
+    fetchUserZoneAlerts();
+  }, [userZone, selectedZone]);
+
   const getAlertsForZone = async (zoneName: string) => {
     try {
       const res = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts');
       const alertsData = await res.json();
 
-      // Filter alerts based on the zone name and the last month's date
       const lastMonthDate = new Date();
       lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
 
-      const alertsInZone = alertsData.filter((alert: any) => 
+      const alertsInZone = alertsData.filter((alert: any) =>
         alert.city.includes(zoneName) && new Date(alert.timestamp) >= lastMonthDate
       );
 
       return alertsInZone.length;
     } catch (e) {
-      console.error('❌ Error fetching alerts:', e);
+      console.error('❌ שגיאה בטעינת האזעקות:', e);
       return 0;
     }
   };
 
   const handleZoneSelect = async (zone: any) => {
-    setSelectedZone(zone); // Store the selected zone
-    setSearchQuery(zone.name); // Optionally set the input to the selected zone's name
-    setFilteredZones([]); // Clear the filtered list once a zone is selected
+    setSelectedZone(zone);
+    setSearchQuery(zone.name);
+    setFilteredZones([]);
 
-    // Fetch the number of alerts for the selected zone
     const alerts = await getAlertsForZone(zone.name);
-    setAlertsCount(alerts); // Store the number of alerts for the zone
+    setAlertsCount(alerts);
   };
 
   const renderZone = (zone: any) => (
     <View key={zone.id} style={styles.zoneBox}>
       <View style={styles.zoneHeader}>
-      <Ionicons name="location-sharp" size={24} color="#11998e" />
-        <Text style={styles.zoneName}>{zone.name || 'Unknown'} | {zone.zone || 'Unknown'}</Text>
+        <Ionicons name="location-sharp" size={24} color="#11998e" />
+        <Text style={styles.zoneName}>{zone.name || 'לא ידוע'} | {zone.zone || 'לא ידוע'}</Text>
       </View>
       <View style={styles.section}>
-  <Ionicons name="timer" size={20} color="#11998e" />
-  <Text style={styles.sectionLabel}>זמן כניסה למרחב מוגן:</Text>
-  <Text style={styles.sectionValue}>
-    {zone.countdown === 0 ? 'מיידי' : `${zone.countdown} שניות`}
-  </Text>
-</View>
-
-      {/* Display alerts count only if zone is selected */}
-      {selectedZone && (
-        <View style={styles.section}>
-          <Ionicons name="notifications" size={20} color="#11998e" />
-          <Text style={styles.sectionLabel}>אזעקות בחודש האחרון:</Text>
-          <Text style={styles.sectionValue}>
-            {alertsCount !== null ? alertsCount : 'אין נתונים'}
-          </Text>
-        </View>
-      )}
+        <Ionicons name="timer" size={20} color="#11998e" />
+        <Text style={styles.sectionLabel}>זמן כניסה למרחב מוגן:</Text>
+        <Text style={styles.sectionValue}>
+          {zone.countdown === 0 ? 'מיידי' : `${zone.countdown} שניות`}
+        </Text>
+      </View>
+      <View style={styles.section}>
+        <Ionicons name="notifications" size={20} color="#11998e" />
+        <Text style={styles.sectionLabel}>אזעקות בחודש האחרון:</Text>
+        <Text style={styles.sectionValue}>
+          {alertsCount !== null ? alertsCount : 'אין נתונים'}
+        </Text>
+      </View>
     </View>
   );
 
@@ -137,7 +139,13 @@ export default function EmergencyStatusScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Search bar */}
+      {userZone && !selectedZone && (
+        <View style={styles.currentZoneContainer}>
+          <Text style={styles.currentZoneTitle}>האזור שלך כרגע:</Text>
+          {renderZone(userZone)}
+        </View>
+      )}
+
       <Text style={styles.title}>חפש אזורים נוספים</Text>
       <View style={styles.searchWrapper}>
         <FontAwesome name="search" size={20} color="#11998e" style={styles.searchIcon} />
@@ -148,7 +156,7 @@ export default function EmergencyStatusScreen() {
           onChangeText={setSearchQuery}
         />
       </View>
-      {/* Display filtered zones */}
+
       {filteredZones.length > 0 && (
         <FlatList
           data={filteredZones}
@@ -163,7 +171,7 @@ export default function EmergencyStatusScreen() {
           )}
         />
       )}
-      {/* Display selected zone details */}
+
       {selectedZone && (
         <View style={styles.selectedZoneContainer}>
           <Text style={styles.selectedZoneTitle}>סטטוס נוכחי עבור {selectedZone.name}</Text>
@@ -187,7 +195,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   searchWrapper: {
-    flexDirection: 'row-reverse', // Aligning the search input to the right
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -199,9 +207,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    flex: 1, // Make input field take available space
-    marginLeft: 10, // Add space between the input and the icon
-    textAlign: 'right', // Align text to the right for Hebrew
+    flex: 1,
+    marginLeft: 10,
+    textAlign: 'right',
   },
   searchIcon: {
     marginRight: 10,
@@ -216,7 +224,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginRight: 10, // Margin between icon and text
+    marginRight: 10,
   },
   zoneBox: {
     marginBottom: 30,
@@ -227,7 +235,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2, // Add elevation for Android
+    elevation: 2,
   },
   zoneHeader: {
     flexDirection: 'row-reverse',
@@ -243,7 +251,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 10,
-    flexDirection: 'row-reverse', // Align icon and text to the right
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -271,6 +279,22 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   selectedZoneTitle: {
+    fontSize: 18,
+    color: '#11998e',
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  currentZoneContainer: {
+    marginBottom: 30,
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    backgroundColor: '#d9f5f0',
+    borderRadius: 10,
+    borderColor: '#11998e',
+    borderWidth: 1,
+  },
+  currentZoneTitle: {
     fontSize: 18,
     color: '#11998e',
     fontWeight: 'bold',
