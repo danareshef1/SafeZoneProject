@@ -89,24 +89,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   };
 
-  const login = async (username: string, password: string) => {
-    return new Promise((resolve, reject) => {
-      const user = new CognitoUser({ Username: username, Pool: userPool });
-      const authDetails = new AuthenticationDetails({ Username: username, Password: password });
-
-      user.authenticateUser(authDetails, {
-        onSuccess: async (result) => {
-          await AsyncStorage.setItem('userToken', result.getIdToken().getJwtToken());
-          setIsLoggedIn(true);
-          resolve(result);
-        },
-        onFailure: (err) => {
-          console.error('Cognito login failed', err);
-          reject(err);
-        },
+  const login = async (username: string, password: string): Promise<void> => {
+      return new Promise<void>((resolve, reject) => {
+        const user = new CognitoUser({ Username: username, Pool: userPool });
+        const authDetails = new AuthenticationDetails({ Username: username, Password: password });
+  
+        user.authenticateUser(authDetails, {
+          onSuccess: async (result) => {
+            await AsyncStorage.setItem('userToken', result.getIdToken().getJwtToken());
+            setIsLoggedIn(true);
+            resolve();
+          },
+          onFailure: (err) => {
+            console.error('Cognito login failed', err);
+            reject(err);
+          },
+        });
       });
-    });
-  };
+    };
 
   const logout = async () => {
     await AsyncStorage.removeItem('userToken');

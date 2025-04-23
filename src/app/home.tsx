@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 
 const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
+const TEL_AVIV_API_URL = 'https://ztmye8n2vc.execute-api.us-east-1.amazonaws.com/tel-aviv-shelters';
 
 const HomeScreen: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
@@ -126,17 +127,29 @@ const HomeScreen: React.FC = () => {
   
   const fetchShelters = async () => {
     try {
-      const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch shelters: ${response.status}`);
+      const [bsResponse, tlvResponse] = await Promise.all([
+        fetch(API_URL), // באר שבע
+        fetch(TEL_AVIV_API_URL), // תל אביב
+      ]);
+  
+      if (!bsResponse.ok || !tlvResponse.ok) {
+        throw new Error('Failed to fetch shelters');
       }
-      const data = await response.json();
-      setShelters(data);
-      await AsyncStorage.setItem('shelters', JSON.stringify(data));
+  
+      const [bsData, tlvData] = await Promise.all([
+        bsResponse.json(),
+        tlvResponse.json(),
+      ]);
+  
+      const combined = [...bsData, ...tlvData]; // שלב את כל המקלטים
+      setShelters(combined);
+      await AsyncStorage.setItem('shelters', JSON.stringify(combined));
     } catch (error) {
       Alert.alert('Error', 'Unable to fetch shelter data.');
+      console.error(error);
     }
   };
+  
 
   useEffect(() => {
     fetchShelters();
