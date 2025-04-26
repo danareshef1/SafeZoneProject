@@ -29,9 +29,6 @@ import proj4 from 'proj4';
 
 const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
 
-const OFFSET_LAT = 0.00015;
-const OFFSET_LON = 0.00015;
-
 proj4.defs(
   'EPSG:2039',
   '+proj=tmerc +lat_0=31.7343938888889 +lon_0=35.2045169444444 '
@@ -39,13 +36,30 @@ proj4.defs(
   + '+ellps=GRS80 +units=m +no_defs'
 );
 
+const sampleE = 179254.9219000004; 
+const sampleN = 665111.2525999993;  
+const targetLat = 32.0785788989309; 
+const targetLon = 34.7786417155005;
+
+
+const [invE, invN] = proj4(
+  'EPSG:4326',
+  'EPSG:2039',
+  [ targetLon, targetLat ]   
+);
+
+const deltaE = invE - sampleE;
+const deltaN = invN - sampleN;
+
+
 function convertITMtoWGS84(easting: number, northing: number) {
-  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [easting, northing]);
-  return {
-    latitude: lat + OFFSET_LAT,
-    longitude: lon + OFFSET_LON,
-  };
+  const correctedE = easting + deltaE;
+  const correctedN = northing + deltaN;
+
+  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
+  return { latitude: lat, longitude: lon };
 }
+
 
 type Alarm = {
   id: string;
