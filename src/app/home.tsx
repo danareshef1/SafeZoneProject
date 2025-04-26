@@ -1,3 +1,4 @@
+// app/home.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -262,12 +263,11 @@ const HomeScreen: React.FC = () => {
     <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={styles.container}>
       <MapView style={styles.map} region={mapRegion}>
-  {shelters.map((shelter) => (
-    <Marker
-      key={`${shelter.id}`}
-      coordinate={{ latitude: shelter.latitude, longitude: shelter.longitude }}
-      title={shelter.name}
-      description={shelter.status}
+        {shelters.map(shelter => (
+    <CustomMarker
+      key={shelter.id}
+      shelter={shelter}
+      onPress={() => setSelectedShelter(shelter)}
     />
   ))}
 </MapView>
