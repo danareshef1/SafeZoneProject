@@ -1,3 +1,4 @@
+// app/report-shelter/[id].tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -17,7 +18,7 @@ import { getAuthUserEmail } from '../../../utils/auth'
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer'; 
 
-const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
+const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
 const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
 
 const getColorByStatus = (status: string | null) => {
@@ -36,11 +37,15 @@ const getColorByStatus = (status: string | null) => {
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { id } = useLocalSearchParams();
+  const { id, name, status, image } = useLocalSearchParams();
   const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [shelter, setShelter] = useState<any>(null);
-  const [reportText, setReportText] = useState('');
+  const [shelter, setShelter] = useState<any>({
+    id,
+    name,
+    status,
+    image,
+  });  const [reportText, setReportText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [shelters, setShelters] = useState<any[]>([]);
@@ -52,7 +57,9 @@ const ShelterDetail: React.FC = () => {
     const fetchShelters = async () => {
       try {
         const response = await fetch(`${API_URL}`);
-        const allShelters = await response.json();
+        const data = await response.json();
+        const allShelters = data.items; 
+        
         setShelters(allShelters);
         setFilteredShelters(allShelters.filter((s) => s.id !== id));
 
@@ -162,6 +169,11 @@ const ShelterDetail: React.FC = () => {
       return;
     }
   
+    if (!shelter) { 
+      Alert.alert('Error', 'No shelter selected');
+      return;
+    }
+
     try {
       setIsSubmitting(true); 
       const userEmail = await getAuthUserEmail();
