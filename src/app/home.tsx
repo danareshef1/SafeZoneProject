@@ -359,7 +359,7 @@ const handleAddImage = async () => {
   }
 };
 
-const handleDeselectShelter = () => setSelectedShelter(null);
+const handleDeselectShelter: () => void = () => setSelectedShelter(null);
 
 if (!mapRegion) {
   return (
