@@ -26,7 +26,7 @@ const getColorByStatus = (status: string | null) => {
     case 'גבוה':
       return '#FF3B30'; // Red
     case 'בינוני':
-      return '#FFCC00'; // Yellow
+      return '#FFCC00'; // Yellowr
     case 'נמוך':
       return '#34C759'; // Green
     default:
@@ -37,15 +37,17 @@ const getColorByStatus = (status: string | null) => {
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { id, name, status, image } = useLocalSearchParams();
+  const { id, name, location, status, image } = useLocalSearchParams();
   const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [shelter, setShelter] = useState<any>({
-    id,
-    name,
-    status,
-    image,
-  });  const [reportText, setReportText] = useState('');
+const [shelter, setShelter] = useState<any>({
+  id,
+  name,
+  location,
+  status,
+  image,
+});
+  const [reportText, setReportText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [shelters, setShelters] = useState<any[]>([]);
@@ -58,15 +60,20 @@ const ShelterDetail: React.FC = () => {
       try {
         const response = await fetch(`${API_URL}`);
         const data = await response.json();
-        const allShelters = data.items; 
-        
+        const allShelters = data.items;
         setShelters(allShelters);
-        setFilteredShelters(allShelters.filter((s) => s.id !== id));
-
+        setFilteredShelters(allShelters.filter((s: { id: string | string[]; }) => s.id !== id));        
         const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
+        
         if (foundShelter) {
-          setShelter(foundShelter);
-          setSelectedStatus(foundShelter.status || null);
+          setShelter({
+            id,
+            name,
+            location,
+            status,
+            image,
+          });
+          setSelectedStatus(typeof status === 'string' ? status : null);
           setReportText(foundShelter.reportText || '');
           setUploadedImages(foundShelter.images || []);
         }
@@ -95,8 +102,23 @@ const ShelterDetail: React.FC = () => {
 
   const handleChangeShelter = (selectedId: string) => {
     setShowComboBox(false);
-    router.push({ pathname: '/report-shelter/[id]', params: { id: selectedId } });
+    const selectedShelter = shelters.find((s) => s.id === selectedId);
+    if (selectedShelter) {
+      router.push({
+        pathname: '/report-shelter/[id]',
+        params: {
+          id: selectedShelter.id,
+          name: selectedShelter.name ?? '',
+          location: selectedShelter.location ?? '',
+          status: selectedShelter.status ?? '',
+          image: selectedShelter.image ?? '',
+        },
+      });
+    } else {
+      Alert.alert('שגיאה', 'לא נמצא מקלט.');
+    }
   };
+  
 
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
     const response = await fetch('https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl', 
@@ -134,6 +156,7 @@ const ShelterDetail: React.FC = () => {
     return imageUrl;
   };
   
+  
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -169,11 +192,6 @@ const ShelterDetail: React.FC = () => {
       return;
     }
   
-    if (!shelter) { 
-      Alert.alert('Error', 'No shelter selected');
-      return;
-    }
-
     try {
       setIsSubmitting(true); 
       const userEmail = await getAuthUserEmail();
@@ -229,9 +247,6 @@ const ShelterDetail: React.FC = () => {
     }
   };
   
-  
-  
-
   const handleCancel = () => {
     router.push('/home');
   };

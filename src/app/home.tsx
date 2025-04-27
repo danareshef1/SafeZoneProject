@@ -26,6 +26,7 @@ import { Buffer } from 'buffer';
 import { sendLocationToBackend } from '../../utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import proj4 from 'proj4';
+import { Animated } from 'react-native';
 
 const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
 
@@ -81,11 +82,11 @@ const HomeScreen: React.FC = () => {
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
   const router = useRouter();
   const [alerts, setAlerts] = useState<Alarm[]>([]);
+  const [isSheltersLoading, setIsSheltersLoading] = useState(true);
 
-  // ... (המשך הקוד ממשיך בדיוק כפי שכתבת)
-
-
-
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
+  const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
+  
   const fetchAlerts = async () => {
     try {
       const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts');
@@ -149,6 +150,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const fetchShelters = async () => {
+    setIsSheltersLoading(true);
     try {
       let allShelters: Shelter[] = [];
       let startKey: any = null;
@@ -177,51 +179,74 @@ const HomeScreen: React.FC = () => {
     } catch (error) {
       console.error('Error fetching shelters:', error);
       Alert.alert('Error', 'Unable to fetch shelter data.');
-    }
+    } finally {
+      setIsSheltersLoading(false);
+    }  
   };
 
   useEffect(() => {
-    fetchShelters();
-    fetchAlerts();
-  }, []);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchShelters();
-    }, [])
-  );
-
-  useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Permission to access location was denied.');
-        setMapRegion({
-          latitude: 32.0853,
-          longitude: 34.7818,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        });
-      } else {
-        const location = await Location.getCurrentPositionAsync({});
-        setMapRegion({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        });
-
-        await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access location was denied.');
+          setMapRegion({
+            latitude: 32.0853,
+            longitude: 34.7818,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+        } else {
+          const location = await Location.getCurrentPositionAsync({});
+          setMapRegion({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+          await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
+        }
+  
+        await fetchShelters();
+        await fetchAlerts();
+      } catch (error) {
+        console.error('Error during initial loading:', error);
+        Alert.alert('Error', 'Failed to load initial data.');
       }
     })();
   }, []);
-/////
+  
 
+  useEffect(() => {
+    if (!isSheltersLoading && mapRegion) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 6,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isSheltersLoading, mapRegion]);
+  
+  
 const handleReport = () => {
   if (selectedShelter) {
     router.push({
       pathname: '/report-shelter/[id]',
-      params: { id: selectedShelter.id },
+      params: { 
+        id: selectedShelter.id,
+        name: selectedShelter.name ?? '',
+        location: selectedShelter.location ?? '',
+        status: selectedShelter.status ?? '',
+        image: selectedShelter.image ?? '',
+      },
     });
   }
 };
@@ -338,16 +363,27 @@ const handleDeselectShelter = () => setSelectedShelter(null);
 
 if (!mapRegion) {
   return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#0000ff" />
-      <Text>Fetching your location...</Text>
-    </View>
+    <View style={styles.loadingOverlay}>
+    <ActivityIndicator size="large" color="'#11998e'" />
+    <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
+  </View>
   );
 }
 
+
 return (
   <TouchableWithoutFeedback onPress={handleDeselectShelter}>
-    <View style={styles.container}>
+      <View style={{ flex: 1 }}>
+      <Animated.View
+  style={[
+    styles.container,
+    {
+      opacity: fadeAnim,
+      transform: [{ scale: scaleAnim }],
+    },
+  ]}
+>
+      <View style={styles.container}>
       <MapView style={styles.map} region={mapRegion}>
         <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
           <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
@@ -466,6 +502,14 @@ return (
         </View>
       </BottomSheet>
     </View>
+    </Animated.View>
+    {isSheltersLoading && (
+      <View style={styles.loadingOverlay}>
+        <ActivityIndicator size="large" color="'#11998e'" />
+        <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
+      </View>
+    )}
+      </View>
   </TouchableWithoutFeedback>
 );
 };
@@ -599,6 +643,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     elevation: 5,
   },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(176, 255, 247, 0.7)', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },  
+  
 });
 
 export default HomeScreen;
