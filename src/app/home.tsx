@@ -151,6 +151,8 @@ const HomeScreen: React.FC = () => {
 
   const fetchShelters = async () => {
     setIsSheltersLoading(true);
+    console.log('Shelters loading set to TRUE');
+
     try {
       let allShelters: Shelter[] = [];
       let startKey: any = null;
@@ -181,6 +183,7 @@ const HomeScreen: React.FC = () => {
       Alert.alert('Error', 'Unable to fetch shelter data.');
     } finally {
       setIsSheltersLoading(false);
+      console.log('Shelters loading set to False');
     }  
   };
 
@@ -346,7 +349,7 @@ const handleAddImage = async () => {
         throw new Error('Failed to update shelter image');
       }
 
-      await fetchShelters();
+      //await fetchShelters();
 
       setSelectedShelter((prev) =>
         prev ? { ...prev, image: uploadedImageUrl } : null
@@ -503,7 +506,7 @@ return (
       </BottomSheet>
     </View>
     </Animated.View>
-    {isSheltersLoading && (
+    {isSheltersLoading && !isImageUploading && (
       <View style={styles.loadingOverlay}>
         <ActivityIndicator size="large" color="'#11998e'" />
         <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
