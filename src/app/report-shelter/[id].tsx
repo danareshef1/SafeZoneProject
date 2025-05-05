@@ -65,7 +65,6 @@ const ShelterDetail: React.FC = () => {
           setReportText(foundShelter.reportText || '');
           setUploadedImages(foundShelter.images || []);
         } else {
-          // אם לא מצאת בשרת – נ fallback על מה שבא מהפרמטרים
           setShelter({
             id,
             name,
@@ -255,12 +254,18 @@ const ShelterDetail: React.FC = () => {
       <Text style={styles.title}>דיווח על מקלט</Text>
       <Text style={styles.shelterName}>{shelter?.name || shelter?.location || 'מקלט נבחר'}</Text>
 
-      {selectedStatus && (
-        <View style={styles.statusRow}>
-          <View style={[styles.statusCircle, { backgroundColor: getColorByStatus(selectedStatus) }]} />
-          <Text style={styles.statusText}>סטטוס נבחר: {selectedStatus}</Text>
-        </View>
-      )}
+      <View style={styles.statusRow}>
+  <View
+    style={[
+      styles.statusCircle,
+      { backgroundColor: getColorByStatus(selectedStatus) },
+    ]}
+  />
+  <Text style={styles.statusText}>
+    סטטוס נבחר: {selectedStatus || 'לא נבחר סטטוס'}
+  </Text>
+</View>
+
 
       <TouchableOpacity
         style={styles.changeShelterButton}
