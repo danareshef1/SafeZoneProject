@@ -16,6 +16,7 @@ import ContactsButton from './contactsButton';
 import { ShelterProvider } from './contexts/ShelterContext';
 import * as Notifications from 'expo-notifications';
 
+
 const HomeButton = () => {
   const router = useRouter();
   return (
@@ -84,7 +85,7 @@ const RootNavigator = () => {
       console.log('📥 פוש ב־Foreground:', screen);
   
       if (screen === 'ShelterInfo') {
-        router.push('/mainScreen');
+        router.push('mainScreen');
       }
     });
   

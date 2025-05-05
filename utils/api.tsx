@@ -28,13 +28,11 @@ export const sendLocationToBackend = async (lat: number, lon: number) => {
     }
 
     const pushToken = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('📱 Push Token:', pushToken);
 
     const allZones = await getAllZonesFromAPI();
     let zoneMatch = findUserZone(lat, lon, allZones);
     let zoneName = zoneMatch?.zone;
 
-    // 🔁 fallback לפי שם העיר אם אין אזור קרוב גאוגרפית
     if (!zoneMatch) {
       const cityRes = await fetch(`${GET_USER_LOCATION_API}?email=${email}`);
       const userData = await cityRes.json();
@@ -74,8 +72,6 @@ export const sendLocationToBackend = async (lat: number, lon: number) => {
       }),
     });
     
-
-    console.log(`✅ Sent user location in zone: ${zoneName} (${lat}, ${lon})`);
   } catch (err) {
     console.error('🔥 Error sending location:', err);
   }

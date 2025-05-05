@@ -488,7 +488,6 @@ return (
             key={`${shelter.id}-${shelter.status}`}
             shelter={shelter}
             onPress={() => {
-              console.log('Clicked shelter:', shelter);
               setSelectedShelter(shelter);
             }}
             

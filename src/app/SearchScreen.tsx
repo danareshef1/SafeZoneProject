@@ -29,7 +29,6 @@ export default function EmergencyStatusScreen() {
 
         const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const userLocation = await res.json();
-        console.log("📍 מיקום המשתמש:", userLocation);
 
         const allZonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
         const allZonesData = await allZonesRes.json();
@@ -50,7 +49,6 @@ export default function EmergencyStatusScreen() {
 
         const closest = findUserZone(userLocation.lat, userLocation.lng, zonesArray, userLocation.city);
         setUserZone(closest);
-        console.log("✅ האזור שזוהה למשתמש:", closest);
 
       } catch (e) {
         console.error('❌ שגיאה בטעינת האזורים:', e);

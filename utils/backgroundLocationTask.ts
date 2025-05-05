@@ -20,7 +20,6 @@ TaskManager.defineTask(
 
     if (data?.locations?.length) {
       const { latitude, longitude } = data.locations[0].coords;
-      console.log('📍 מיקום נשלח:', latitude, longitude);
       await sendLocationToBackend(latitude, longitude);
     }
   }
