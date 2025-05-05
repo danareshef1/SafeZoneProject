@@ -1,5 +1,5 @@
 // app/home.tsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -51,6 +51,8 @@ const [invE, invN] = proj4(
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
+const mapRef = useRef<MapView | null>(null);
+
 function convertITMtoWGS84(easting: number, northing: number) {
   const correctedE = easting + deltaE;
   const correctedN = northing + deltaN;
@@ -86,6 +88,7 @@ const HomeScreen: React.FC = () => {
 
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
   const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
+  const pulseAnim = useMemo(() => new Animated.Value(1), []);
   
   const fetchAlerts = async () => {
     try {
@@ -191,16 +194,16 @@ const HomeScreen: React.FC = () => {
           setMapRegion({
             latitude: 32.0853,
             longitude: 34.7818,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.005,
           });
         } else {
           const location = await Location.getCurrentPositionAsync({});
           setMapRegion({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.005,
           });
           await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
         }
@@ -230,6 +233,20 @@ const HomeScreen: React.FC = () => {
           useNativeDriver: true,
         }),
       ]).start();
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.8,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();      
     }
   }, [isSheltersLoading, mapRegion]);
   
@@ -261,8 +278,8 @@ const refreshLocation = async () => {
     setMapRegion({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.005,
     });
 
     await sendLocationToBackend(
@@ -382,11 +399,40 @@ return (
   ]}
 >
       <View style={styles.container}>
-      <MapView style={styles.map} region={mapRegion}>
+      <MapView   ref={mapRef} style={styles.map} region={mapRegion}>
         <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
           <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.centerButton} onPress={() => {
+  if (mapRegion) {
+    mapRef.current?.animateToRegion(mapRegion, 1000);
+  }
+}}>
+  <Ionicons name="locate-outline" size={24} color="#fff" />
+</TouchableOpacity>
 
+
+  {/* מיקום שלי */}
+  <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }}>
+  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+    <Animated.View style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(17,153,142,0.3)',
+      transform: [{ scale: pulseAnim }],
+    }} />
+    <View style={{
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: '#11998e',
+      borderWidth: 2,
+      borderColor: 'white',
+    }} />
+  </View>
+</Marker>
+  
         {shelters.map((shelter) => (
           <CustomMarker
             key={`${shelter.id}-${shelter.status}`}
@@ -648,6 +694,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 999,
   },  
+  centerButton: {
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    backgroundColor: '#11998e',
+    padding: 10,
+    borderRadius: 25,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
   
 });
 
