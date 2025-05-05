@@ -1,10 +1,11 @@
-//app.mainScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Platform, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import Svg, { Circle } from 'react-native-svg';
 import { getAuthUserEmail } from '../../utils/auth';
 import proj4 from 'proj4';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+
 
 proj4.defs(
   'EPSG:2039',
@@ -60,6 +61,8 @@ const ShelterInfoScreen = () => {
   const [shelterLocation, setShelterLocation] = useState('תל אביב');
   const [zoneInfo, setZoneInfo] = useState<any>(null);
   const [nearestShelter, setNearestShelter] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapRegion, setMapRegion] = useState(null);
 
   useEffect(() => {
     const totalSeconds = 10 * 60;
@@ -101,7 +104,14 @@ const ShelterInfoScreen = () => {
         const location = await Location.getCurrentPositionAsync({});
         const userLat = location.coords.latitude;
         const userLon = location.coords.longitude;
-  
+        setUserLocation({ latitude: userLat, longitude: userLon });
+        setMapRegion({
+          latitude: userLat,
+          longitude: userLon,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        });
+        
         let minDistance = Infinity;
         let closestShelter = null;
   
@@ -147,6 +157,21 @@ const ShelterInfoScreen = () => {
     Alert.alert('דיווח', 'הדיווח בוצע בהצלחה');
   };
 
+  const handleNavigateToShelter = () => {
+    if (!nearestShelter) {
+      Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
+      return;
+    }
+    const { latitude, longitude, name } = nearestShelter;
+    const url = Platform.select({
+      ios: `maps:0,0?q=${name}@${latitude},${longitude}`,
+      android: `geo:0,0?q=${latitude},${longitude}(${name})`,
+    });
+    if (url) {
+      Linking.openURL(url).catch(err => console.error('שגיאה בניווט:', err));
+    }
+  };
+  
   useEffect(() => {
     const fetchCityFromServer = async () => {
       try {
@@ -178,45 +203,68 @@ const ShelterInfoScreen = () => {
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>מיקומך: {shelterLocation}</Text>
         <Text style={styles.infoText}>זמן כניסה למקלט: {zoneInfo?.countdown ? `${zoneInfo.countdown} שניות` : 'לא ידוע'}</Text>
-        {zoneInfo && <Text style={styles.infoText}>אזור: {zoneInfo.zone}</Text>}
       </View>
       {nearestShelter && (
   <View style={{ marginTop: 10 }}>
     <Text style={styles.infoText}>המקלט הקרוב ביותר:</Text>
     <Text style={styles.infoText}>{nearestShelter.name ?? 'ללא שם'}</Text>
-    <Text style={styles.infoText}>
-      מרחק: {nearestShelter.distance.toFixed(2)} ק"מ
-    </Text>
   </View>
 )}
-      <View style={styles.mapContainer}>
-        <Image
-          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/4/47/OpenStreetMap_Project_logo.svg' }}
-          style={styles.mapImage}
-          resizeMode="cover"
-        />
-      </View>
+<View style={styles.mapContainer}>
+{mapRegion && (
+  <MapView
+  style={styles.mapImage}
+  region={mapRegion}
+  showsUserLocation={true}
+  showsMyLocationButton={true}
+>
+  {nearestShelter && (
+    <Marker
+      coordinate={{
+        latitude: nearestShelter.latitude,
+        longitude: nearestShelter.longitude,
+      }}
+      title={nearestShelter.name ?? 'מקלט'}
+      description={`מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`}
+    />
+  )}
+  {/* כפתור ניווט צף על המפה */}
+  <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
+    <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
+  </TouchableOpacity>
+</MapView>
 
-      <View style={styles.bottomContainer}>
-        <View style={styles.timerContainer}>
-          <Svg width={100} height={100}>
-            <Circle cx="50" cy="50" r={circleRadius} stroke="#e0e0e0" strokeWidth="10" fill="none" />
-            <Circle
-              cx="50"
-              cy="50"
-              r={circleRadius}
-              stroke="#00b300"
-              strokeWidth="10"
-              strokeDasharray={circleCircumference}
-              strokeDashoffset={strokeDashoffset}
-              fill="none"
-              strokeLinecap="round"
-            />
-          </Svg>
-          <Text style={styles.timerText}>
-            {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
-          </Text>
-        </View>
+)}
+</View>
+<View style={styles.bottomContainer}>
+  <View style={styles.timerWrapper}>
+    <Text style={styles.timerTitle}>⏱ זמן עד ליציאה מהמקלט</Text>
+    <View style={styles.timerContainer}>
+      <Svg width={160} height={160}>
+        <Circle cx="80" cy="80" r={70} stroke="#11998e" strokeWidth="12" fill="none" />
+        <Circle
+          cx="80"
+          cy="80"
+          r={70}
+          stroke="#11998e"
+  strokeWidth="12"
+  strokeDasharray={2 * Math.PI * 70}
+  strokeDashoffset={strokeDashoffset}
+  fill="none"
+  strokeLinecap="round"
+  transform="rotate(-90 80 80)"
+  shadowColor="#000"
+  shadowOffset={{ width: 0, height: 2 }}
+  shadowOpacity={0.2}
+  shadowRadius={4}
+        />
+      </Svg>
+      <Text style={styles.timerText}>
+        {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
+      </Text>
+    </View>
+  </View>
+
 
         <View style={styles.buttonsContainer}>
           <TouchableOpacity style={styles.button} onPress={handleUpdate}>
@@ -228,6 +276,9 @@ const ShelterInfoScreen = () => {
           <TouchableOpacity style={styles.button} onPress={handleReport}>
             <Text style={styles.buttonText}>דיווח</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.navButton} onPress={() => handleNavigateToShelter()}>
+</TouchableOpacity>
+
         </View>
       </View>
     </View>
@@ -240,59 +291,116 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#f0f4f8',
   },
   infoContainer: {
     alignItems: 'center',
     marginBottom: 20,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
   infoText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 5,
+    color: '#222',
+    marginBottom: 8,
   },
   mapContainer: {
-    flex: 1,
-    borderRadius: 10,
+    flex: 1.5,  // שימו לב הגדלתי את המפה
+    borderRadius: 25,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 30,
+    borderWidth: 5, // מסגרת עבה יותר
+    borderColor: '#11998e',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+    position: 'relative',
   },
   mapImage: {
     width: '100%',
     height: '100%',
   },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#007bff',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  floatingButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   bottomContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  timerContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerText: {
-    position: 'absolute',
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#00b300',
+    paddingTop: 15,
   },
   buttonsContainer: {
     flex: 1,
-    marginLeft: 20,
+    marginLeft: 25,
+    justifyContent: 'space-between',
   },
   button: {
-    backgroundColor: '#00b300',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    marginBottom: 10,
+    backgroundColor: '#11998e',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    marginBottom: 14,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 6,
   },
   buttonText: {
     fontSize: 16,
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
+  timerWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
+  timerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#333',
+  },
+  timerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 160,
+    height: 160,
+  },
+  timerText: {
+    position: 'absolute',
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#11998e',
+  },   
 });
+
