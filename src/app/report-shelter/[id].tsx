@@ -16,13 +16,13 @@ import { getAuthUserEmail } from '../../../utils/auth'
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer'; 
 
-const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
+const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
 const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
 
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { id } = useLocalSearchParams();
+  const { id, name, location, status, image } = useLocalSearchParams();
   const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [shelter, setShelter] = useState<any>(null);
@@ -33,13 +33,14 @@ const ShelterDetail: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [filteredShelters, setFilteredShelters] = useState<any[]>([]);
 
-  useEffect(() => {
-    const fetchShelters = async () => {
-      try {
-        const response = await fetch(`${API_URL}`);
-        const allShelters = await response.json();
-        setShelters(allShelters);
-        setFilteredShelters(allShelters.filter((s) => s.id !== id));
+  // ✅ הוצאתי את הפונקציה החוצה
+  const fetchShelters = async () => {
+    try {
+      const response = await fetch(`${API_URL}`);
+      const data = await response.json();
+      const allShelters = data.items;
+      setShelters(allShelters);
+      setFilteredShelters(allShelters.filter((s: { id: string | string[] }) => s.id !== id));
 
         const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
         if (foundShelter) {
@@ -51,6 +52,27 @@ const ShelterDetail: React.FC = () => {
         console.error('Error fetching shelters:', error);
       }
     };
+      const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
+
+      if (foundShelter) {
+        setShelter(foundShelter);
+        setSelectedStatus(typeof foundShelter.status === 'string' ? foundShelter.status : null);
+        setReportText(foundShelter.reportText || '');
+        setUploadedImages(foundShelter.images || []);
+      } else {
+        setShelter({
+          id,
+          name,
+          location,
+          status,
+          image,
+        });
+        setSelectedStatus(typeof status === 'string' ? status : null);
+      }
+    } catch (error) {
+      console.error('Error fetching shelters:', error);
+    }
+  };
 
     fetchShelters();
   }, [id]);
@@ -70,7 +92,21 @@ const ShelterDetail: React.FC = () => {
 
   const handleChangeShelter = (selectedId: string) => {
     setShowComboBox(false);
-    router.push({ pathname: '/report-shelter/[id]', params: { id: selectedId } });
+    const selectedShelter = shelters.find((s) => s.id === selectedId);
+    if (selectedShelter) {
+      router.push({
+        pathname: '/report-shelter/[id]',
+        params: {
+          id: selectedShelter.id,
+          name: selectedShelter.name ?? '',
+          location: selectedShelter.location ?? '',
+          status: selectedShelter.status ?? '',
+          image: selectedShelter.image ?? '',
+        },
+      });
+    } else {
+      Alert.alert('שגיאה', 'לא נמצא מקלט.');
+    }
   };
 
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
@@ -81,47 +117,46 @@ const ShelterDetail: React.FC = () => {
         body: JSON.stringify({ type }),
       }
     );
-  
+
     const text = await response.text();  
     if (!response.ok) {
       throw new Error('Failed to get signed URL');
     }
-  
+
     return JSON.parse(text);
   };
-  
-  
+
   const uploadImageToS3 = async (localUri: string, type: 'shelter' | 'report') => {
     const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
-  
+
     const base64 = await FileSystem.readAsStringAsync(localUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-  
+
     const buffer = Buffer.from(base64, 'base64');
-  
+
     await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'image/jpeg' },
       body: buffer,
     });
-  
+
     return imageUrl;
   };
-  
+
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Permission required', 'We need permission to access your photos.');
       return;
     }
-  
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-  
+
     if (!result.canceled) {
       const localUri = result.assets[0].uri;
       try {
@@ -136,7 +171,6 @@ const ShelterDetail: React.FC = () => {
       }
     }
   };
-  
 
   const handleSubmitReport = async () => {
   
@@ -160,15 +194,18 @@ const ShelterDetail: React.FC = () => {
           email: userEmail,
         }),
       });
-  
-      Alert.alert('Success', 'Your report has been submitted');
-  
+
+      Alert.alert('Success', 'Your report has been submitted ✅');
+
+      // ✅ רענון של המקלט אחרי שליחה
+      await fetchShelters();
+
+      // איפוס רק של שדות הדיווח (לא של הסטטוס שנבחר!)
       setUploadedImages([]);
       setReportText('');
       setShowComboBox(false);
       setSearchText('');
-  
-      router.push('/home');
+
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert('Error', 'Unable to submit your report.');
@@ -176,9 +213,6 @@ const ShelterDetail: React.FC = () => {
       setIsSubmitting(false); 
     }
   };
-  
-  
-  
 
   const handleCancel = () => {
     router.push('/home');
@@ -188,6 +222,18 @@ const ShelterDetail: React.FC = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>דיווח על מקלט</Text>
       <Text style={styles.shelterName}>{shelter?.name || shelter?.location || 'מקלט נבחר'}</Text>
+
+      <View style={styles.statusRow}>
+  <View
+    style={[
+      styles.statusCircle,
+      { backgroundColor: getColorByStatus(selectedStatus) },
+    ]}
+  />
+  <Text style={styles.statusText}>
+    סטטוס נבחר: {selectedStatus || 'לא נבחר סטטוס'}
+  </Text>
+</View>
 
 
       <TouchableOpacity

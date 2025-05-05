@@ -1,3 +1,4 @@
+// component/ui/Map/CustomMarker.tsx
 import React from 'react';
 import { Marker } from 'react-native-maps';
 import { Shelter } from '../../../types/Shelter';

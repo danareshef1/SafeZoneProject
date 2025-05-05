@@ -56,7 +56,11 @@ export const sendLocationToBackend = async (lat: number, lon: number) => {
       console.warn(`❌ No matching alert zone found for coordinates: (${lat}, ${lon})`);
       return;
     }
-
+    if (!zoneMatch) {
+      console.warn(`❌ No matching alert zone found for coordinates: (${lat}, ${lon})`);
+      return;
+    }
+    
     await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,10 +68,12 @@ export const sendLocationToBackend = async (lat: number, lon: number) => {
         email,
         lat,
         lon,
-        zone: zoneName,
+        zone: zoneMatch.zone,
+        city: zoneMatch.name,
         pushToken,
       }),
     });
+    
 
     console.log(`✅ Sent user location in zone: ${zoneName} (${lat}, ${lon})`);
   } catch (err) {

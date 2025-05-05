@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+// app/home.tsx
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import MapView from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
@@ -50,6 +51,11 @@ const [invE, invN] = proj4(
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
+<<<<<<< HEAD
+=======
+const mapRef = useRef<MapView | null>(null);
+
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
 function convertITMtoWGS84(easting: number, northing: number) {
   const correctedE = easting + deltaE;
   const correctedN = northing + deltaN;
@@ -58,6 +64,26 @@ function convertITMtoWGS84(easting: number, northing: number) {
   return { latitude: lat, longitude: lon };
 }
 
+<<<<<<< HEAD
+=======
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // מטרים
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c;
+  return distance; // במטרים
+}
+
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
 type Alarm = {
   id: string;
   date: string;
@@ -69,8 +95,12 @@ type Alarm = {
 const HomeScreen: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
-  const [shelters, setShelters] = useState<Shelter[]>([]);
-  const [isImageUploading, setIsImageUploading] = useState(false);
+
+  const [allShelters, setAllShelters] = useState<Shelter[]>([]);
+  const [sheltersToShow, setSheltersToShow] = useState<Shelter[]>([]);
+  const LOAD_COUNT = 100;  // כמה להוסיף בכל פעם
+
+    const [isImageUploading, setIsImageUploading] = useState(false);
   const [mapRegion, setMapRegion] = useState<null | {
     latitude: number;
     longitude: number;
@@ -85,6 +115,11 @@ const HomeScreen: React.FC = () => {
 
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
   const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
+<<<<<<< HEAD
+=======
+  const pulseAnim = useMemo(() => new Animated.Value(1), []);
+  const [rawShelters, setRawShelters] = useState<Shelter[]>([]);
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
   
   const fetchAlerts = async () => {
     try {
@@ -171,7 +206,22 @@ const HomeScreen: React.FC = () => {
         })
         .filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
 
+<<<<<<< HEAD
       setShelters(convertedShelters);
+=======
+
+    if (mapRegion) {
+      convertedShelters.sort((a, b) => {
+        const distA = calculateDistance(mapRegion.latitude, mapRegion.longitude, a.latitude, a.longitude);
+        const distB = calculateDistance(mapRegion.latitude, mapRegion.longitude, b.latitude, b.longitude);
+        return distA - distB;
+      });
+    }
+
+    setRawShelters(convertedShelters);
+    
+      //setShelters(convertedShelters);
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
       await AsyncStorage.setItem('shelters', JSON.stringify(convertedShelters));
     } catch (error) {
       console.error('Error fetching shelters:', error);
@@ -190,16 +240,26 @@ const HomeScreen: React.FC = () => {
           setMapRegion({
             latitude: 32.0853,
             longitude: 34.7818,
+<<<<<<< HEAD
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
+=======
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.005,
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
           });
         } else {
           const location = await Location.getCurrentPositionAsync({});
           setMapRegion({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
+<<<<<<< HEAD
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
+=======
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.005,
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
           });
           await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
         }
@@ -229,9 +289,55 @@ const HomeScreen: React.FC = () => {
           useNativeDriver: true,
         }),
       ]).start();
+<<<<<<< HEAD
     }
   }, [isSheltersLoading, mapRegion]);
   
+=======
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.8,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();      
+    }
+  }, [isSheltersLoading, mapRegion]);
+  
+  useEffect(() => {
+    if (mapRegion && rawShelters.length > 0) {
+      const sorted = [...rawShelters].sort((a, b) => {
+        const distA = calculateDistance(mapRegion.latitude, mapRegion.longitude, a.latitude, a.longitude);
+        const distB = calculateDistance(mapRegion.latitude, mapRegion.longitude, b.latitude, b.longitude);
+        return distA - distB;
+      });
+      setAllShelters(sorted);
+      setSheltersToShow(sorted.slice(0, LOAD_COUNT));  // נציג רק את הראשונים בהתחלה
+          } else if (rawShelters.length > 0) {
+      // אם אין עדיין מיקום, תראה אותם כמות שהם
+      setAllShelters(rawShelters);
+      setSheltersToShow(rawShelters.slice(0, LOAD_COUNT));
+    }
+  }, [mapRegion, rawShelters]);
+
+  const loadMoreShelters = () => {
+    if (sheltersToShow.length >= allShelters.length) return;  // אין עוד מה להוסיף
+  
+    const nextItems = allShelters.slice(
+      sheltersToShow.length,
+      sheltersToShow.length + LOAD_COUNT
+    );
+    
+    setSheltersToShow((prev) => [...prev, ...nextItems]);
+  };
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
   
 const handleReport = () => {
   if (selectedShelter) {
@@ -241,6 +347,10 @@ const handleReport = () => {
         id: selectedShelter.id,
         name: selectedShelter.name ?? '',
         location: selectedShelter.location ?? '',
+<<<<<<< HEAD
+=======
+        status: selectedShelter.status ?? '',
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
         image: selectedShelter.image ?? '',
       },
     });
@@ -259,8 +369,13 @@ const refreshLocation = async () => {
     setMapRegion({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
+<<<<<<< HEAD
       latitudeDelta: 0.0922,
       longitudeDelta: 0.0421,
+=======
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.005,
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
     });
 
     await sendLocationToBackend(
@@ -362,11 +477,67 @@ if (!mapRegion) {
     <View style={styles.loadingOverlay}>
     <ActivityIndicator size="large" color="'#11998e'" />
     <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
+<<<<<<< HEAD
+  </View>
+  );
+}
+=======
   </View>
   );
 }
 
 
+return (
+  <TouchableWithoutFeedback onPress={handleDeselectShelter}>
+      <View style={{ flex: 1 }}>
+      <Animated.View
+  style={[
+    styles.container,
+    {
+      opacity: fadeAnim,
+      transform: [{ scale: scaleAnim }],
+    },
+  ]}
+>
+      <View style={styles.container}>
+      <MapView   ref={mapRef} style={styles.map} region={mapRegion}>
+        <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
+          <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.centerButton} onPress={() => {
+  if (mapRegion) {
+    mapRef.current?.animateToRegion(mapRegion, 1000);
+  }
+}}>
+  <Ionicons name="locate-outline" size={24} color="#fff" />
+</TouchableOpacity>
+
+
+  {/* מיקום שלי */}
+  <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }}>
+  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+    <Animated.View style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(17,153,142,0.3)',
+      transform: [{ scale: pulseAnim }],
+    }} />
+  </View>
+</Marker>
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
+
+  
+        {allShelters.map((shelter) => (
+          <CustomMarker
+            key={`${shelter.id}-${shelter.status}`}
+            shelter={shelter}
+            onPress={() => setSelectedShelter(shelter)}
+          />
+        ))}
+      </MapView>
+
+<<<<<<< HEAD
 return (
   <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={{ flex: 1 }}>
@@ -491,6 +662,134 @@ return (
                 shelter={item}
                 containerStyle={{}}
               />
+=======
+      {alerts.length > 0 && (
+        <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
+          <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
+          <View style={{ flexGrow: 1 }}>
+            <ScrollView>
+              {alerts.map((alert, idx) => {
+                const isMultiple = alert.descriptions.length > 1;
+                const Container = isMultiple ? TouchableOpacity : View;
+
+                return (
+                  <Container
+                    key={alert.id}
+                    style={styles.alertItem}
+                    {...(isMultiple && {
+                      onPress: () =>
+                        setAlerts((prev) =>
+                          prev.map((a, i) => ({
+                            ...a,
+                            expanded: i === idx ? !a.expanded : false,
+                          }))
+                        ),
+                    })}
+                  >
+                    <Text style={styles.alertIcon}>🚨</Text>
+                    <View style={[styles.alertTextContainer, { flexDirection: 'row-reverse', alignItems: 'center' }]}>
+                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        {isMultiple && alert.expanded ? (
+                          alert.descriptions.map((desc, i) => (
+                            <Text key={i} style={styles.alertDescription}>
+                              {desc}
+                            </Text>
+                          ))
+                        ) : (
+                          <Text style={styles.alertDescription}>
+                            {isMultiple
+                              ? `${alert.descriptions.length} איזורי התרעה`
+                              : alert.descriptions[0]}
+                          </Text>
+                        )}
+                        <Text style={styles.alertTime}>{alert.date} - {alert.time}</Text>
+                      </View>
+                      {isMultiple && (
+                        <Ionicons
+                          name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                          size={20}
+                          color="#666"
+                          style={{ marginRight: 10, alignSelf: 'flex-start' }}
+                        />
+                      )}
+                    </View>
+                  </Container>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
+{selectedShelter && (
+  <Animated.View style={styles.shelterInfoBox}>
+    <View style={styles.shelterHeader}>
+      <Ionicons name="home-outline" size={28} color="#11998e" style={{ marginRight: 10 }} />
+      <Text style={styles.shelterTitle}>{selectedShelter.name}</Text>
+    </View>
+
+    <View style={styles.shelterDetails}>
+      <View style={styles.statusContainer}>
+        <View style={[styles.statusCircle, { backgroundColor: getColorByStatus(selectedShelter.status ?? '') }]} />
+        <Text style={styles.statusText}>{selectedShelter.status}</Text>
+      </View>
+      {selectedShelter.location && (
+        <Text style={styles.locationText}>{selectedShelter.location}</Text>
+      )}
+    </View>
+
+    <View style={styles.buttonRowInline}>
+      <TouchableOpacity style={styles.actionButtonInline} onPress={handleReport}>
+        <Ionicons name="warning-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
+        <Text style={styles.actionButtonTextInline}>דווח</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionButtonInline}
+        onPress={handleAddImage}
+        disabled={isImageUploading}
+      >
+        {isImageUploading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="image-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
+            <Text style={styles.actionButtonTextInline}>הוסף תמונה</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  </Animated.View>
+)}
+
+
+      <BottomSheet index={0} snapPoints={snapPoints}>
+        <View style={styles.contentContainer}>
+          <Text style={styles.listTitle}>Over {allShelters.length} shelters</Text>
+          <BottomSheetFlatList
+              data={sheltersToShow}
+              onEndReached={loadMoreShelters}
+              onEndReachedThreshold={0.5}  // תוכל לשחק עם זה כדי לטעון לפני שמגיעים לסוף
+              contentContainerStyle={{ gap: 10, padding: 10 }}
+            renderItem={({ item }) => (
+              <ShelterListItem
+  shelter={item}
+  containerStyle={{}}
+  statusColor={getColorByStatus(item.status)}
+  distance={
+    mapRegion
+      ? Math.round(
+          calculateDistance(
+            mapRegion.latitude,
+            mapRegion.longitude,
+            item.latitude,
+            item.longitude
+          )
+        )
+      : null
+  }
+/>
+
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
             )}
           />
         </View>
@@ -635,7 +934,113 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 10,
     borderRadius: 10,
+<<<<<<< HEAD
     elevation: 5,
+=======
+    elevation: 5,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(176, 255, 247, 0.7)', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },  
+  centerButton: {
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    backgroundColor: '#11998e',
+    padding: 10,
+    borderRadius: 25,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  shelterInfoBox: {
+    position: 'absolute',
+    top: 120,  // אפשר לשחק עם זה עד שזה במקום טוב
+    left: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 15,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    zIndex: 15,
+  },
+  
+  shelterHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  
+  shelterTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  
+  shelterDetails: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    marginBottom: 15,
+  },
+  
+  statusContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  
+  statusCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  
+  statusText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  
+  locationText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    textAlign: 'right',
+  },
+  
+  buttonRowInline: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  
+  actionButtonInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  
+  actionButtonTextInline: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+>>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

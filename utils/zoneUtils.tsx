@@ -5,7 +5,7 @@ export type AlertZone = {
   id: number;
   zone: string;
   lat: number;
-  lon: number;
+  lng: number;  // שם נכון לפי הנתונים
   name?: string; // שם יישוב
   city?: string; // נניח שיש גם city מה-DynamoDB
 };
@@ -17,12 +17,12 @@ export function findUserZone(
   userCity?: string // נוסיף fallback לפי שם העיר אם נשלח
 ): AlertZone | null {
   const userPoint = point([lon, lat]);
-  const radiusInKm = 5; // עדכן ל-5 ק"מ לקבלת תוצאה רלוונטית
+  const radiusInKm = 3; // עדכן ל-5 ק"מ לקבלת תוצאה רלוונטית
 
   for (const zone of zones) {
-    if (zone.lat == null || zone.lon == null) continue;
+    if (zone.lat == null || zone.lng == null) continue;
 
-    const zonePoint = point([zone.lon, zone.lat]);
+    const zonePoint = point([zone.lng, zone.lat]);
     const dist = distance(userPoint, zonePoint, { units: 'kilometers' });
 
     if (dist < radiusInKm) {

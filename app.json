@@ -58,7 +58,8 @@
           "locationWhenInUsePermission": "SafeZone needs your location when the app is open."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-web-browser"
     ],
     "extra": {
       "router": {

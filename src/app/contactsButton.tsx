@@ -1,4 +1,3 @@
-// app/contactsButton.tsx
 import React, { useState } from 'react';
 import { 
   TouchableOpacity, 
@@ -58,7 +57,15 @@ const ContactsButton = () => {
           )
         );
 
-        setContacts(matchedContacts);
+        setContacts(
+          matchedContacts.map((contact) => ({
+            id: contact.id || '',
+            name: contact.name,
+            phoneNumbers: contact.phoneNumbers?.map((phone) => ({
+              number: phone.number || '',
+            })),
+          }))
+        );
         const stored = await AsyncStorage.getItem('selectedContacts');
         if (stored) {
           setSelectedContacts(new Set(JSON.parse(stored)));
@@ -153,7 +160,7 @@ const ContactsButton = () => {
                   />
                   <View>
                     <Text style={styles.contactName}>{item.name}</Text>
-                    {item.phoneNumbers?.length > 0 && (
+                    {item.phoneNumbers && item.phoneNumbers.length > 0 && (
                       <Text style={styles.contactPhone}>{item.phoneNumbers[0].number}</Text>
                     )}
                   </View>

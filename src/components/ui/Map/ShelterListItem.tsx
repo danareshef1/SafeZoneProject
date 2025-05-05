@@ -1,3 +1,4 @@
+// components/ui/Map/ShelterListItem.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, ViewStyle, Button, ActivityIndicator } from 'react-native';
 import { Shelter } from '../../../types/Shelter';
@@ -7,6 +8,7 @@ type ShelterListItemProps = {
   containerStyle: ViewStyle;
   showReportButton?: boolean;
   onReport?: () => void;
+  distance?: number | null;  
 };
 
 const ShelterListItem: React.FC<ShelterListItemProps> = ({
@@ -14,6 +16,7 @@ const ShelterListItem: React.FC<ShelterListItemProps> = ({
   containerStyle = {},
   showReportButton = false,
   onReport,
+  distance,
 }) => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const statusColor = '#34C759'; // תמיד ירוק ✅
@@ -38,10 +41,27 @@ const ShelterListItem: React.FC<ShelterListItemProps> = ({
           )}
         </View>
       )}
-      <View style={styles.rightContainer}>
-        <Text style={styles.title}>{shelter.name}</Text>
-        {showReportButton && <Button title="Report Shelter" onPress={onReport} />}
-      </View>
+<View style={styles.rightContainer}>
+  <Text style={styles.title}>{shelter.name}</Text>
+  
+  {distance != null && (
+    <Text style={styles.distanceText}>
+      {distance < 1000
+        ? `${distance} מטרים ממך`
+        : `${(distance / 1000).toFixed(2)} ק״מ ממך`}
+    </Text>
+  )}
+
+  <View style={styles.statusContainer}>
+    <View
+      style={[styles.statusCircle, { backgroundColor: statusColor }]}
+    />
+    <Text style={styles.status}>{shelter.status}</Text>
+  </View>
+  
+  {showReportButton && <Button title="Report Shelter" onPress={onReport} />}
+</View>
+
     </View>
   );
 };
@@ -107,6 +127,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     color: '#666',
   },
+  distanceText: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 5,
+  },
+  
 });
 
 export default ShelterListItem;
