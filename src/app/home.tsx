@@ -422,16 +422,9 @@ return (
       backgroundColor: 'rgba(17,153,142,0.3)',
       transform: [{ scale: pulseAnim }],
     }} />
-    <View style={{
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: '#11998e',
-      borderWidth: 2,
-      borderColor: 'white',
-    }} />
   </View>
 </Marker>
+
   
         {shelters.map((shelter) => (
           <CustomMarker
