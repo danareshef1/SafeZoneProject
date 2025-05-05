@@ -39,13 +39,7 @@ const ShelterDetail: React.FC = () => {
   const { id, name, location, status, image } = useLocalSearchParams();
   const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(false);
-const [shelter, setShelter] = useState<any>({
-  id,
-  name,
-  location,
-  status,
-  image,
-});
+  const [shelter, setShelter] = useState<any>(null);
   const [reportText, setReportText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -61,10 +55,17 @@ const [shelter, setShelter] = useState<any>({
         const data = await response.json();
         const allShelters = data.items;
         setShelters(allShelters);
-        setFilteredShelters(allShelters.filter((s: { id: string | string[]; }) => s.id !== id));        
+        setFilteredShelters(allShelters.filter((s: { id: string | string[] }) => s.id !== id));
+  
         const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
-        
+  
         if (foundShelter) {
+          setShelter(foundShelter);
+          setSelectedStatus(typeof foundShelter.status === 'string' ? foundShelter.status : null);
+          setReportText(foundShelter.reportText || '');
+          setUploadedImages(foundShelter.images || []);
+        } else {
+          // אם לא מצאת בשרת – נ fallback על מה שבא מהפרמטרים
           setShelter({
             id,
             name,
@@ -73,16 +74,15 @@ const [shelter, setShelter] = useState<any>({
             image,
           });
           setSelectedStatus(typeof status === 'string' ? status : null);
-          setReportText(foundShelter.reportText || '');
-          setUploadedImages(foundShelter.images || []);
         }
       } catch (error) {
         console.error('Error fetching shelters:', error);
       }
     };
-
+  
     fetchShelters();
-  }, [id]);
+  }, [id, name, location, status, image]);
+  
 
   const handleStatusChange = (status: string) => {
     setSelectedStatus(status);

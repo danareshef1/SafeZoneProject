@@ -5,6 +5,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { getAuthUserEmail } from '../../utils/auth';
 import proj4 from 'proj4';
 import MapView, { Marker, Polyline } from 'react-native-maps';
+import { useRouter } from 'expo-router';
 
 
 proj4.defs(
@@ -63,6 +64,7 @@ const ShelterInfoScreen = () => {
   const [nearestShelter, setNearestShelter] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapRegion, setMapRegion] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     const totalSeconds = 10 * 60;
@@ -154,8 +156,23 @@ const ShelterInfoScreen = () => {
   };
 
   const handleReport = () => {
-    Alert.alert('דיווח', 'הדיווח בוצע בהצלחה');
+    if (!nearestShelter) {
+      Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
+      return;
+    }
+  
+    router.push({
+      pathname: '/report-shelter/[id]',
+      params: {
+        id: nearestShelter.id,
+        name: nearestShelter.name ?? '',
+        location: nearestShelter.location ?? '',
+        status: nearestShelter.status ?? '',
+        image: nearestShelter.image ?? '',
+      },
+    });
   };
+  
 
   const handleNavigateToShelter = () => {
     if (!nearestShelter) {
@@ -241,7 +258,6 @@ const ShelterInfoScreen = () => {
     <Text style={styles.timerTitle}>⏱ זמן עד ליציאה מהמקלט</Text>
     <View style={styles.timerContainer}>
       <Svg width={160} height={160}>
-        <Circle cx="80" cy="80" r={70} stroke="#11998e" strokeWidth="12" fill="none" />
         <Circle
           cx="80"
           cy="80"
@@ -334,7 +350,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: '#007bff',
+    backgroundColor: '#e60000',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 30,
