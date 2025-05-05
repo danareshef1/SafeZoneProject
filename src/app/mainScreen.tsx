@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import Svg, { Circle } from 'react-native-svg';
 import { getAuthUserEmail } from '../../utils/auth';
 import proj4 from 'proj4';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
-
 
 proj4.defs(
   'EPSG:2039',
@@ -15,30 +14,26 @@ proj4.defs(
   + '+ellps=GRS80 +units=m +no_defs'
 );
 
-const sampleE = 179254.9219000004; 
-const sampleN = 665111.2525999993;  
-const targetLat = 32.0785788989309; 
+const sampleE = 179254.9219000004;
+const sampleN = 665111.2525999993;
+const targetLat = 32.0785788989309;
 const targetLon = 34.7786417155005;
 
-const [invE, invN] = proj4(
-  'EPSG:4326',
-  'EPSG:2039',
-  [ targetLon, targetLat ]   
-);
-
+const result = proj4('EPSG:4326', 'EPSG:2039', [targetLon, targetLat]);
+const invE = result ? result[0] : 0;
+const invN = result ? result[1] : 0;
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
-function convertITMtoWGS84(easting: number, northing: number) {
+function convertITMtoWGS84(easting, northing) {
   const correctedE = easting + deltaE;
   const correctedN = northing + deltaN;
-
   const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
   return { latitude: lat, longitude: lon };
 }
 
-function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Radius of the earth in km
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
   const a =
@@ -46,29 +41,27 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
     Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d;
+  return R * c;
 }
 
-function deg2rad(deg: number) {
+function deg2rad(deg) {
   return deg * (Math.PI / 180);
 }
-
 
 const ShelterInfoScreen = () => {
   const [minutes, setMinutes] = useState(10);
   const [seconds, setSeconds] = useState(0);
   const [progress, setProgress] = useState(1);
   const [shelterLocation, setShelterLocation] = useState('תל אביב');
-  const [zoneInfo, setZoneInfo] = useState<any>(null);
-  const [nearestShelter, setNearestShelter] = useState<any>(null);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [zoneInfo, setZoneInfo] = useState(null);
+  const [nearestShelter, setNearestShelter] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [mapRegion, setMapRegion] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
     const totalSeconds = 10 * 60;
-    const updateProgress = (remainingSeconds: number) => {
+    const updateProgress = (remainingSeconds) => {
       setProgress(remainingSeconds / totalSeconds);
     };
 
@@ -93,11 +86,52 @@ const ShelterInfoScreen = () => {
   }, [minutes]);
 
   useEffect(() => {
+    const fetchCityFromServer = async () => {
+      try {
+        const email = await getAuthUserEmail();
+        if (!email) return;
+  
+        const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
+        const data = await res.json();
+  
+        if (data.city) {
+          setShelterLocation(data.city);
+  
+          const zonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
+          const zonesRaw = await zonesRes.json();
+          const zones = Array.isArray(zonesRaw) ? zonesRaw : JSON.parse(zonesRaw.body ?? '[]');
+          const matched = zones.find((z) => z.name === data.city);
+          if (matched) setZoneInfo(matched);
+        }
+      } catch (err) {
+        console.log('❌ שגיאה בשליפת עיר מהשרת:', err);
+      }
+    };
+  
+    fetchCityFromServer();
+  }, []);
+  
+  useEffect(() => {
+    const fetchAllShelters = async () => {
+      let allShelters = [];
+      let lastEvaluatedKey = null;
+      do {
+        const url = new URL('https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters');
+        if (lastEvaluatedKey) {
+          url.searchParams.append('startKey', JSON.stringify(lastEvaluatedKey));
+        }
+        url.searchParams.append('limit', '500');
+        const res = await fetch(url.toString());
+        const data = await res.json();
+        allShelters = allShelters.concat(data.items || []);
+        lastEvaluatedKey = data.lastEvaluatedKey;
+      } while (lastEvaluatedKey);
+      return allShelters;
+    };
+
     const findNearestShelter = async () => {
       try {
-        const sheltersRes = await fetch('https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters');
-        const data = await sheltersRes.json();
-        const allShelters: any[] = data.items;
+        const allShelters = await fetchAllShelters();
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           console.error('❌ הרשאת מיקום נדחתה');
@@ -113,25 +147,22 @@ const ShelterInfoScreen = () => {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         });
-        
+
         let minDistance = Infinity;
         let closestShelter = null;
-  
+
         allShelters.forEach((shelter) => {
           const x = shelter.longitude;
           const y = shelter.latitude;
-  
           const { latitude, longitude } = convertITMtoWGS84(x, y);
-          
           if (isNaN(latitude) || isNaN(longitude)) return;
-  
           const distance = getDistanceFromLatLonInKm(userLat, userLon, latitude, longitude);
           if (distance < minDistance) {
             minDistance = distance;
             closestShelter = { ...shelter, latitude, longitude, distance };
           }
         });
-  
+
         if (closestShelter) {
           setNearestShelter(closestShelter);
         }
@@ -139,22 +170,22 @@ const ShelterInfoScreen = () => {
         console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
       }
     };
-  
+
     findNearestShelter();
   }, []);
-  
+
   const circleRadius = 45;
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circleCircumference * (1 - progress);
-
+  
   const handleUpdate = () => {
     Alert.alert('עדכון', 'המידע עודכן בהצלחה');
   };
-
+  
   const handleChat = () => {
     Alert.alert('צ\'אט', 'הצ\'אט נפתח');
   };
-
+  
   const handleReport = () => {
     if (!nearestShelter) {
       Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
@@ -173,7 +204,6 @@ const ShelterInfoScreen = () => {
     });
   };
   
-
   const handleNavigateToShelter = () => {
     if (!nearestShelter) {
       Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
@@ -189,98 +219,74 @@ const ShelterInfoScreen = () => {
     }
   };
   
-  useEffect(() => {
-    const fetchCityFromServer = async () => {
-      try {
-        const email = await getAuthUserEmail();
-        if (!email) return;
-
-        const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
-        const data = await res.json();
-
-        if (data.city) {
-          setShelterLocation(data.city);
-
-          const zonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
-          const zonesRaw = await zonesRes.json();
-          const zones = Array.isArray(zonesRaw) ? zonesRaw : JSON.parse(zonesRaw.body ?? '[]');
-          const matched = zones.find((z) => z.name === data.city);
-          if (matched) setZoneInfo(matched);
-        }
-      } catch (err) {
-        console.log('❌ שגיאה בשליפת עיר מהשרת:', err);
-      }
-    };
-
-    fetchCityFromServer();
-  }, []);
-
   return (
     <View style={styles.container}>
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>מיקומך: {shelterLocation}</Text>
-        <Text style={styles.infoText}>זמן כניסה למקלט: {zoneInfo?.countdown ? `${zoneInfo.countdown} שניות` : 'לא ידוע'}</Text>
+        <Text style={styles.infoText}>
+          זמן כניסה למקלט: {zoneInfo?.countdown ? `${zoneInfo.countdown} שניות` : 'לא ידוע'}
+        </Text>
       </View>
+
       {nearestShelter && (
-  <View style={{ marginTop: 10 }}>
-    <Text style={styles.infoText}>המקלט הקרוב ביותר:</Text>
-    <Text style={styles.infoText}>{nearestShelter.name ?? 'ללא שם'}</Text>
-  </View>
-)}
-<View style={styles.mapContainer}>
-{mapRegion && (
-  <MapView
-  style={styles.mapImage}
-  region={mapRegion}
-  showsUserLocation={true}
-  showsMyLocationButton={true}
->
-  {nearestShelter && (
-    <Marker
-      coordinate={{
-        latitude: nearestShelter.latitude,
-        longitude: nearestShelter.longitude,
-      }}
-      title={nearestShelter.name ?? 'מקלט'}
-      description={`מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`}
-    />
-  )}
-  {/* כפתור ניווט צף על המפה */}
-  <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
-    <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
-  </TouchableOpacity>
-</MapView>
+        <View style={{ marginTop: 10 }}>
+          <Text style={styles.infoText}>המקלט הקרוב ביותר:</Text>
+          <Text style={styles.infoText}>{nearestShelter.name ?? 'ללא שם'}</Text>
+        </View>
+      )}
 
-)}
-</View>
-<View style={styles.bottomContainer}>
-  <View style={styles.timerWrapper}>
-    <Text style={styles.timerTitle}>⏱ זמן עד ליציאה מהמקלט</Text>
-    <View style={styles.timerContainer}>
-      <Svg width={160} height={160}>
-        <Circle
-          cx="80"
-          cy="80"
-          r={70}
-          stroke="#11998e"
-  strokeWidth="12"
-  strokeDasharray={2 * Math.PI * 70}
-  strokeDashoffset={strokeDashoffset}
-  fill="none"
-  strokeLinecap="round"
-  transform="rotate(-90 80 80)"
-  shadowColor="#000"
-  shadowOffset={{ width: 0, height: 2 }}
-  shadowOpacity={0.2}
-  shadowRadius={4}
-        />
-      </Svg>
-      <Text style={styles.timerText}>
-        {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
-      </Text>
-    </View>
-  </View>
+      <View style={styles.mapContainer}>
+        {mapRegion && (
+          <MapView
+            style={styles.mapImage}
+            region={mapRegion}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+          >
+            {nearestShelter && (
+              <Marker
+                coordinate={{
+                  latitude: nearestShelter.latitude,
+                  longitude: nearestShelter.longitude,
+                }}
+                title={nearestShelter.name ?? 'מקלט'}
+                description={`מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`}
+              />
+            )}
+            <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
+              <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
+            </TouchableOpacity>
+          </MapView>
+        )}
+      </View>
 
+      <View style={styles.bottomContainer}>
+        <View style={styles.timerWrapper}>
+          <Text style={styles.timerTitle}>⏱ זמן עד ליציאה מהמקלט</Text>
+          <View style={styles.timerContainer}>
+            <Svg width={160} height={160}>
+              <Circle
+                cx="80"
+                cy="80"
+                r={70}
+                stroke="#11998e"
+                strokeWidth="12"
+                strokeDasharray={2 * Math.PI * 70}
+                strokeDashoffset={strokeDashoffset}
+                fill="none"
+                strokeLinecap="round"
+                transform="rotate(-90 80 80)"
+                shadowColor="#000"
+                shadowOffset={{ width: 0, height: 2 }}
+                shadowOpacity={0.2}
+                shadowRadius={4}
+              />
+            </Svg>
+            <Text style={styles.timerText}>
+              {minutes}:{seconds < 10 ? `0${seconds}` : seconds}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.buttonsContainer}>
           <TouchableOpacity style={styles.button} onPress={handleUpdate}>
@@ -292,15 +298,11 @@ const ShelterInfoScreen = () => {
           <TouchableOpacity style={styles.button} onPress={handleReport}>
             <Text style={styles.buttonText}>דיווח</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navButton} onPress={() => handleNavigateToShelter()}>
-</TouchableOpacity>
-
         </View>
       </View>
     </View>
   );
 };
-
 export default ShelterInfoScreen;
 
 const styles = StyleSheet.create({

@@ -172,6 +172,66 @@ const HomeScreen: React.FC = () => {
       console.error('שגיאה בקבלת התראות:', error);
     }
   };
+  useEffect(() => {
+    const findNearestShelter = async () => {
+      try {
+        const allShelters: Shelter[] = rawShelters;
+if (allShelters.length === 0) {
+    console.warn('אין מקלטים זמינים כרגע');
+    return;
+}
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.error('❌ הרשאת מיקום נדחתה');
+          return;
+        }
+        const location = await Location.getCurrentPositionAsync({});
+        const userLat = location.coords.latitude;
+        const userLon = location.coords.longitude;
+  
+        let minDistance = Infinity;
+        let closestShelter = null;
+  
+        allShelters.forEach((shelter) => {
+          const x = shelter.longitude;
+          const y = shelter.latitude;
+          const { latitude, longitude } = convertITMtoWGS84(x, y);
+          
+        
+          const distance = getDistanceFromLatLonInKm(userLat, userLon, latitude, longitude);
+        
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestShelter = { ...shelter, latitude, longitude, distance };
+          }
+        });
+  
+        if (closestShelter) {
+          console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
+        }
+      } catch (err) {
+        console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
+      }
+    };
+    }, []);
+  
+  
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI / 180);
+}
 
   const fetchShelters = async () => {
     setIsSheltersLoading(true);
@@ -217,38 +277,81 @@ const HomeScreen: React.FC = () => {
     }  
   };
 
-  useEffect(() => {
-    (async () => {
+ // ✅ תוקן כך שיחפש את המקלט הקרוב רק אחרי שכל המקלטים נטענו
+
+useEffect(() => {
+  (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Denied', 'Permission to access location was denied.');
-          setMapRegion({
-            latitude: 32.0853,
-            longitude: 34.7818,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.005,
-          });
-        } else {
-          const location = await Location.getCurrentPositionAsync({});
-          setMapRegion({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.005,
-          });
-          await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
-        }
-  
-        await fetchShelters();
-        await fetchAlerts();
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+              Alert.alert('Permission Denied', 'Permission to access location was denied.');
+              setMapRegion({
+                  latitude: 32.0853,
+                  longitude: 34.7818,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.005,
+              });
+          } else {
+              const location = await Location.getCurrentPositionAsync({});
+              setMapRegion({
+                  latitude: location.coords.latitude,
+                  longitude: location.coords.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.005,
+              });
+              await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
+          }
+
+          await fetchShelters();
+          await fetchAlerts();
+          // ❌ הורדנו את findNearestShelter מכאן
       } catch (error) {
-        console.error('Error during initial loading:', error);
-        Alert.alert('Error', 'Failed to load initial data.');
+          console.error('Error during initial loading:', error);
+          Alert.alert('Error', 'Failed to load initial data.');
       }
-    })();
-  }, []);
-  
+  })();
+}, []);
+
+// ✅ אפקט חדש שרץ כשהמקלטים נטענים
+useEffect(() => {
+  if (rawShelters.length === 0) return;
+
+  const findNearestShelter = async () => {
+      try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+              console.error('❌ הרשאת מיקום נדחתה');
+              return;
+          }
+          const location = await Location.getCurrentPositionAsync({});
+          const userLat = location.coords.latitude;
+          const userLon = location.coords.longitude;
+
+          let minDistance = Infinity;
+          let closestShelter = null;
+
+          rawShelters.forEach((shelter) => {
+              const { latitude, longitude } = shelter;  // לא צריך המרה נוספת
+
+              const distance = getDistanceFromLatLonInKm(userLat, userLon, latitude, longitude);
+
+              if (distance < minDistance) {
+                  minDistance = distance;
+                  closestShelter = { ...shelter, distance };
+              }
+          });
+
+          if (closestShelter) {
+              console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
+          }
+      } catch (err) {
+          console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
+      }
+  };
+
+  findNearestShelter();
+}, [rawShelters]);
+
 
   useEffect(() => {
     if (!isSheltersLoading && mapRegion) {
