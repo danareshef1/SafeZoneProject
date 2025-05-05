@@ -19,7 +19,6 @@ import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
 import { useFocusEffect } from '@react-navigation/native';
-import { getColorByStatus } from '../components/ui/Map/CustomMarker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
@@ -51,11 +50,8 @@ const [invE, invN] = proj4(
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
-<<<<<<< HEAD
-=======
 const mapRef = useRef<MapView | null>(null);
 
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
 function convertITMtoWGS84(easting: number, northing: number) {
   const correctedE = easting + deltaE;
   const correctedN = northing + deltaN;
@@ -64,8 +60,6 @@ function convertITMtoWGS84(easting: number, northing: number) {
   return { latitude: lat, longitude: lon };
 }
 
-<<<<<<< HEAD
-=======
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3; // מטרים
   const φ1 = lat1 * Math.PI / 180;
@@ -83,7 +77,6 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return distance; // במטרים
 }
 
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
 type Alarm = {
   id: string;
   date: string;
@@ -115,11 +108,8 @@ const HomeScreen: React.FC = () => {
 
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
   const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
-<<<<<<< HEAD
-=======
   const pulseAnim = useMemo(() => new Animated.Value(1), []);
   const [rawShelters, setRawShelters] = useState<Shelter[]>([]);
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
   
   const fetchAlerts = async () => {
     try {
@@ -206,9 +196,6 @@ const HomeScreen: React.FC = () => {
         })
         .filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
 
-<<<<<<< HEAD
-      setShelters(convertedShelters);
-=======
 
     if (mapRegion) {
       convertedShelters.sort((a, b) => {
@@ -221,7 +208,6 @@ const HomeScreen: React.FC = () => {
     setRawShelters(convertedShelters);
     
       //setShelters(convertedShelters);
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
       await AsyncStorage.setItem('shelters', JSON.stringify(convertedShelters));
     } catch (error) {
       console.error('Error fetching shelters:', error);
@@ -240,26 +226,16 @@ const HomeScreen: React.FC = () => {
           setMapRegion({
             latitude: 32.0853,
             longitude: 34.7818,
-<<<<<<< HEAD
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-=======
             latitudeDelta: 0.01,
             longitudeDelta: 0.005,
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
           });
         } else {
           const location = await Location.getCurrentPositionAsync({});
           setMapRegion({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
-<<<<<<< HEAD
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-=======
             latitudeDelta: 0.01,
             longitudeDelta: 0.005,
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
           });
           await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
         }
@@ -289,11 +265,6 @@ const HomeScreen: React.FC = () => {
           useNativeDriver: true,
         }),
       ]).start();
-<<<<<<< HEAD
-    }
-  }, [isSheltersLoading, mapRegion]);
-  
-=======
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -337,7 +308,6 @@ const HomeScreen: React.FC = () => {
     
     setSheltersToShow((prev) => [...prev, ...nextItems]);
   };
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
   
 const handleReport = () => {
   if (selectedShelter) {
@@ -347,10 +317,6 @@ const handleReport = () => {
         id: selectedShelter.id,
         name: selectedShelter.name ?? '',
         location: selectedShelter.location ?? '',
-<<<<<<< HEAD
-=======
-        status: selectedShelter.status ?? '',
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
         image: selectedShelter.image ?? '',
       },
     });
@@ -369,13 +335,8 @@ const refreshLocation = async () => {
     setMapRegion({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-<<<<<<< HEAD
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-=======
       latitudeDelta: 0.01,
       longitudeDelta: 0.005,
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
     });
 
     await sendLocationToBackend(
@@ -477,11 +438,6 @@ if (!mapRegion) {
     <View style={styles.loadingOverlay}>
     <ActivityIndicator size="large" color="'#11998e'" />
     <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
-<<<<<<< HEAD
-  </View>
-  );
-}
-=======
   </View>
   );
 }
@@ -525,7 +481,6 @@ return (
     }} />
   </View>
 </Marker>
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
 
   
         {allShelters.map((shelter) => (
@@ -537,132 +492,6 @@ return (
         ))}
       </MapView>
 
-<<<<<<< HEAD
-return (
-  <TouchableWithoutFeedback onPress={handleDeselectShelter}>
-      <View style={{ flex: 1 }}>
-      <Animated.View
-  style={[
-    styles.container,
-    {
-      opacity: fadeAnim,
-      transform: [{ scale: scaleAnim }],
-    },
-  ]}
->
-      <View style={styles.container}>
-      <MapView style={styles.map} region={mapRegion}>
-        <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
-          <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
-        </TouchableOpacity>
-
-        {shelters.map((shelter) => (
-          <CustomMarker
-          key={`${shelter.id}-${shelter.status}`}
-          shelter={shelter}
-          onPress={() => setSelectedShelter(shelter)}
-        />
-        ))}
-      </MapView>
-
-      {alerts.length > 0 && (
-        <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
-          <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
-          <View style={{ flexGrow: 1 }}>
-            <ScrollView>
-              {alerts.map((alert, idx) => {
-                const isMultiple = alert.descriptions.length > 1;
-                const Container = isMultiple ? TouchableOpacity : View;
-
-                return (
-                  <Container
-                    key={alert.id}
-                    style={styles.alertItem}
-                    {...(isMultiple && {
-                      onPress: () =>
-                        setAlerts((prev) =>
-                          prev.map((a, i) => ({
-                            ...a,
-                            expanded: i === idx ? !a.expanded : false,
-                          }))
-                        ),
-                    })}
-                  >
-                    <Text style={styles.alertIcon}>🚨</Text>
-                    <View style={[styles.alertTextContainer, { flexDirection: 'row-reverse', alignItems: 'center' }]}>
-                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                        {isMultiple && alert.expanded ? (
-                          alert.descriptions.map((desc, i) => (
-                            <Text key={i} style={styles.alertDescription}>
-                              {desc}
-                            </Text>
-                          ))
-                        ) : (
-                          <Text style={styles.alertDescription}>
-                            {isMultiple
-                              ? `${alert.descriptions.length} איזורי התרעה`
-                              : alert.descriptions[0]}
-                          </Text>
-                        )}
-                        <Text style={styles.alertTime}>{alert.date} - {alert.time}</Text>
-                      </View>
-                      {isMultiple && (
-                        <Ionicons
-                          name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-                          size={20}
-                          color="#666"
-                          style={{ marginRight: 10, alignSelf: 'flex-start' }}
-                        />
-                      )}
-                    </View>
-                  </Container>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      )}
-
-      {selectedShelter && (
-        <>
-          <View style={styles.selectedShelter}>
-            <ShelterListItem
-              shelter={selectedShelter}
-              containerStyle={{}}
-            />
-          </View>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
-              <Text style={styles.actionButtonText}>דווח על מקלט</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleAddImage}
-              disabled={isImageUploading}
-            >
-              {isImageUploading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.actionButtonText}>הוסף תמונה</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-
-      <BottomSheet index={0} snapPoints={snapPoints}>
-        <View style={styles.contentContainer}>
-          <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
-          <BottomSheetFlatList
-            data={shelters}
-            contentContainerStyle={{ gap: 10, padding: 10 }}
-            renderItem={({ item }) => (
-              <ShelterListItem
-                shelter={item}
-                containerStyle={{}}
-              />
-=======
       {alerts.length > 0 && (
         <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
           <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
@@ -729,10 +558,6 @@ return (
     </View>
 
     <View style={styles.shelterDetails}>
-      <View style={styles.statusContainer}>
-        <View style={[styles.statusCircle, { backgroundColor: getColorByStatus(selectedShelter.status ?? '') }]} />
-        <Text style={styles.statusText}>{selectedShelter.status}</Text>
-      </View>
       {selectedShelter.location && (
         <Text style={styles.locationText}>{selectedShelter.location}</Text>
       )}
@@ -774,7 +599,6 @@ return (
               <ShelterListItem
   shelter={item}
   containerStyle={{}}
-  statusColor={getColorByStatus(item.status)}
   distance={
     mapRegion
       ? Math.round(
@@ -789,7 +613,6 @@ return (
   }
 />
 
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
             )}
           />
         </View>
@@ -934,9 +757,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 10,
     borderRadius: 10,
-<<<<<<< HEAD
-    elevation: 5,
-=======
     elevation: 5,
   },
   loadingOverlay: {
@@ -996,23 +816,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   
-  statusContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  
-  statusCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginLeft: 6,
-  },
-  
-  statusText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  
   locationText: {
     fontSize: 14,
     color: '#666',
@@ -1040,15 +843,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 15,
->>>>>>> 8bc6aeeb6620bb056807087114e53a4ff7017888
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(176, 255, 247, 0.7)', 
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },  
   
 });
 

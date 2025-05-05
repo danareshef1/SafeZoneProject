@@ -51,13 +51,6 @@ const ShelterListItem: React.FC<ShelterListItemProps> = ({
         : `${(distance / 1000).toFixed(2)} ק״מ ממך`}
     </Text>
   )}
-
-  <View style={styles.statusContainer}>
-    <View
-      style={[styles.statusCircle, { backgroundColor: statusColor }]}
-    />
-    <Text style={styles.status}>{shelter.status}</Text>
-  </View>
   
   {showReportButton && <Button title="Report Shelter" onPress={onReport} />}
 </View>
@@ -110,22 +103,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#333',
     marginBottom: 5,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  statusCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    marginRight: 8,
-  },
-  status: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#666',
   },
   distanceText: {
     fontSize: 14,
