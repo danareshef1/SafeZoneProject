@@ -23,13 +23,13 @@ const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/repo
 const getColorByStatus = (status: string | null) => {
   switch (status) {
     case 'גבוה':
-      return '#FF3B30'; // Red
+      return '#FF3B30';
     case 'בינוני':
-      return '#FFCC00'; // Yellowr
+      return '#FFCC00';
     case 'נמוך':
-      return '#34C759'; // Green
+      return '#34C759';
     default:
-      return '#ccc'; // Neutral gray
+      return '#ccc';
   }
 };
 
@@ -48,40 +48,40 @@ const ShelterDetail: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [filteredShelters, setFilteredShelters] = useState<any[]>([]);
 
-  useEffect(() => {
-    const fetchShelters = async () => {
-      try {
-        const response = await fetch(`${API_URL}`);
-        const data = await response.json();
-        const allShelters = data.items;
-        setShelters(allShelters);
-        setFilteredShelters(allShelters.filter((s: { id: string | string[] }) => s.id !== id));
-  
-        const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
-  
-        if (foundShelter) {
-          setShelter(foundShelter);
-          setSelectedStatus(typeof foundShelter.status === 'string' ? foundShelter.status : null);
-          setReportText(foundShelter.reportText || '');
-          setUploadedImages(foundShelter.images || []);
-        } else {
-          setShelter({
-            id,
-            name,
-            location,
-            status,
-            image,
-          });
-          setSelectedStatus(typeof status === 'string' ? status : null);
-        }
-      } catch (error) {
-        console.error('Error fetching shelters:', error);
+  // ✅ הוצאתי את הפונקציה החוצה
+  const fetchShelters = async () => {
+    try {
+      const response = await fetch(`${API_URL}`);
+      const data = await response.json();
+      const allShelters = data.items;
+      setShelters(allShelters);
+      setFilteredShelters(allShelters.filter((s: { id: string | string[] }) => s.id !== id));
+
+      const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
+
+      if (foundShelter) {
+        setShelter(foundShelter);
+        setSelectedStatus(typeof foundShelter.status === 'string' ? foundShelter.status : null);
+        setReportText(foundShelter.reportText || '');
+        setUploadedImages(foundShelter.images || []);
+      } else {
+        setShelter({
+          id,
+          name,
+          location,
+          status,
+          image,
+        });
+        setSelectedStatus(typeof status === 'string' ? status : null);
       }
-    };
-  
-    fetchShelters();
+    } catch (error) {
+      console.error('Error fetching shelters:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchShelters();  // 👈 נקרא פעם ראשונה כשנכנסים
   }, [id, name, location, status, image]);
-  
 
   const handleStatusChange = (status: string) => {
     setSelectedStatus(status);
@@ -116,7 +116,6 @@ const ShelterDetail: React.FC = () => {
       Alert.alert('שגיאה', 'לא נמצא מקלט.');
     }
   };
-  
 
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
     const response = await fetch('https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl', 
@@ -126,48 +125,46 @@ const ShelterDetail: React.FC = () => {
         body: JSON.stringify({ type }),
       }
     );
-  
+
     const text = await response.text();  
     if (!response.ok) {
       throw new Error('Failed to get signed URL');
     }
-  
+
     return JSON.parse(text);
   };
-  
-  
+
   const uploadImageToS3 = async (localUri: string, type: 'shelter' | 'report') => {
     const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
-  
+
     const base64 = await FileSystem.readAsStringAsync(localUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-  
+
     const buffer = Buffer.from(base64, 'base64');
-  
+
     await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'image/jpeg' },
       body: buffer,
     });
-  
+
     return imageUrl;
   };
-  
-  
+
   const handleAddImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Permission required', 'We need permission to access your photos.');
       return;
     }
-  
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
-  
+
     if (!result.canceled) {
       const localUri = result.assets[0].uri;
       try {
@@ -182,14 +179,13 @@ const ShelterDetail: React.FC = () => {
       }
     }
   };
-  
 
   const handleSubmitReport = async () => {
     if (!selectedStatus) {
       Alert.alert('Error', 'Please select a status');
       return;
     }
-  
+
     try {
       setIsSubmitting(true); 
       const userEmail = await getAuthUserEmail();
@@ -197,22 +193,22 @@ const ShelterDetail: React.FC = () => {
         Alert.alert('Error', 'User email not found.');
         return;
       }
-  
+
       const statusOnlyUpdate = {
         id: shelter.id,
         status: selectedStatus,
       };
-  
+
       const statusResponse = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(statusOnlyUpdate),
       });
-  
+
       if (!statusResponse.ok) {
         throw new Error('Failed to update shelter status');
       }
-  
+
       await fetch(REPORTS_URL, {
         method: 'POST',
         headers: {
@@ -227,16 +223,18 @@ const ShelterDetail: React.FC = () => {
           email: userEmail,
         }),
       });
-  
-      Alert.alert('Success', 'Your report has been submitted');
-  
+
+      Alert.alert('Success', 'Your report has been submitted ✅');
+
+      // ✅ רענון של המקלט אחרי שליחה
+      await fetchShelters();
+
+      // איפוס רק של שדות הדיווח (לא של הסטטוס שנבחר!)
       setUploadedImages([]);
       setReportText('');
-      setSelectedStatus(null);
       setShowComboBox(false);
       setSearchText('');
-  
-      router.push('/home');
+
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert('Error', 'Unable to submit your report.');
@@ -244,7 +242,7 @@ const ShelterDetail: React.FC = () => {
       setIsSubmitting(false); 
     }
   };
-  
+
   const handleCancel = () => {
     router.push('/home');
   };
