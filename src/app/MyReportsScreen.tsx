@@ -10,7 +10,6 @@ const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/repo
 type Report = {
   reportId: string;
   name?: string;
-  status: string;
   reportText: string;
   timestamp?: string;
   images?: string[];
@@ -59,15 +58,6 @@ const MyReportsScreen = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'גבוה': return '#FF3B30';
-      case 'בינוני': return '#FFCC00';
-      case 'נמוך': return '#34C759';
-      default: return '#ccc';
-    }
-  };
-
   if (loading) return <ActivityIndicator style={{ marginTop: 50 }} />;
 
   return (
@@ -81,18 +71,21 @@ const MyReportsScreen = () => {
         <Text style={styles.noReports}>לא נמצאו דיווחים</Text>
       ) : (
         reports.map((report, idx) => (
-          <View key={idx} style={[styles.card, { borderColor: getStatusColor(report.status) }]}>
+          <View key={idx} style={[styles.card, { borderColor: '#ccc' }]}>
             <Text style={styles.shelterName}>{report.name || 'שם המקלט: לא זמין'}</Text>
             <View style={styles.reportIdRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.reportId}>   מספר פנייה: <Text style={styles.reportIdValue}>{report.reportId}</Text> </Text>
-             </View>
-             <TouchableOpacity onPress={() => copyToClipboard(report.reportId)}>
-            <Text style={styles.copyText}>העתק</Text>
-            </TouchableOpacity>
+  <Text style={styles.reportId}>
+    מספר פנייה: <Text style={styles.reportIdValue}>{report.reportId}</Text>
+  </Text>
+  <TouchableOpacity
+    style={styles.copyButton} // חדש
+    onPress={() => copyToClipboard(report.reportId)}
+  >
+    <Text style={styles.copyText}>העתק</Text>
+  </TouchableOpacity>
+</View>
 
-                  </View>
-            <Text style={styles.status}>עומס: <Text style={{ color: getStatusColor(report.status), fontWeight: 'bold' }}>{report.status}</Text></Text>
+
             <Text style={styles.label}>תיאור:</Text>
             <Text style={styles.text}>{report.reportText}</Text>
             <Text style={styles.date}>תאריך: {formatDate(report.timestamp)}</Text>
@@ -167,12 +160,6 @@ const styles = StyleSheet.create({
       color: '#333',
       textAlign: 'right',
     },
-    status: {
-      fontSize: 16,
-      fontWeight: '500',
-      marginBottom: 8,
-      textAlign: 'right',
-    },
     label: {
       fontWeight: '600',
       fontSize: 15,
@@ -213,22 +200,29 @@ const styles = StyleSheet.create({
       textAlign: 'right',
     },
     reportId: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#666',
-        marginBottom: 6,
-        textAlign: 'right',
-      },
+      fontSize: 14,
+      fontWeight: '500',
+      color: '#666',
+      textAlign: 'right',
+      flexShrink: 1,       // זה יגרום לו להתכווץ כשאין מקום
+    },    
       reportIdValue: {
         color: '#000',
         fontWeight: 'bold',
       },
       reportIdRow: {
         flexDirection: 'row-reverse',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: 6,
+        position: 'relative', // חשוב כדי שההעתק ימוקם יחסית לכאן
       },
+      
+      copyButton: {
+        position: 'absolute',
+        left: 0, // תמיד בצד שמאל של ה-card
+        top: 0,  // מיושר למעלה
+        padding: 4,
+      },      
       copyText: {
         fontSize: 14,
         color: '#007AFF',

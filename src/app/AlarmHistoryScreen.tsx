@@ -47,9 +47,15 @@ const AlarmHistoryScreen = () => {
   let filteredAlarms = alarms;
 
   if (filter === 'this week') {
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - now.getDay());
-    filteredAlarms = alarms.filter(a => a.dateObj >= sunday && a.dateObj <= now);
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() - now.getDay()); // יום ראשון
+  
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6); // שבת
+
+  filteredAlarms = alarms.filter(
+    (a) => a.dateObj >= sunday && a.dateObj <= saturday
+  );
   } else if (filter === 'this month') {
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     filteredAlarms = alarms.filter(a => a.dateObj >= firstOfMonth && a.dateObj <= now);
