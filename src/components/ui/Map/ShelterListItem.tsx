@@ -5,7 +5,6 @@ import { Shelter } from '../../../types/Shelter';
 type ShelterListItemProps = {
   shelter: Shelter;
   containerStyle: ViewStyle;
-  statusColor: string;
   showReportButton?: boolean;
   onReport?: () => void;
 };
@@ -13,11 +12,11 @@ type ShelterListItemProps = {
 const ShelterListItem: React.FC<ShelterListItemProps> = ({
   shelter,
   containerStyle = {},
-  statusColor,
   showReportButton = false,
   onReport,
 }) => {
   const [isImageLoading, setIsImageLoading] = useState(false);
+  const statusColor = '#34C759'; // תמיד ירוק ✅
 
   return (
     <View style={[styles.card, containerStyle]}>
@@ -41,17 +40,12 @@ const ShelterListItem: React.FC<ShelterListItemProps> = ({
       )}
       <View style={styles.rightContainer}>
         <Text style={styles.title}>{shelter.name}</Text>
-        <View style={styles.statusContainer}>
-          <View
-            style={[styles.statusCircle, { backgroundColor: statusColor }]}
-          />
-          <Text style={styles.status}>{shelter.status}</Text>
-        </View>
         {showReportButton && <Button title="Report Shelter" onPress={onReport} />}
       </View>
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   card: {

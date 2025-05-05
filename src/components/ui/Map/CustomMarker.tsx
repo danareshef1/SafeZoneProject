@@ -7,22 +7,8 @@ type CustomMarkerProps = {
   onPress?: () => void;
 };
 
-export const getColorByStatus = (status: string): string => {
-  switch (status) {
-    case 'גבוה':
-      return '#FF3B30'; // red
-    case 'בינוני':
-      return '#FFCC00'; // yellow
-    case 'נמוך':
-      return '#34C759'; // green
-    default:
-      return '#ccc'; // fallback gray
-  }
-};
-
-
 const CustomMarker: React.FC<CustomMarkerProps> = ({ shelter, onPress }) => {
-  const pinColor = getColorByStatus(shelter.status);
+  const pinColor = '#34C759'; // תמיד ירוק
 
   return (
     <Marker

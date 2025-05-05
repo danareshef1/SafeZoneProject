@@ -12,26 +12,12 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import StatusButtons from '../../components/ui/Map/StatusButtons';
 import { getAuthUserEmail } from '../../../utils/auth'
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer'; 
 
 const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
 const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
-
-const getColorByStatus = (status: string | null) => {
-  switch (status) {
-    case 'גבוה':
-      return '#FF3B30'; // Red
-    case 'בינוני':
-      return '#FFCC00'; // Yellow
-    case 'נמוך':
-      return '#34C759'; // Green
-    default:
-      return '#ccc'; // Neutral gray
-  }
-};
 
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -41,7 +27,6 @@ const ShelterDetail: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [shelter, setShelter] = useState<any>(null);
   const [reportText, setReportText] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [shelters, setShelters] = useState<any[]>([]);
   const [showComboBox, setShowComboBox] = useState(false);
@@ -59,7 +44,6 @@ const ShelterDetail: React.FC = () => {
         const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
         if (foundShelter) {
           setShelter(foundShelter);
-          setSelectedStatus(foundShelter.status || null);
           setReportText(foundShelter.reportText || '');
           setUploadedImages(foundShelter.images || []);
         }
@@ -71,9 +55,7 @@ const ShelterDetail: React.FC = () => {
     fetchShelters();
   }, [id]);
 
-  const handleStatusChange = (status: string) => {
-    setSelectedStatus(status);
-  };
+
 
   const handleSearch = (text: string) => {
     setSearchText(text);
@@ -157,10 +139,6 @@ const ShelterDetail: React.FC = () => {
   
 
   const handleSubmitReport = async () => {
-    if (!selectedStatus) {
-      Alert.alert('Error', 'Please select a status');
-      return;
-    }
   
     try {
       setIsSubmitting(true); 
@@ -169,22 +147,6 @@ const ShelterDetail: React.FC = () => {
         Alert.alert('Error', 'User email not found.');
         return;
       }
-  
-      const statusOnlyUpdate = {
-        id: shelter.id,
-        status: selectedStatus,
-      };
-  
-      const statusResponse = await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(statusOnlyUpdate),
-      });
-  
-      if (!statusResponse.ok) {
-        throw new Error('Failed to update shelter status');
-      }
-  
       await fetch(REPORTS_URL, {
         method: 'POST',
         headers: {
@@ -193,7 +155,6 @@ const ShelterDetail: React.FC = () => {
         body: JSON.stringify({
           id: shelter.id,
           name: shelter.name,
-          status: selectedStatus,
           reportText,
           images: uploadedImages,
           email: userEmail,
@@ -204,7 +165,6 @@ const ShelterDetail: React.FC = () => {
   
       setUploadedImages([]);
       setReportText('');
-      setSelectedStatus(null);
       setShowComboBox(false);
       setSearchText('');
   
@@ -229,12 +189,6 @@ const ShelterDetail: React.FC = () => {
       <Text style={styles.title}>דיווח על מקלט</Text>
       <Text style={styles.shelterName}>{shelter?.name || shelter?.location || 'מקלט נבחר'}</Text>
 
-      {selectedStatus && (
-        <View style={styles.statusRow}>
-          <View style={[styles.statusCircle, { backgroundColor: getColorByStatus(selectedStatus) }]} />
-          <Text style={styles.statusText}>סטטוס נבחר: {selectedStatus}</Text>
-        </View>
-      )}
 
       <TouchableOpacity
         style={styles.changeShelterButton}
@@ -308,7 +262,6 @@ const ShelterDetail: React.FC = () => {
         </ScrollView>
       )}
 
-      <StatusButtons onReport={handleStatusChange} />
 
       <TextInput
         style={styles.textInput}
@@ -355,23 +308,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 10,
     textAlign: 'center',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  statusCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    marginHorizontal: 8,
-  },
-  statusText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
   },
   changeShelterButton: {
     backgroundColor: '#4CAF50',
