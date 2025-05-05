@@ -61,6 +61,23 @@ function convertITMtoWGS84(easting: number, northing: number) {
   return { latitude: lat, longitude: lon };
 }
 
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // מטרים
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c;
+  return distance; // במטרים
+}
+
 type Alarm = {
   id: string;
   date: string;
@@ -72,8 +89,12 @@ type Alarm = {
 const HomeScreen: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
-  const [shelters, setShelters] = useState<Shelter[]>([]);
-  const [isImageUploading, setIsImageUploading] = useState(false);
+
+  const [allShelters, setAllShelters] = useState<Shelter[]>([]);
+  const [sheltersToShow, setSheltersToShow] = useState<Shelter[]>([]);
+  const LOAD_COUNT = 100;  // כמה להוסיף בכל פעם
+
+    const [isImageUploading, setIsImageUploading] = useState(false);
   const [mapRegion, setMapRegion] = useState<null | {
     latitude: number;
     longitude: number;
@@ -89,6 +110,7 @@ const HomeScreen: React.FC = () => {
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
   const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
   const pulseAnim = useMemo(() => new Animated.Value(1), []);
+  const [rawShelters, setRawShelters] = useState<Shelter[]>([]);
   
   const fetchAlerts = async () => {
     try {
@@ -175,7 +197,18 @@ const HomeScreen: React.FC = () => {
         })
         .filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
 
-      setShelters(convertedShelters);
+
+    if (mapRegion) {
+      convertedShelters.sort((a, b) => {
+        const distA = calculateDistance(mapRegion.latitude, mapRegion.longitude, a.latitude, a.longitude);
+        const distB = calculateDistance(mapRegion.latitude, mapRegion.longitude, b.latitude, b.longitude);
+        return distA - distB;
+      });
+    }
+
+    setRawShelters(convertedShelters);
+    
+      //setShelters(convertedShelters);
       await AsyncStorage.setItem('shelters', JSON.stringify(convertedShelters));
     } catch (error) {
       console.error('Error fetching shelters:', error);
@@ -250,6 +283,32 @@ const HomeScreen: React.FC = () => {
     }
   }, [isSheltersLoading, mapRegion]);
   
+  useEffect(() => {
+    if (mapRegion && rawShelters.length > 0) {
+      const sorted = [...rawShelters].sort((a, b) => {
+        const distA = calculateDistance(mapRegion.latitude, mapRegion.longitude, a.latitude, a.longitude);
+        const distB = calculateDistance(mapRegion.latitude, mapRegion.longitude, b.latitude, b.longitude);
+        return distA - distB;
+      });
+      setAllShelters(sorted);
+      setSheltersToShow(sorted.slice(0, LOAD_COUNT));  // נציג רק את הראשונים בהתחלה
+          } else if (rawShelters.length > 0) {
+      // אם אין עדיין מיקום, תראה אותם כמות שהם
+      setAllShelters(rawShelters);
+      setSheltersToShow(rawShelters.slice(0, LOAD_COUNT));
+    }
+  }, [mapRegion, rawShelters]);
+
+  const loadMoreShelters = () => {
+    if (sheltersToShow.length >= allShelters.length) return;  // אין עוד מה להוסיף
+  
+    const nextItems = allShelters.slice(
+      sheltersToShow.length,
+      sheltersToShow.length + LOAD_COUNT
+    );
+    
+    setSheltersToShow((prev) => [...prev, ...nextItems]);
+  };
   
 const handleReport = () => {
   if (selectedShelter) {
@@ -426,7 +485,7 @@ return (
 </Marker>
 
   
-        {shelters.map((shelter) => (
+        {allShelters.map((shelter) => (
           <CustomMarker
             key={`${shelter.id}-${shelter.status}`}
             shelter={shelter}
@@ -493,47 +552,74 @@ return (
         </View>
       )}
 
-      {selectedShelter && (
-        <>
-          <View style={styles.selectedShelter}>
-            <ShelterListItem
-              shelter={selectedShelter}
-              containerStyle={{}}
-              statusColor={getColorByStatus(selectedShelter?.status ?? '')}
-            />
-          </View>
+{selectedShelter && (
+  <Animated.View style={styles.shelterInfoBox}>
+    <View style={styles.shelterHeader}>
+      <Ionicons name="home-outline" size={28} color="#11998e" style={{ marginRight: 10 }} />
+      <Text style={styles.shelterTitle}>{selectedShelter.name}</Text>
+    </View>
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
-              <Text style={styles.actionButtonText}>דווח על מקלט</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleAddImage}
-              disabled={isImageUploading}
-            >
-              {isImageUploading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.actionButtonText}>הוסף תמונה</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </>
+    <View style={styles.shelterDetails}>
+      <View style={styles.statusContainer}>
+        <View style={[styles.statusCircle, { backgroundColor: getColorByStatus(selectedShelter.status ?? '') }]} />
+        <Text style={styles.statusText}>{selectedShelter.status}</Text>
+      </View>
+      {selectedShelter.location && (
+        <Text style={styles.locationText}>{selectedShelter.location}</Text>
       )}
+    </View>
+
+    <View style={styles.buttonRowInline}>
+      <TouchableOpacity style={styles.actionButtonInline} onPress={handleReport}>
+        <Ionicons name="warning-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
+        <Text style={styles.actionButtonTextInline}>דווח</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.actionButtonInline}
+        onPress={handleAddImage}
+        disabled={isImageUploading}
+      >
+        {isImageUploading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="image-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
+            <Text style={styles.actionButtonTextInline}>הוסף תמונה</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  </Animated.View>
+)}
+
 
       <BottomSheet index={0} snapPoints={snapPoints}>
         <View style={styles.contentContainer}>
-          <Text style={styles.listTitle}>Over {shelters.length} shelters</Text>
+          <Text style={styles.listTitle}>Over {allShelters.length} shelters</Text>
           <BottomSheetFlatList
-            data={shelters}
-            contentContainerStyle={{ gap: 10, padding: 10 }}
+              data={sheltersToShow}
+              onEndReached={loadMoreShelters}
+              onEndReachedThreshold={0.5}  // תוכל לשחק עם זה כדי לטעון לפני שמגיעים לסוף
+              contentContainerStyle={{ gap: 10, padding: 10 }}
             renderItem={({ item }) => (
               <ShelterListItem
-                shelter={item}
-                containerStyle={{}}
-                statusColor={getColorByStatus(item.status)}
-              />
+  shelter={item}
+  containerStyle={{}}
+  statusColor={getColorByStatus(item.status)}
+  distance={
+    mapRegion
+      ? Math.round(
+          calculateDistance(
+            mapRegion.latitude,
+            mapRegion.longitude,
+            item.latitude,
+            item.longitude
+          )
+        )
+      : null
+  }
+/>
+
             )}
           />
         </View>
@@ -700,6 +786,87 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
+  },
+  shelterInfoBox: {
+    position: 'absolute',
+    top: 120,  // אפשר לשחק עם זה עד שזה במקום טוב
+    left: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 15,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    zIndex: 15,
+  },
+  
+  shelterHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  
+  shelterTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  
+  shelterDetails: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    marginBottom: 15,
+  },
+  
+  statusContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  
+  statusCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  
+  statusText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  
+  locationText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    textAlign: 'right',
+  },
+  
+  buttonRowInline: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  
+  actionButtonInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  
+  actionButtonTextInline: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   
 });
