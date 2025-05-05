@@ -31,12 +31,8 @@ const ShelterDetail: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [filteredShelters, setFilteredShelters] = useState<any[]>([]);
   const { id, name, location, image } = useLocalSearchParams();
-  const [shelter, setShelter] = useState({
-    id: id ?? '',
-    name: name ?? '',
-    location: location ?? '',
-    image: image ?? '',
-  });
+  const [shelter, setShelter] = useState<any>(null);
+
   
   useEffect(() => {
     const fetchShelters = async () => {
@@ -46,22 +42,28 @@ const ShelterDetail: React.FC = () => {
         const { items } = allShelters;
         setShelters(items);
         const foundShelter = items.find((shelter: any) => shelter.id === id);
-        setFilteredShelters(items.filter((s) => s.id !== id));
+
         if (foundShelter) {
-          setShelter(foundShelter);
+          setShelter(foundShelter);  // 👈 ריענון shelter
           setReportText(foundShelter.reportText || '');
           setUploadedImages(foundShelter.images || []);
         } else {
-          console.warn('No shelter found with ID:', id);
+          // אם לא נמצא ב-API, אולי זה בא מהפרמטרים
+          setShelter({
+            id: id ?? '',
+            name: name ?? '',
+            location: location ?? '',
+            image: image ?? '',
+          });
         }
       } catch (error) {
         console.error('Error fetching shelters:', error);
       }
     };
-  
+
     fetchShelters();
-  }, [id]);
-  
+}, [id]);  // 👈 תוודא שה- useEffect מגיב ל-id
+
 
 
   const handleSearch = (text: string) => {
@@ -194,7 +196,9 @@ const ShelterDetail: React.FC = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>דיווח על מקלט</Text>
-      <Text style={styles.shelterName}>{shelter?.name || shelter?.location || 'מקלט נבחר'}</Text>
+      <Text style={styles.shelterName}>
+  {shelter?.name || shelter?.location || 'מקלט נבחר'}
+</Text>
 
 
       <TouchableOpacity
