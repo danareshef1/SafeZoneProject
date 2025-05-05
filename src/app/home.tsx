@@ -315,11 +315,11 @@ const handleReport = () => {
       pathname: '/report-shelter/[id]',
       params: { 
         id: selectedShelter.id,
-        name: selectedShelter.name ?? '',
-        location: selectedShelter.location ?? '',
-        image: selectedShelter.image ?? '',
+        name: selectedShelter.name,
+        location: selectedShelter.location,
+        image: selectedShelter.image,
       },
-    });
+    });    
   }
 };
 
@@ -487,7 +487,11 @@ return (
           <CustomMarker
             key={`${shelter.id}-${shelter.status}`}
             shelter={shelter}
-            onPress={() => setSelectedShelter(shelter)}
+            onPress={() => {
+              console.log('Clicked shelter:', shelter);
+              setSelectedShelter(shelter);
+            }}
+            
           />
         ))}
       </MapView>

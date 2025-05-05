@@ -16,45 +16,52 @@ import { getAuthUserEmail } from '../../../utils/auth'
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer'; 
 
-const API_URL = 'https://d6jaqmxif9.execute-api.us-east-1.amazonaws.com/shelters';
+const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
 const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
 
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { id } = useLocalSearchParams();
   const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [shelter, setShelter] = useState<any>(null);
   const [reportText, setReportText] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [shelters, setShelters] = useState<any[]>([]);
   const [showComboBox, setShowComboBox] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [filteredShelters, setFilteredShelters] = useState<any[]>([]);
-
+  const { id, name, location, image } = useLocalSearchParams();
+  const [shelter, setShelter] = useState({
+    id: id ?? '',
+    name: name ?? '',
+    location: location ?? '',
+    image: image ?? '',
+  });
+  
   useEffect(() => {
     const fetchShelters = async () => {
       try {
         const response = await fetch(`${API_URL}`);
         const allShelters = await response.json();
-        setShelters(allShelters);
-        setFilteredShelters(allShelters.filter((s) => s.id !== id));
-
-        const foundShelter = allShelters.find((shelter: any) => shelter.id === id);
+        const { items } = allShelters;
+        setShelters(items);
+        const foundShelter = items.find((shelter: any) => shelter.id === id);
+        setFilteredShelters(items.filter((s) => s.id !== id));
         if (foundShelter) {
           setShelter(foundShelter);
           setReportText(foundShelter.reportText || '');
           setUploadedImages(foundShelter.images || []);
+        } else {
+          console.warn('No shelter found with ID:', id);
         }
       } catch (error) {
         console.error('Error fetching shelters:', error);
       }
     };
-
+  
     fetchShelters();
   }, [id]);
-
+  
 
 
   const handleSearch = (text: string) => {
