@@ -6,6 +6,7 @@ import { getAuthUserEmail } from '../../utils/auth';
 import proj4 from 'proj4';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 proj4.defs(
   'EPSG:2039',
@@ -112,67 +113,30 @@ const ShelterInfoScreen = () => {
   }, []);
   
   useEffect(() => {
-    const fetchAllShelters = async () => {
-      let allShelters = [];
-      let lastEvaluatedKey = null;
-      do {
-        const url = new URL('https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters');
-        if (lastEvaluatedKey) {
-          url.searchParams.append('startKey', JSON.stringify(lastEvaluatedKey));
+    const loadNearestShelter = async () => {
+        try {
+            const data = await AsyncStorage.getItem('nearestShelter');
+            if (data) {
+                const shelter = JSON.parse(data);
+                setNearestShelter(shelter);
+                console.log('📦 nearestShelter from AsyncStorage:', shelter);
+                setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
+                setMapRegion({
+                    latitude: shelter.latitude,
+                    longitude: shelter.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                });
+            } else {
+                console.log('⚠️ לא נמצא nearestShelter ב־AsyncStorage');
+            }
+        } catch (err) {
+            console.error('שגיאה בשליפת המקלט הקרוב:', err);
         }
-        url.searchParams.append('limit', '500');
-        const res = await fetch(url.toString());
-        const data = await res.json();
-        allShelters = allShelters.concat(data.items || []);
-        lastEvaluatedKey = data.lastEvaluatedKey;
-      } while (lastEvaluatedKey);
-      return allShelters;
     };
 
-    const findNearestShelter = async () => {
-      try {
-        const allShelters = await fetchAllShelters();
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.error('❌ הרשאת מיקום נדחתה');
-          return;
-        }
-        const location = await Location.getCurrentPositionAsync({});
-        const userLat = location.coords.latitude;
-        const userLon = location.coords.longitude;
-        setUserLocation({ latitude: userLat, longitude: userLon });
-        setMapRegion({
-          latitude: userLat,
-          longitude: userLon,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        });
-
-        let minDistance = Infinity;
-        let closestShelter = null;
-
-        allShelters.forEach((shelter) => {
-          const x = shelter.longitude;
-          const y = shelter.latitude;
-          const { latitude, longitude } = convertITMtoWGS84(x, y);
-          if (isNaN(latitude) || isNaN(longitude)) return;
-          const distance = getDistanceFromLatLonInKm(userLat, userLon, latitude, longitude);
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestShelter = { ...shelter, latitude, longitude, distance };
-          }
-        });
-
-        if (closestShelter) {
-          setNearestShelter(closestShelter);
-        }
-      } catch (err) {
-        console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
-      }
-    };
-
-    findNearestShelter();
-  }, []);
+    loadNearestShelter();
+}, []);
 
   const circleRadius = 45;
   const circleCircumference = 2 * Math.PI * circleRadius;

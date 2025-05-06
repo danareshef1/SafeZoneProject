@@ -208,7 +208,15 @@ if (allShelters.length === 0) {
   
         if (closestShelter) {
           console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
-        }
+          try {
+              await AsyncStorage.setItem('nearestShelter', JSON.stringify(closestShelter));
+              console.log('✅ nearestShelter נשמר ב־AsyncStorage');
+          } catch (e) {
+              console.error('❌ שגיאה בשמירה ל־AsyncStorage:', e);
+          }
+      }
+      
+      
       } catch (err) {
         console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
       }
@@ -304,7 +312,6 @@ useEffect(() => {
 
           await fetchShelters();
           await fetchAlerts();
-          // ❌ הורדנו את findNearestShelter מכאן
       } catch (error) {
           console.error('Error during initial loading:', error);
           Alert.alert('Error', 'Failed to load initial data.');
@@ -342,8 +349,15 @@ useEffect(() => {
           });
 
           if (closestShelter) {
-              console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
-          }
+            console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
+            try {
+                await AsyncStorage.setItem('nearestShelter', JSON.stringify(closestShelter));
+                console.log('✅ nearestShelter נשמר ב־AsyncStorage');
+            } catch (e) {
+                console.error('❌ שגיאה בשמירה ל־AsyncStorage:', e);
+            }
+        }
+        
       } catch (err) {
           console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
       }
