@@ -82,7 +82,7 @@ const RootNavigator = () => {
   
     const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
       const screen = notification.request.content.data?.screen;
-      console.log('📥 פוש ב־Foreground:', screen);
+      console.log(' פוש ב־Foreground:', screen);
   
       if (screen === 'ShelterInfo') {
         router.push('mainScreen');
@@ -91,7 +91,7 @@ const RootNavigator = () => {
   
     const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const screen = response.notification.request.content.data?.screen;
-      console.log('📥 פוש בלחיצה:', screen);
+      console.log(' פוש בלחיצה:', screen);
   
       if (screen === 'ShelterInfo') {
         router.push('/mainScreen');

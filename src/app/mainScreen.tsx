@@ -1,53 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
-import * as Location from 'expo-location';
 import Svg, { Circle } from 'react-native-svg';
 import { getAuthUserEmail } from '../../utils/auth';
-import proj4 from 'proj4';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-proj4.defs(
-  'EPSG:2039',
-  '+proj=tmerc +lat_0=31.7343938888889 +lon_0=35.2045169444444 '
-  + '+k=1.0000067 +x_0=219529.584 +y_0=626907.39 '
-  + '+ellps=GRS80 +units=m +no_defs'
-);
-
-const sampleE = 179254.9219000004;
-const sampleN = 665111.2525999993;
-const targetLat = 32.0785788989309;
-const targetLon = 34.7786417155005;
-
-const result = proj4('EPSG:4326', 'EPSG:2039', [targetLon, targetLat]);
-const invE = result ? result[0] : 0;
-const invN = result ? result[1] : 0;
-const deltaE = invE - sampleE;
-const deltaN = invN - sampleN;
-
-function convertITMtoWGS84(easting, northing) {
-  const correctedE = easting + deltaE;
-  const correctedN = northing + deltaN;
-  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
-  return { latitude: lat, longitude: lon };
-}
-
-function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function deg2rad(deg) {
-  return deg * (Math.PI / 180);
-}
 
 const ShelterInfoScreen = () => {
   const [minutes, setMinutes] = useState(10);
@@ -62,7 +19,7 @@ const ShelterInfoScreen = () => {
 
   useEffect(() => {
     const totalSeconds = 10 * 60;
-    const updateProgress = (remainingSeconds) => {
+    const updateProgress = (remainingSeconds: number) => {
       setProgress(remainingSeconds / totalSeconds);
     };
 
@@ -105,7 +62,7 @@ const ShelterInfoScreen = () => {
           if (matched) setZoneInfo(matched);
         }
       } catch (err) {
-        console.log('❌ שגיאה בשליפת עיר מהשרת:', err);
+        console.log(' שגיאה בשליפת עיר מהשרת:', err);
       }
     };
   
@@ -119,7 +76,7 @@ const ShelterInfoScreen = () => {
             if (data) {
                 const shelter = JSON.parse(data);
                 setNearestShelter(shelter);
-                console.log('📦 nearestShelter from AsyncStorage:', shelter);
+                console.log(' nearestShelter from AsyncStorage:', shelter);
                 setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
                 setMapRegion({
                     latitude: shelter.latitude,
@@ -128,7 +85,7 @@ const ShelterInfoScreen = () => {
                     longitudeDelta: 0.01,
                 });
             } else {
-                console.log('⚠️ לא נמצא nearestShelter ב־AsyncStorage');
+                console.log(' לא נמצא nearestShelter ב־AsyncStorage');
             }
         } catch (err) {
             console.error('שגיאה בשליפת המקלט הקרוב:', err);
@@ -295,11 +252,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   mapContainer: {
-    flex: 1.5,  // שימו לב הגדלתי את המפה
+    flex: 1.5,  
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 30,
-    borderWidth: 5, // מסגרת עבה יותר
+    borderWidth: 5, // עובי מסגרת
     borderColor: '#11998e',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

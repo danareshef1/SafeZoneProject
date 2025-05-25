@@ -18,7 +18,6 @@ import { useRouter } from 'expo-router';
 import ShelterListItem from '../components/ui/Map/ShelterListItem';
 import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
-import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
@@ -61,20 +60,20 @@ function convertITMtoWGS84(easting: number, northing: number) {
 }
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // מטרים
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const R = 6371e3; 
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const delta_phi = (lat2 - lat1) * Math.PI / 180;
+  const delta_gama = (lon2 - lon1) * Math.PI / 180;
 
   const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.sin(delta_phi / 2) * Math.sin(delta_phi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) *
+    Math.sin(delta_gama / 2) * Math.sin(delta_gama / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   const distance = R * c;
-  return distance; // במטרים
+  return distance; 
 }
 
 type Alarm = {
@@ -207,10 +206,10 @@ if (allShelters.length === 0) {
         });
   
         if (closestShelter) {
-          console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
+          console.log(' המקלט הקרוב ביותר הוא:', closestShelter);
           try {
               await AsyncStorage.setItem('nearestShelter', JSON.stringify(closestShelter));
-              console.log('✅ nearestShelter נשמר ב־AsyncStorage');
+              console.log(' nearestShelter נשמר ב־AsyncStorage');
           } catch (e) {
               console.error('❌ שגיאה בשמירה ל־AsyncStorage:', e);
           }
@@ -285,7 +284,6 @@ function deg2rad(deg: number) {
     }  
   };
 
- // ✅ תוקן כך שיחפש את המקלט הקרוב רק אחרי שכל המקלטים נטענו
 
 useEffect(() => {
   (async () => {
@@ -319,7 +317,6 @@ useEffect(() => {
   })();
 }, []);
 
-// ✅ אפקט חדש שרץ כשהמקלטים נטענים
 useEffect(() => {
   if (rawShelters.length === 0) return;
 
@@ -349,10 +346,10 @@ useEffect(() => {
           });
 
           if (closestShelter) {
-            console.log('🏠 המקלט הקרוב ביותר הוא:', closestShelter);
+            console.log(' המקלט הקרוב ביותר הוא:', closestShelter);
             try {
                 await AsyncStorage.setItem('nearestShelter', JSON.stringify(closestShelter));
-                console.log('✅ nearestShelter נשמר ב־AsyncStorage');
+                console.log(' nearestShelter נשמר ב־AsyncStorage');
             } catch (e) {
                 console.error('❌ שגיאה בשמירה ל־AsyncStorage:', e);
             }
@@ -416,7 +413,7 @@ useEffect(() => {
   }, [mapRegion, rawShelters]);
 
   const loadMoreShelters = () => {
-    if (sheltersToShow.length >= allShelters.length) return;  // אין עוד מה להוסיף
+    if (sheltersToShow.length >= allShelters.length) return; 
   
     const nextItems = allShelters.slice(
       sheltersToShow.length,
@@ -732,7 +729,6 @@ return (
       : null
   }
 />
-
             )}
           />
         </View>
@@ -902,7 +898,7 @@ const styles = StyleSheet.create({
   },
   shelterInfoBox: {
     position: 'absolute',
-    top: 120,  // אפשר לשחק עם זה עד שזה במקום טוב
+    top: 120, 
     left: 20,
     right: 20,
     backgroundColor: '#fff',
