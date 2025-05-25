@@ -26,14 +26,14 @@ const invN = result ? result[1] : 0;
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
-function convertITMtoWGS84(easting, northing) {
+function convertITMtoWGS84(easting: number, northing: number) {
   const correctedE = easting + deltaE;
   const correctedN = northing + deltaN;
   const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
   return { latitude: lat, longitude: lon };
 }
 
-function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
@@ -45,7 +45,7 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function deg2rad(deg) {
+function deg2rad(deg: number) {
   return deg * (Math.PI / 180);
 }
 
@@ -62,7 +62,7 @@ const ShelterInfoScreen = () => {
 
   useEffect(() => {
     const totalSeconds = 10 * 60;
-    const updateProgress = (remainingSeconds) => {
+    const updateProgress = (remainingSeconds: number) => {
       setProgress(remainingSeconds / totalSeconds);
     };
 

@@ -78,32 +78,53 @@ const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
   const segments = useSegments();
-  useEffect(() => {
-  
-    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      const screen = notification.request.content.data?.screen;
-      console.log('📥 פוש ב־Foreground:', screen);
-  
-      if (screen === 'ShelterInfo') {
-        router.push('mainScreen');
-      }
-    });
-  
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const screen = response.notification.request.content.data?.screen;
-      console.log('📥 פוש בלחיצה:', screen);
-  
-      if (screen === 'ShelterInfo') {
-        router.push('/mainScreen');
-      }
-    });
-  
-    return () => {
-      Notifications.removeNotificationSubscription(receivedSubscription);
-      Notifications.removeNotificationSubscription(responseSubscription);
-    };
-  }, []);
-  
+useEffect(() => {
+  const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+    const data = notification.request.content.data;
+    const screen = data?.screen;
+    console.log('📥 פוש ב־Foreground:', data);
+
+    if (screen === 'ShelterInfo') {
+      router.push('/mainScreen');
+    } else if (screen === 'EarlyWarningScreen') {
+      router.push({
+        pathname: '/EarlyWarningScreen',
+        params: {
+          city: data?.city || '',
+          timestamp: data?.timestamp || '',
+        },
+      });
+    }
+  });
+
+  const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+const data = response.notification.request.content.data as {
+  screen?: string;
+  city?: string;
+  timestamp?: string;
+};
+    const screen = data?.screen;
+
+    console.log('📥 פוש בלחיצה:', data);
+
+    if (screen === 'ShelterInfo') {
+      router.push('/mainScreen');
+    } else if (screen === 'EarlyWarningScreen') {
+      router.push({
+        pathname: '/EarlyWarningScreen',
+        params: {
+          city: data?.city || '',
+          timestamp: data?.timestamp || '',
+        },
+      });
+    }
+  });
+
+  return () => {
+    Notifications.removeNotificationSubscription(receivedSubscription);
+    Notifications.removeNotificationSubscription(responseSubscription);
+  };
+}, []);
 
   useEffect(() => {
     
