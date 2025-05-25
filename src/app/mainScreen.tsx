@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
-import * as Location from 'expo-location';
 import Svg, { Circle } from 'react-native-svg';
 import { getAuthUserEmail } from '../../utils/auth';
-import proj4 from 'proj4';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -105,7 +103,7 @@ const ShelterInfoScreen = () => {
           if (matched) setZoneInfo(matched);
         }
       } catch (err) {
-        console.log('❌ שגיאה בשליפת עיר מהשרת:', err);
+        console.log(' שגיאה בשליפת עיר מהשרת:', err);
       }
     };
   
@@ -119,7 +117,7 @@ const ShelterInfoScreen = () => {
             if (data) {
                 const shelter = JSON.parse(data);
                 setNearestShelter(shelter);
-                console.log('📦 nearestShelter from AsyncStorage:', shelter);
+                console.log(' nearestShelter from AsyncStorage:', shelter);
                 setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
                 setMapRegion({
                     latitude: shelter.latitude,
@@ -128,7 +126,7 @@ const ShelterInfoScreen = () => {
                     longitudeDelta: 0.01,
                 });
             } else {
-                console.log('⚠️ לא נמצא nearestShelter ב־AsyncStorage');
+                console.log(' לא נמצא nearestShelter ב־AsyncStorage');
             }
         } catch (err) {
             console.error('שגיאה בשליפת המקלט הקרוב:', err);
@@ -295,11 +293,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   mapContainer: {
-    flex: 1.5,  // שימו לב הגדלתי את המפה
+    flex: 1.5,  
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 30,
-    borderWidth: 5, // מסגרת עבה יותר
+    borderWidth: 5, // עובי מסגרת
     borderColor: '#11998e',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

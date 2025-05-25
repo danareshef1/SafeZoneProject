@@ -38,7 +38,7 @@ const SignUpScreen: React.FC = () => {
       router.push(`/verifySignUpScreen?username=${values.username}`);
     } catch (error: any) {
       Alert.alert('Sign Up Failed', error.message || 'An error occurred during registration.');
-      throw error; // 🔥 נזרוק הלאה כדי ש־resetForm לא יקרה
+      throw error; 
     }
   };
   
@@ -61,9 +61,8 @@ const SignUpScreen: React.FC = () => {
             onSubmit={async (values, { resetForm }) => {
               try {
                 await handleSignUp(values);
-                resetForm(); // ✅ רק אחרי הצלחה
+                resetForm(); 
               } catch (error) {
-                // ❌ אל תאפסי את הטופס אם יש שגיאה
                 console.error('Sign up failed:', error);
               }
             }}            

@@ -44,11 +44,10 @@ const ShelterDetail: React.FC = () => {
         const foundShelter = items.find((shelter: any) => shelter.id === id);
 
         if (foundShelter) {
-          setShelter(foundShelter);  // 👈 ריענון shelter
+          setShelter(foundShelter);  
           setReportText(foundShelter.reportText || '');
           setUploadedImages(foundShelter.images || []);
         } else {
-          // אם לא נמצא ב-API, אולי זה בא מהפרמטרים
           setShelter({
             id: id ?? '',
             name: name ?? '',
@@ -62,7 +61,7 @@ const ShelterDetail: React.FC = () => {
     };
 
     fetchShelters();
-}, [id]);  // 👈 תוודא שה- useEffect מגיב ל-id
+}, [id]);  
 
 
 

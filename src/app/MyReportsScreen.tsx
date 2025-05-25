@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
       fontWeight: '500',
       color: '#666',
       textAlign: 'right',
-      flexShrink: 1,       // זה יגרום לו להתכווץ כשאין מקום
+      flexShrink: 1,       
     },    
       reportIdValue: {
         color: '#000',
@@ -214,13 +214,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row-reverse',
         alignItems: 'flex-start',
         marginBottom: 6,
-        position: 'relative', // חשוב כדי שההעתק ימוקם יחסית לכאן
+        position: 'relative', 
       },
       
       copyButton: {
         position: 'absolute',
-        left: 0, // תמיד בצד שמאל של ה-card
-        top: 0,  // מיושר למעלה
+        left: 0, 
+        top: 0, 
         padding: 4,
       },      
       copyText: {
