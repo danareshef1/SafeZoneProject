@@ -5,6 +5,7 @@ import { getAuthUserEmail } from '../../utils/auth';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import proj4 from 'proj4';
 
 proj4.defs(
@@ -59,6 +60,15 @@ const [seconds, setSeconds] = useState(10); // חכה 10 שניות בלבד
   const [mapRegion, setMapRegion] = useState(null);
   const router = useRouter();
 const [countdownOver, setCountdownOver] = useState(false);
+useFocusEffect(
+  React.useCallback(() => {
+    setMinutes(0);
+    setSeconds(10);
+    setProgress(1);
+    setCountdownOver(false);
+    return () => {};
+  }, [])
+);
 
   useEffect(() => {
 const totalSeconds = 10;
@@ -73,6 +83,8 @@ const totalSeconds = 10;
           if (minutes === 0) {
   clearInterval(timer);
   setCountdownOver(true);
+
+
   return 0;
 }
           setMinutes((prevMinutes) => prevMinutes - 1);

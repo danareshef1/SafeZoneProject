@@ -1,4 +1,5 @@
 // app/home.tsx
+// app/home.tsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
@@ -25,6 +26,82 @@ import { sendLocationToBackend } from '../../utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import proj4 from 'proj4';
 import { Animated } from 'react-native';
+import * as Contacts from 'expo-contacts';
+
+// Function to calculate nearest hospital and store it
+export const storeNearestHospital = async () => {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const location = await Location.getCurrentPositionAsync({});
+    const res = await fetch('https://p7543alg74.execute-api.us-east-1.amazonaws.com/prod/hospitals');
+    const hospitals = await res.json();
+
+    const toRad = (val) => (val * Math.PI) / 180;
+    const haversine = (lat1, lon1, lat2, lon2) => {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const nearest = hospitals
+      .map(h => ({
+        ...h,
+        distance: haversine(location.coords.latitude, location.coords.longitude, h.lat, h.lon)
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+
+    await AsyncStorage.setItem('nearestHospital', JSON.stringify({
+      id: nearest.name,
+      name: nearest.name,
+      latitude: nearest.lat,
+      longitude: nearest.lon,
+      phone: nearest.phone
+    }));
+  } catch (err) {
+    console.error('שגיאה בשמירת בית חולים קרוב:', err);
+  }
+};
+
+export const storeRegisteredContacts = async () => {
+  try {
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const { data } = await Contacts.getContactsAsync({
+      fields: [Contacts.Fields.PhoneNumbers],
+    });
+
+    const phoneNumbers = data
+      .flatMap((contact) => contact.phoneNumbers || [])
+      .map((phone) => phone.number?.replace(/\D/g, ''))
+      .filter((num) => !!num);
+
+    const response = await fetch('https://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumbers }),
+    });
+
+    const json = await response.json();
+    const result = json.registeredNumbers;
+    await AsyncStorage.setItem('registeredContacts', JSON.stringify(result));
+    console.log('📇 אנשי קשר רשומים נשמרו ב־AsyncStorage');
+  } catch (error) {
+    console.error('❌ שגיאה בשמירת אנשי קשר:', error);
+  }
+};
+
+// Call both background functions on load
+useEffect(() => {
+  storeNearestHospital();
+  storeRegisteredContacts();
+}, []);
 
 const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
 
@@ -436,6 +513,7 @@ const handleReport = () => {
     });    
   }
 };
+
 
 const refreshLocation = async () => {
   try {

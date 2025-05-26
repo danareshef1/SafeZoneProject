@@ -28,54 +28,47 @@ const ContactsButton = () => {
 
   const fetchContacts = async () => {
     setLoadingContacts(true);
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status === 'granted') {
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        setLoadingContacts(false);
+        return;
+      }
+
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers],
       });
 
-      const phoneNumbers = data
-        .flatMap((contact) => contact.phoneNumbers || [])
-        .map((phone) => phone.number?.replace(/\D/g, ''))
-        .filter((num) => !!num);
+      const stored = await AsyncStorage.getItem('registeredContacts');
+      const registeredNumbers = stored ? JSON.parse(stored) : [];
+      const registeredSet = new Set(registeredNumbers);
 
-      try {
-        const response = await fetch('https://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ phoneNumbers }),
-        });
+      const matchedContacts = data.filter((contact) =>
+        contact.phoneNumbers?.some((phone) =>
+          registeredSet.has(phone.number?.replace(/\D/g, ''))
+        )
+      );
 
-        const json = await response.json();
-        const result = json.registeredNumbers;
-        const registeredSet = new Set(result);
-        const matchedContacts = data.filter((contact) =>
-          contact.phoneNumbers?.some((phone) =>
-            registeredSet.has(phone.number?.replace(/\D/g, ''))
-          )
-        );
+      setContacts(
+        matchedContacts.map((contact) => ({
+          id: contact.id || '',
+          name: contact.name,
+          phoneNumbers: contact.phoneNumbers?.map((phone) => ({
+            number: phone.number || '',
+          })),
+        }))
+      );
 
-        setContacts(
-          matchedContacts.map((contact) => ({
-            id: contact.id || '',
-            name: contact.name,
-            phoneNumbers: contact.phoneNumbers?.map((phone) => ({
-              number: phone.number || '',
-            })),
-          }))
-        );
-        const stored = await AsyncStorage.getItem('selectedContacts');
-        if (stored) {
-          setSelectedContacts(new Set(JSON.parse(stored)));
-        }
-        setModalVisible(true);
-      } catch (err) {
-        console.error('Failed to fetch matched users:', err);
+      const storedSelected = await AsyncStorage.getItem('selectedContacts');
+      if (storedSelected) {
+        setSelectedContacts(new Set(JSON.parse(storedSelected)));
       }
+      setModalVisible(true);
+    } catch (err) {
+      console.error('שגיאה בטעינת אנשי קשר:', err);
+    } finally {
+      setLoadingContacts(false);
     }
-    setLoadingContacts(false);
   };
 
   const toggleSelect = (id: string, phoneNumber: string, name: string) => {
