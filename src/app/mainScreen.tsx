@@ -239,9 +239,16 @@ const totalSeconds = 10;
                 description={`מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`}
               />
             )}
-            <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
-              <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
-            </TouchableOpacity>
+           {!isAtHome ? (
+  <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
+    <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
+  </TouchableOpacity>
+) : (
+  <View style={[styles.floatingButton, { backgroundColor: '#777' }]}>
+    <Text style={styles.floatingButtonText}>🏠 אתה בבית - לך לממ״ד</Text>
+  </View>
+)}
+
           </MapView>
         )}
       </View>
@@ -281,9 +288,12 @@ const totalSeconds = 10;
           <TouchableOpacity style={styles.button} onPress={handleChat}>
             <Text style={styles.buttonText}>פתיחת צ'אט</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handleReport}>
-            <Text style={styles.buttonText}>דיווח</Text>
-          </TouchableOpacity>
+          {!isAtHome && (
+  <TouchableOpacity style={styles.button} onPress={handleReport}>
+    <Text style={styles.buttonText}>דיווח</Text>
+  </TouchableOpacity>
+)}
+
         </View>
       </View>
     </View>
@@ -407,4 +417,3 @@ const styles = StyleSheet.create({
     color: '#11998e',
   },   
 });
-

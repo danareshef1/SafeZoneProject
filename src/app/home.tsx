@@ -27,6 +27,10 @@ import proj4 from 'proj4';
 import { Animated } from 'react-native';
 import * as Contacts from 'expo-contacts';
 
+useEffect(() => {
+  checkIfUserAtHome();
+}, []);
+
 // שמירת מיקום הבית
 const handleSaveHomeLocation = async () => {
   try {
@@ -37,6 +41,11 @@ const handleSaveHomeLocation = async () => {
     }
 
     const location = await Location.getCurrentPositionAsync({});
+    await AsyncStorage.setItem('homeLocation', JSON.stringify({
+  latitude: location.coords.latitude,
+  longitude: location.coords.longitude,
+}));
+
     await sendLocationToBackend(location.coords.latitude, location.coords.longitude, 'home');
     console.log('📍 Saving home location:', location.coords);
     Alert.alert('Success', 'Home location saved successfully!');
@@ -113,11 +122,38 @@ export const storeRegisteredContacts = async () => {
     console.error('❌ שגיאה בשמירת אנשי קשר:', error);
   }
 };
+const HOME_RADIUS_METERS = 50; // רדיוס שבו נחשיב את המשתמש כ"בבית"
 
-// Call both background functions on load
+const checkIfUserAtHome = async () => {
+  try {
+    const homeLocationJson = await AsyncStorage.getItem('homeLocation');
+    if (!homeLocationJson) return;
+
+    const homeLocation = JSON.parse(homeLocationJson);
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const current = await Location.getCurrentPositionAsync({});
+    const dist = calculateDistance(
+      current.coords.latitude,
+      current.coords.longitude,
+      homeLocation.latitude,
+      homeLocation.longitude
+    );
+
+    const isAtHome = dist <= HOME_RADIUS_METERS;
+    await AsyncStorage.setItem('isAtHome', JSON.stringify(isAtHome));
+console.log('מרחק מהמיקום שנשמר לבית:', dist);
+console.log('isAtHome?', isAtHome);
+  } catch (err) {
+    console.error('❌ שגיאה בבדיקת האם המשתמש בבית:', err);
+  }
+};
+
 useEffect(() => {
   storeNearestHospital();
   storeRegisteredContacts();
+  checkIfUserAtHome(); 
 }, []);
 
 const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
@@ -405,6 +441,8 @@ useEffect(() => {
 
           await fetchShelters();
           await fetchAlerts();
+          await checkIfUserAtHome();
+
       } catch (error) {
           console.error('Error during initial loading:', error);
           Alert.alert('Error', 'Failed to load initial data.');
