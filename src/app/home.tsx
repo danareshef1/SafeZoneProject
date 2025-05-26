@@ -1,5 +1,4 @@
 // app/home.tsx
-// app/home.tsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
@@ -28,7 +27,25 @@ import proj4 from 'proj4';
 import { Animated } from 'react-native';
 import * as Contacts from 'expo-contacts';
 
-// Function to calculate nearest hospital and store it
+// שמירת מיקום הבית
+const handleSaveHomeLocation = async () => {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Permission to access location was denied.');
+      return;
+    }
+
+    const location = await Location.getCurrentPositionAsync({});
+    await sendLocationToBackend(location.coords.latitude, location.coords.longitude, 'home');
+    console.log('📍 Saving home location:', location.coords);
+    Alert.alert('Success', 'Home location saved successfully!');
+  } catch (error) {
+    console.error('Error saving home location:', error);
+    Alert.alert('Error', 'Failed to save home location.');
+  }
+};
+
 export const storeNearestHospital = async () => {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -385,6 +402,7 @@ useEffect(() => {
               await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
           }
 
+
           await fetchShelters();
           await fetchAlerts();
       } catch (error) {
@@ -652,10 +670,14 @@ return (
         <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
           <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.saveHomeButton} onPress={handleSaveHomeLocation}>
+  <Text style={styles.refreshButtonText}>שמור מיקום בית</Text>
+</TouchableOpacity>
         <TouchableOpacity style={styles.centerButton} onPress={() => {
   if (mapRegion) {
     mapRef.current?.animateToRegion(mapRegion, 1000);
   }
+
 }}>
   <Ionicons name="locate-outline" size={24} color="#fff" />
 </TouchableOpacity>
@@ -1038,7 +1060,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
-  
+  saveHomeButton: {
+  position: 'absolute',
+  top: 20,
+  right: 280,
+  backgroundColor: '#11998e',
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  borderRadius: 25,
+  zIndex: 10,
+  elevation: 5,
+  shadowColor: '#000',
+  shadowOpacity: 0.1,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 4,
+}
 });
 
 export default HomeScreen;
