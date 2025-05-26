@@ -60,6 +60,8 @@ const [seconds, setSeconds] = useState(10); // חכה 10 שניות בלבד
   const [mapRegion, setMapRegion] = useState(null);
   const router = useRouter();
 const [countdownOver, setCountdownOver] = useState(false);
+const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
+
 useFocusEffect(
   React.useCallback(() => {
     setMinutes(0);
@@ -134,31 +136,36 @@ const totalSeconds = 10;
   }
 }, [countdownOver]);
 
-  useEffect(() => {
-    const loadNearestShelter = async () => {
-        try {
-            const data = await AsyncStorage.getItem('nearestShelter');
-            if (data) {
-                const shelter = JSON.parse(data);
-                setNearestShelter(shelter);
-                console.log(' nearestShelter from AsyncStorage:', shelter);
-                setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
-                setMapRegion({
-                    latitude: shelter.latitude,
-                    longitude: shelter.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                });
-            } else {
-                console.log(' לא נמצא nearestShelter ב־AsyncStorage');
-            }
-        } catch (err) {
-            console.error('שגיאה בשליפת המקלט הקרוב:', err);
-        }
-    };
+useEffect(() => {
+  const loadNearestShelter = async () => {
+    try {
+      const data = await AsyncStorage.getItem('nearestShelter');
+      const atHomeString = await AsyncStorage.getItem('isAtHome'); // ✅ הוספה חשובה
 
-    loadNearestShelter();
+      if (data) {
+        const shelter = JSON.parse(data);
+        setNearestShelter(shelter);
+        setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
+        setMapRegion({
+          latitude: shelter.latitude,
+          longitude: shelter.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        });
+      }
+
+      if (atHomeString !== null) {
+        setIsAtHome(atHomeString === 'true'); // ✅ גם זה
+        console.log('📍 isAtHome from AsyncStorage:', atHomeString); // לא חובה, רק דיבאג
+      }
+    } catch (err) {
+      console.error('שגיאה בשליפת המקלט הקרוב או isAtHome:', err);
+    }
+  };
+
+  loadNearestShelter();
 }, []);
+
 
   const circleRadius = 45;
   const circleCircumference = 2 * Math.PI * circleRadius;
