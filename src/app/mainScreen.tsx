@@ -5,6 +5,7 @@ import { getAuthUserEmail } from '../../utils/auth';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import proj4 from 'proj4';
 
 proj4.defs(
   'EPSG:2039',
@@ -48,8 +49,8 @@ function deg2rad(deg: number) {
 }
 
 const ShelterInfoScreen = () => {
-  const [minutes, setMinutes] = useState(10);
-  const [seconds, setSeconds] = useState(0);
+const [minutes, setMinutes] = useState(0);
+const [seconds, setSeconds] = useState(10); // חכה 10 שניות בלבד
   const [progress, setProgress] = useState(1);
   const [shelterLocation, setShelterLocation] = useState('תל אביב');
   const [zoneInfo, setZoneInfo] = useState(null);
@@ -57,20 +58,23 @@ const ShelterInfoScreen = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [mapRegion, setMapRegion] = useState(null);
   const router = useRouter();
+const [countdownOver, setCountdownOver] = useState(false);
 
   useEffect(() => {
-    const totalSeconds = 10 * 60;
+const totalSeconds = 10;
     const updateProgress = (remainingSeconds: number) => {
       setProgress(remainingSeconds / totalSeconds);
     };
+
 
     const timer = setInterval(() => {
       setSeconds((prevSeconds) => {
         if (prevSeconds === 0) {
           if (minutes === 0) {
-            clearInterval(timer);
-            return 0;
-          }
+  clearInterval(timer);
+  setCountdownOver(true);
+  return 0;
+}
           setMinutes((prevMinutes) => prevMinutes - 1);
           updateProgress((minutes - 1) * 60 + 59);
           return 59;
@@ -80,6 +84,8 @@ const ShelterInfoScreen = () => {
         return prevSeconds - 1;
       });
     }, 1000);
+
+    
 
     return () => clearInterval(timer);
   }, [minutes]);
@@ -110,6 +116,12 @@ const ShelterInfoScreen = () => {
     fetchCityFromServer();
   }, []);
   
+  useEffect(() => {
+  if (countdownOver) {
+    router.push('/postAlertScreen');
+  }
+}, [countdownOver]);
+
   useEffect(() => {
     const loadNearestShelter = async () => {
         try {

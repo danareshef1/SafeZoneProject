@@ -4,6 +4,7 @@ import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Hospital {
   id: string;
@@ -91,8 +92,13 @@ const HospitalsScreen: React.FC = () => {
 
         nearbyHospitals.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
 
+
         setNearbyHospitals(nearbyHospitals);
         setHospitals(hospitalsWithDistance);
+        if (nearbyHospitals.length > 0) {
+  await AsyncStorage.setItem('nearestHospital', JSON.stringify(nearbyHospitals[0]));
+  console.log('✅ nearestHospital saved:', nearbyHospitals[0]);
+}
       } catch (error) {
         console.error(error);
         Alert.alert('Error', 'Unable to fetch location or hospitals.');

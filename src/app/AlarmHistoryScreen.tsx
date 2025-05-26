@@ -47,15 +47,19 @@ const AlarmHistoryScreen = () => {
   let filteredAlarms = alarms;
 
   if (filter === 'this week') {
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - now.getDay()); // יום ראשון
-  
-  const saturday = new Date(sunday);
-  saturday.setDate(sunday.getDate() + 6); // שבת
+    const sunday = new Date(now);
+    const day = now.getDay();
+    const diffToSunday = day === 0 ? 0 : day;
+    sunday.setDate(now.getDate() - diffToSunday);
+    sunday.setHours(0, 0, 0, 0);
 
-  filteredAlarms = alarms.filter(
-    (a) => a.dateObj >= sunday && a.dateObj <= saturday
-  );
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+    saturday.setHours(23, 59, 59, 999);
+
+    filteredAlarms = alarms.filter(
+      (a) => a.dateObj >= sunday && a.dateObj <= saturday
+    );
   } else if (filter === 'this month') {
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     filteredAlarms = alarms.filter(a => a.dateObj >= firstOfMonth && a.dateObj <= now);
@@ -92,13 +96,13 @@ const AlarmHistoryScreen = () => {
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-  <Text style={styles.alarmTime}>{item.time}</Text>
-  {filter !== 'today' && (
-    <Text style={styles.alarmDate}>
-      {item.dateObj.toLocaleDateString('he-IL')}
-    </Text>
-  )}
-</View>
+        <Text style={styles.alarmTime}>{item.time}</Text>
+        {filter !== 'today' && (
+          <Text style={styles.alarmDate}>
+            {item.dateObj.toLocaleDateString('he-IL')}
+          </Text>
+        )}
+      </View>
     </View>
   );
 

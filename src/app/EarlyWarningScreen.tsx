@@ -3,9 +3,44 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
+import { TouchableOpacity, Linking, Alert, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 
 export default function EarlyWarningScreen() {
   const { city = 'לא ידוע', timestamp } = useLocalSearchParams();
+const [nearestShelter, setNearestShelter] = useState(null);
+
+useEffect(() => {
+  const loadNearestShelter = async () => {
+    try {
+      const data = await AsyncStorage.getItem('nearestShelter');
+      if (data) {
+        setNearestShelter(JSON.parse(data));
+      }
+    } catch (err) {
+      console.error('שגיאה בשליפת המקלט הקרוב:', err);
+    }
+  };
+
+  loadNearestShelter();
+}, []);
+
+const handleNavigateToShelter = () => {
+  if (!nearestShelter) {
+    Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
+    return;
+  }
+
+  const { latitude, longitude, name } = nearestShelter;
+  const url = Platform.select({
+    ios: `maps:0,0?q=${name}@${latitude},${longitude}`,
+    android: `geo:0,0?q=${latitude},${longitude}(${name})`,
+  });
+  if (url) {
+    Linking.openURL(url).catch(err => console.error('שגיאה בניווט:', err));
+  }
+};
 
   const formattedTimestamp = timestamp
     ? new Date(Number(timestamp)).toLocaleString('he-IL', {
@@ -24,8 +59,21 @@ export default function EarlyWarningScreen() {
         במקרה של קבלת התרעה, יש להיכנס למרחב מוגן ולשהות בו 10 דקות.
       </Text>
       <Text style={styles.timestamp}>נשלח ב־{formattedTimestamp}</Text>
+      {nearestShelter && (
+  <>
+    <Text style={styles.shelterTitle}>המקלט הקרוב ביותר:</Text>
+    <Text style={styles.shelterName}>{nearestShelter.name ?? 'ללא שם'}</Text>
+
+    <TouchableOpacity style={styles.navButton} onPress={handleNavigateToShelter}>
+      <Text style={styles.navButtonText}>🏃 נווט למקלט הקרוב</Text>
+    </TouchableOpacity>
+  </>
+)}
+
     </View>
+    
   );
+  
 }
 
 const colors = {
@@ -71,4 +119,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.dark,
   },
+  shelterTitle: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  marginTop: 16,
+  color: colors.dark,
+},
+shelterName: {
+  fontSize: 16,
+  color: colors.text,
+  marginBottom: 8,
+},
+navButton: {
+  backgroundColor: colors.green,
+  paddingVertical: 12,
+  paddingHorizontal: 24,
+  borderRadius: 30,
+  marginTop: 10,
+  elevation: 3,
+},
+navButtonText: {
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
+
 });
+
