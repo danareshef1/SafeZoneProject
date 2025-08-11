@@ -1,23 +1,29 @@
+// src/app/contactsButton.tsx
 import React, { useState } from 'react';
-import { 
-  TouchableOpacity, 
-  Modal, 
-  FlatList, 
-  Text, 
-  View, 
-  StyleSheet, 
-  ActivityIndicator 
+import {
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  Text,
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
-import Checkbox from 'expo-checkbox'; 
+import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuthUserPhone, normalizeToE164IL } from '../../utils/auth';
 
 interface ContactItem {
   id: string;
   name: string;
   phoneNumbers?: { number: string }[];
 }
+
+const API_BASE =
+  'https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod'; // ה‑stage הקיים שלך
 
 const ContactsButton = () => {
   const [contacts, setContacts] = useState<ContactItem[]>([]);
@@ -26,6 +32,7 @@ const ContactsButton = () => {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
 
+  // טוען אנשי קשר שמופיעים גם ברשימת registeredContacts (מי שהתקין את האפליקציה)
   const fetchContacts = async () => {
     setLoadingContacts(true);
     try {
@@ -40,75 +47,86 @@ const ContactsButton = () => {
       });
 
       const stored = await AsyncStorage.getItem('registeredContacts');
-      const registeredNumbers = stored ? JSON.parse(stored) : [];
-      const registeredSet = new Set(registeredNumbers);
+      const registeredNumbers: string[] = stored ? JSON.parse(stored) : [];
+      const registeredSet = new Set(registeredNumbers.map((n) => n.replace(/\D/g, '')));
 
       const matchedContacts = data.filter((contact) =>
-        contact.phoneNumbers?.some((phone) =>
-          registeredSet.has(phone.number?.replace(/\D/g, ''))
-        )
+        contact.phoneNumbers?.some((p) => registeredSet.has(p.number?.replace(/\D/g, '')))
       );
 
       setContacts(
-        matchedContacts.map((contact) => ({
-          id: contact.id || '',
-          name: contact.name,
-          phoneNumbers: contact.phoneNumbers?.map((phone) => ({
-            number: phone.number || '',
-          })),
+        matchedContacts.map((c) => ({
+          id: c.id || '',
+          name: c.name,
+          phoneNumbers: c.phoneNumbers?.map((p) => ({ number: p.number || '' })),
         }))
       );
 
       const storedSelected = await AsyncStorage.getItem('selectedContacts');
-      if (storedSelected) {
-        setSelectedContacts(new Set(JSON.parse(storedSelected)));
-      }
+      if (storedSelected) setSelectedContacts(new Set(JSON.parse(storedSelected)));
+
       setModalVisible(true);
     } catch (err) {
       console.error('שגיאה בטעינת אנשי קשר:', err);
+      Alert.alert('שגיאה', 'לא הצלחנו לטעון אנשי קשר');
     } finally {
       setLoadingContacts(false);
     }
   };
 
-  const toggleSelect = (id: string, phoneNumber: string, name: string) => {
-    setSelectedContacts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      AsyncStorage.setItem('selectedContacts', JSON.stringify([...newSet]));
-      return newSet;
-    });
-    doToggleAPICall(id, phoneNumber, name);
-  };
-
-  const doToggleAPICall = async (id: string, phoneNumber: string, name: string) => {
+  // קריאה ל‑API – נשען על מצב הבחירה לפני השינוי (wasSelected)
+  const doToggleAPICall = async (
+    wasSelected: boolean,
+    phoneNumber: string,
+    name: string
+  ) => {
     try {
       setToggleLoading(true);
-      const normalizedPhone = phoneNumber.replace(/\D/g, '');
-      const stored = await AsyncStorage.getItem('selectedContacts');
-      const currentSet = new Set(stored ? JSON.parse(stored) : []);
-      if (currentSet.has(id)) {
-        await fetch('https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/saveContact', {
+
+      const ownerPhone = await getAuthUserPhone(); // יבוא מה‑JWT או מה‑Cognito SDK
+      if (!ownerPhone) {
+        Alert.alert('שגיאה', 'לא זוהה מספר המשתמש המחובר');
+        return;
+      }
+
+      const normalizedPhone = normalizeToE164IL(phoneNumber);
+      if (!normalizedPhone) return;
+
+      if (!wasSelected) {
+        // עכשיו מסמנים → שמירה
+        await fetch(`${API_BASE}/saveContact`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, phone: normalizedPhone, name }),
+          body: JSON.stringify({ ownerPhone, phone: normalizedPhone, name }),
         });
       } else {
-        await fetch('https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/removeContact', {
+        // עכשיו מבטלים סימון → מחיקה
+        await fetch(`${API_BASE}/removeContact`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, phone: normalizedPhone }),
+          body: JSON.stringify({ ownerPhone, phone: normalizedPhone }),
         });
       }
     } catch (error) {
       console.error('Error in doToggleAPICall:', error);
+      Alert.alert('שגיאה', 'בעיה בשמירה/מחיקה של איש הקשר');
     } finally {
       setToggleLoading(false);
     }
+  };
+
+  // החלפת מצב + קריאת API מסודרת
+  const toggleSelect = (id: string, phoneNumber: string, name: string) => {
+    const wasSelected = selectedContacts.has(id); // מצב לפני שינוי
+    doToggleAPICall(wasSelected, phoneNumber, name);
+
+    setSelectedContacts((prev) => {
+      const next = new Set(prev);
+      if (wasSelected) next.delete(id);
+      else next.add(id);
+      AsyncStorage.setItem('selectedContacts', JSON.stringify([...next]));
+      return next;
+    });
   };
 
   return (
@@ -144,18 +162,17 @@ const ContactsButton = () => {
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => {
               const isChecked = selectedContacts.has(item.id);
+              const phone = item.phoneNumbers?.[0]?.number ?? '';
               return (
                 <View style={styles.contactItem}>
                   <Checkbox
                     value={isChecked}
-                    onValueChange={() => toggleSelect(item.id, item.phoneNumbers?.[0]?.number ?? '', item.name)}
+                    onValueChange={() => toggleSelect(item.id, phone, item.name)}
                     style={styles.checkbox}
                   />
                   <View>
                     <Text style={styles.contactName}>{item.name}</Text>
-                    {item.phoneNumbers && item.phoneNumbers.length > 0 && (
-                      <Text style={styles.contactPhone}>{item.phoneNumbers[0].number}</Text>
-                    )}
+                    {phone ? <Text style={styles.contactPhone}>{phone}</Text> : null}
                   </View>
                 </View>
               );

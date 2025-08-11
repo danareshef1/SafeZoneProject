@@ -1,3 +1,4 @@
+// src/app/newPassword.tsx
 import React from 'react';
 import {
   View,

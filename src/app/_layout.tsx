@@ -1,3 +1,4 @@
+// src/app/_layout.tsx
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';

@@ -13,6 +13,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
+          "location",
+          "location",
           "location"
         ],
         "NSLocationAlwaysUsageDescription": "SafeZone needs your location even when the app is in the background.",
@@ -28,6 +30,9 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -69,6 +74,12 @@
         "projectId": "b02089af-97ef-4a80-9497-858d9065c224"
       }
     },
-    "owner": "noyzion"
+    "owner": "noyzion",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b02089af-97ef-4a80-9497-858d9065c224"
+    }
   }
 }
