@@ -67,32 +67,44 @@ const ShelterInfoScreen = () => {
   const [countdownOver, setCountdownOver] = useState(false);
   const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
 
-  // deadline גלובלי (חי בזיכרון האפליקציה) כדי שהטיימר "ימשיך לרוץ ברקע"
-  const deadlineRef = React.useRef<number>(0);
+// למעלה בקובץ:
+const DEADLINE_MS = 10 * 60 * 1000; // 10 דקות
+const deadlineRef = React.useRef<number>(0);
 
-  // אתחול deadline פעם אחת אם לא קיים, והפעלת טיקר קבוע
-  useEffect(() => {
-    if (!globalThis.safezoneShelterDeadline) {
-      globalThis.safezoneShelterDeadline = Date.now() + DEADLINE_MS;
-    }
-    deadlineRef.current = globalThis.safezoneShelterDeadline;
+// ...
 
-    const tick = () => {
-      const now = Date.now();
-      const remainingMs = Math.max(0, deadlineRef.current - now);
-      const remSec = Math.ceil(remainingMs / 1000);
+// ⏱️ טיימר שמסתנכרן מול ה-deadline הגלובלי בכל שנייה
+useEffect(() => {
+  // אם אין deadline גלובלי עדיין (לדוגמה פתיחה ידנית של המסך) – אתחל ל-10 דק' מהעכשיו
+  if (!globalThis.safezoneShelterDeadline) {
+    globalThis.safezoneShelterDeadline = Date.now() + DEADLINE_MS;
+    console.log('⏱️ init local deadline (no global yet)', globalThis.safezoneShelterDeadline);
+  }
 
-      setMinutes(Math.floor(remSec / 60));
-      setSeconds(remSec % 60);
-      setProgress(remainingMs / DEADLINE_MS);
+  const tick = () => {
+    // ✅ תמיד קוראים מהגלובלי (אם יש), אחרת נשתמש ב-ref/ברירת מחדל
+    const currentDeadline =
+      globalThis.safezoneShelterDeadline ||
+      deadlineRef.current ||
+      (Date.now() + DEADLINE_MS);
 
-      if (remainingMs <= 0) setCountdownOver(true);
-    };
+    deadlineRef.current = currentDeadline;
 
-    tick(); // עדכון מיידי
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
+    const now = Date.now();
+    const remainingMs = Math.max(0, currentDeadline - now);
+    const remSec = Math.ceil(remainingMs / 1000);
+
+    setMinutes(Math.floor(remSec / 60));
+    setSeconds(remSec % 60);
+    setProgress(remainingMs / DEADLINE_MS);
+
+    if (remainingMs <= 0) setCountdownOver(true);
+  };
+
+  tick(); // עדכון מיידי בכניסה למסך
+  const id = setInterval(tick, 1000);
+  return () => clearInterval(id);
+}, []);
 
   // נתוני מיקום/אזור
   useEffect(() => {

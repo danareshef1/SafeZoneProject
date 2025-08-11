@@ -92,40 +92,41 @@ const RootNavigator = () => {
 
   // מאזיני פוש: מחשבים deadline ומנווטים
   useEffect(() => {
-    const DEADLINE_FALLBACK = 600; // 10 דקות
+    // ... בתוך useEffect של הפושים:
 
-    const applyAlertDeadlineAndNavigate = (data: any) => {
-      const type = data?.type;
-      const screen = data?.screen;
+const DEADLINE_FALLBACK = 600; // 10 דקות
 
-      if (type === 'ALERT_START') {
-        const startMs = data?.startIso ? Date.parse(data.startIso) : Date.now();
-        const duration = Number(data?.durationSec) || DEADLINE_FALLBACK;
-        const newDeadline = startMs + duration * 1000;
+const applyAlertDeadlineAndNavigate = (data: any) => {
+  const type = data?.type;
+  const screen = data?.screen;
 
-        if (!globalThis.safezoneShelterDeadline || newDeadline > globalThis.safezoneShelterDeadline) {
-          globalThis.safezoneShelterDeadline = newDeadline;
-        }
-        router.push('/mainScreen');
-        return;
-      }
+  if (type === 'ALERT_START') {
+    const startMs = data?.startIso ? Date.parse(data.startIso) : Date.now();
+    const duration = Number(data?.durationSec) || DEADLINE_FALLBACK;
+    const newDeadline = startMs + duration * 1000;
 
-      if (type === 'EARLY_WARNING' || screen === 'EarlyWarningScreen') {
-        router.push({
-          pathname: '/EarlyWarningScreen',
-          params: {
-            city: data?.city || '',
-            timestamp: data?.timestamp || '',
-          },
-        });
-        return;
-      }
+    // ✅ תמיד מאפסים כדי להתחיל ספירה מחדש בכל אזעקה
+    globalThis.safezoneShelterDeadline = newDeadline;
+    console.log('⏱️ deadline set from push', { startMs, duration, newDeadline });
 
-      // תאימות לאחור
-      if (screen === 'ShelterInfo') {
-        router.push('/mainScreen');
-      }
-    };
+    router.push('/mainScreen');
+    return;
+  }
+
+  if (type === 'EARLY_WARNING' || screen === 'EarlyWarningScreen') {
+    router.push({
+      pathname: '/EarlyWarningScreen',
+      params: { city: data?.city || '', timestamp: data?.timestamp || '' },
+    });
+    return;
+  }
+
+  // תאימות לאחור
+  if (screen === 'ShelterInfo') {
+    router.push('/mainScreen');
+  }
+};
+
 
     // 1) הודעה בזמן שהאפליקציה פעילה
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
