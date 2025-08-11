@@ -71,7 +71,6 @@ const AlarmHistoryScreen = () => {
     );
   }
 
-  // 🔁 קיבוץ לפי דקה
   const groupedMap: Record<string, Alarm[]> = {};
   filteredAlarms.forEach(alarm => {
     const d = alarm.dateObj;

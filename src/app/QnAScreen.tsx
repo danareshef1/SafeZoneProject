@@ -1,4 +1,3 @@
-// src/app/otherScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -12,19 +11,16 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
-// Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Define the shape of a Q&A item
 interface QAItem {
   id: string;
   question: string;
   answer: string;
 }
 
-// Sample Q&A data (you can replace this with your actual data)
 const QA_DATA: QAItem[] = [
   {
     id: '1',
@@ -59,10 +55,8 @@ const QA_DATA: QAItem[] = [
 ];
 
 const OtherScreen: React.FC = () => {
-  // State to keep track of which questions are expanded
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
-  // Toggle the expansion of a question
   const toggleExpand = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (expandedIds.includes(id)) {
@@ -72,7 +66,6 @@ const OtherScreen: React.FC = () => {
     }
   };
 
-  // Render each Q&A item
   const renderItem = ({ item }: { item: QAItem }) => {
     const isExpanded = expandedIds.includes(item.id);
     return (

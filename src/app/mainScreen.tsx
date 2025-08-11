@@ -175,9 +175,9 @@ useEffect(() => {
     Alert.alert('עדכון', 'המידע עודכן בהצלחה');
   };
   
-  const handleChat = () => {
-    Alert.alert('צ\'אט', 'הצ\'אט נפתח');
-  };
+ const handleChat = () => {
+  router.push('/emotional-chat');
+};
   
   const handleReport = () => {
     if (!nearestShelter) {
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 30,
-    borderWidth: 5, // עובי מסגרת
+    borderWidth: 5,
     borderColor: '#11998e',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

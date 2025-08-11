@@ -78,7 +78,7 @@ const MyReportsScreen = () => {
     מספר פנייה: <Text style={styles.reportIdValue}>{report.reportId}</Text>
   </Text>
   <TouchableOpacity
-    style={styles.copyButton} // חדש
+    style={styles.copyButton} 
     onPress={() => copyToClipboard(report.reportId)}
   >
     <Text style={styles.copyText}>העתק</Text>

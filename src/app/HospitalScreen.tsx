@@ -97,7 +97,6 @@ const HospitalsScreen: React.FC = () => {
         setHospitals(hospitalsWithDistance);
         if (nearbyHospitals.length > 0) {
   await AsyncStorage.setItem('nearestHospital', JSON.stringify(nearbyHospitals[0]));
-  console.log('✅ nearestHospital saved:', nearbyHospitals[0]);
 }
       } catch (error) {
         console.error(error);

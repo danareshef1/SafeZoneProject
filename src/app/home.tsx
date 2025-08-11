@@ -31,7 +31,6 @@ useEffect(() => {
   checkIfUserAtHome();
 }, []);
 
-// שמירת מיקום הבית
 const handleSaveHomeLocation = async () => {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -119,10 +118,10 @@ export const storeRegisteredContacts = async () => {
     await AsyncStorage.setItem('registeredContacts', JSON.stringify(result));
     console.log('📇 אנשי קשר רשומים נשמרו ב־AsyncStorage');
   } catch (error) {
-    console.error('❌ שגיאה בשמירת אנשי קשר:', error);
+    console.error(' שגיאה בשמירת אנשי קשר:', error);
   }
 };
-const HOME_RADIUS_METERS = 50; // רדיוס שבו נחשיב את המשתמש כ"בבית"
+const HOME_RADIUS_METERS = 50; 
 
 const checkIfUserAtHome = async () => {
   try {
@@ -146,7 +145,7 @@ const checkIfUserAtHome = async () => {
 console.log('מרחק מהמיקום שנשמר לבית:', dist);
 console.log('isAtHome?', isAtHome);
   } catch (err) {
-    console.error('❌ שגיאה בבדיקת האם המשתמש בבית:', err);
+    console.error(' שגיאה בבדיקת האם המשתמש בבית:', err);
   }
 };
 
@@ -220,7 +219,7 @@ const HomeScreen: React.FC = () => {
 
   const [allShelters, setAllShelters] = useState<Shelter[]>([]);
   const [sheltersToShow, setSheltersToShow] = useState<Shelter[]>([]);
-  const LOAD_COUNT = 100;  // כמה להוסיף בכל פעם
+  const LOAD_COUNT = 100;  
 
     const [isImageUploading, setIsImageUploading] = useState(false);
   const [mapRegion, setMapRegion] = useState<null | {
@@ -311,7 +310,7 @@ if (allShelters.length === 0) {
 }
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.error('❌ הרשאת מיקום נדחתה');
+          console.error(' הרשאת מיקום נדחתה');
           return;
         }
         const location = await Location.getCurrentPositionAsync({});
@@ -341,20 +340,20 @@ if (allShelters.length === 0) {
               await AsyncStorage.setItem('nearestShelter', JSON.stringify(closestShelter));
               console.log(' nearestShelter נשמר ב־AsyncStorage');
           } catch (e) {
-              console.error('❌ שגיאה בשמירה ל־AsyncStorage:', e);
+              console.error(' שגיאה בשמירה ל־AsyncStorage:', e);
           }
       }
       
       
       } catch (err) {
-        console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
+        console.error(' שגיאה במציאת המקלט הקרוב:', err);
       }
     };
     }, []);
   
   
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Radius of the earth in km
+  const R = 6371; 
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
   const a =
@@ -362,8 +361,8 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
     Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d;
+  const d = R * c; 
+    return d;
 }
 
 function deg2rad(deg: number) {
@@ -404,7 +403,6 @@ function deg2rad(deg: number) {
 
     setRawShelters(convertedShelters);
     
-      //setShelters(convertedShelters);
       await AsyncStorage.setItem('shelters', JSON.stringify(convertedShelters));
     } catch (error) {
       console.error('Error fetching shelters:', error);
@@ -457,7 +455,7 @@ useEffect(() => {
       try {
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status !== 'granted') {
-              console.error('❌ הרשאת מיקום נדחתה');
+              console.error(' הרשאת מיקום נדחתה');
               return;
           }
           const location = await Location.getCurrentPositionAsync({});
@@ -468,8 +466,7 @@ useEffect(() => {
           let closestShelter = null;
 
           rawShelters.forEach((shelter) => {
-              const { latitude, longitude } = shelter;  // לא צריך המרה נוספת
-
+              const { latitude, longitude } = shelter;  
               const distance = getDistanceFromLatLonInKm(userLat, userLon, latitude, longitude);
 
               if (distance < minDistance) {
@@ -484,12 +481,12 @@ useEffect(() => {
                 await AsyncStorage.setItem('nearestShelter', JSON.stringify(closestShelter));
                 console.log(' nearestShelter נשמר ב־AsyncStorage');
             } catch (e) {
-                console.error('❌ שגיאה בשמירה ל־AsyncStorage:', e);
+                console.error(' שגיאה בשמירה ל־AsyncStorage:', e);
             }
         }
         
       } catch (err) {
-          console.error('❌ שגיאה במציאת המקלט הקרוב:', err);
+          console.error(' שגיאה במציאת המקלט הקרוב:', err);
       }
   };
 
@@ -537,9 +534,8 @@ useEffect(() => {
         return distA - distB;
       });
       setAllShelters(sorted);
-      setSheltersToShow(sorted.slice(0, LOAD_COUNT));  // נציג רק את הראשונים בהתחלה
+      setSheltersToShow(sorted.slice(0, LOAD_COUNT));  
           } else if (rawShelters.length > 0) {
-      // אם אין עדיין מיקום, תראה אותם כמות שהם
       setAllShelters(rawShelters);
       setSheltersToShow(rawShelters.slice(0, LOAD_COUNT));
     }
@@ -848,7 +844,7 @@ return (
           <BottomSheetFlatList
               data={sheltersToShow}
               onEndReached={loadMoreShelters}
-              onEndReachedThreshold={0.5}  // תוכל לשחק עם זה כדי לטעון לפני שמגיעים לסוף
+              onEndReachedThreshold={0.5}  
               contentContainerStyle={{ gap: 10, padding: 10 }}
             renderItem={({ item }) => (
               <ShelterListItem

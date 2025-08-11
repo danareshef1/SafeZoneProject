@@ -51,7 +51,7 @@ export default function EmergencyStatusScreen() {
         setUserZone(closest);
 
       } catch (e) {
-        console.error('❌ שגיאה בטעינת האזורים:', e);
+        console.error(' שגיאה בטעינת האזורים:', e);
       } finally {
         setLoading(false);
       }
@@ -94,7 +94,7 @@ export default function EmergencyStatusScreen() {
 
       return alertsInZone.length;
     } catch (e) {
-      console.error('❌ שגיאה בטעינת האזעקות:', e);
+      console.error(' שגיאה בטעינת האזעקות:', e);
       return 0;
     }
   };
