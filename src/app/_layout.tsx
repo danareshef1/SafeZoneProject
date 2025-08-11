@@ -78,56 +78,87 @@ const RootNavigator = () => {
   const { isLoggedIn, loading } = useContext(AuthContext);
   const router = useRouter();
   const segments = useSegments();
-useEffect(() => {
-  const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
-    const data = notification.request.content.data;
-    const screen = data?.screen;
-    console.log('📥 פוש ב־Foreground:', data);
 
-    if (screen === 'ShelterInfo') {
-      router.push('/mainScreen');
-    } else if (screen === 'EarlyWarningScreen') {
-      router.push({
-        pathname: '/EarlyWarningScreen',
-        params: {
-          city: data?.city || '',
-          timestamp: data?.timestamp || '',
-        },
-      });
-    }
-  });
-
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-const data = response.notification.request.content.data as {
-  screen?: string;
-  city?: string;
-  timestamp?: string;
-};
-    const screen = data?.screen;
-
-    console.log('📥 פוש בלחיצה:', data);
-
-    if (screen === 'ShelterInfo') {
-      router.push('/mainScreen');
-    } else if (screen === 'EarlyWarningScreen') {
-      router.push({
-        pathname: '/EarlyWarningScreen',
-        params: {
-          city: data?.city || '',
-          timestamp: data?.timestamp || '',
-        },
-      });
-    }
-  });
-
-  return () => {
-    Notifications.removeNotificationSubscription(receivedSubscription);
-    Notifications.removeNotificationSubscription(responseSubscription);
-  };
-}, []);
-
+  // מציג התראות גם ב-Foreground
   useEffect(() => {
-    
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  }, []);
+
+  // מאזיני פוש: מחשבים deadline ומנווטים
+  useEffect(() => {
+    const DEADLINE_FALLBACK = 600; // 10 דקות
+
+    const applyAlertDeadlineAndNavigate = (data: any) => {
+      const type = data?.type;
+      const screen = data?.screen;
+
+      if (type === 'ALERT_START') {
+        const startMs = data?.startIso ? Date.parse(data.startIso) : Date.now();
+        const duration = Number(data?.durationSec) || DEADLINE_FALLBACK;
+        const newDeadline = startMs + duration * 1000;
+
+        if (!globalThis.safezoneShelterDeadline || newDeadline > globalThis.safezoneShelterDeadline) {
+          globalThis.safezoneShelterDeadline = newDeadline;
+        }
+        router.push('/mainScreen');
+        return;
+      }
+
+      if (type === 'EARLY_WARNING' || screen === 'EarlyWarningScreen') {
+        router.push({
+          pathname: '/EarlyWarningScreen',
+          params: {
+            city: data?.city || '',
+            timestamp: data?.timestamp || '',
+          },
+        });
+        return;
+      }
+
+      // תאימות לאחור
+      if (screen === 'ShelterInfo') {
+        router.push('/mainScreen');
+      }
+    };
+
+    // 1) הודעה בזמן שהאפליקציה פעילה
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request?.content?.data || {};
+      console.log('📥 פוש ב־Foreground:', data);
+      applyAlertDeadlineAndNavigate(data);
+    });
+
+    // 2) לחיצה על פוש
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification?.request?.content?.data || {};
+      console.log('📥 פוש בלחיצה:', data);
+      applyAlertDeadlineAndNavigate(data);
+    });
+
+    // 3) פתיחה מפוש כשהאפליקציה לא היתה בזיכרון
+    (async () => {
+      const last = await Notifications.getLastNotificationResponseAsync();
+      const lastData = last?.notification?.request?.content?.data;
+      if (lastData) {
+        console.log('📥 פתיחה מפוש (last response):', lastData);
+        applyAlertDeadlineAndNavigate(lastData);
+      }
+    })();
+
+    return () => {
+      Notifications.removeNotificationSubscription(receivedSub);
+      Notifications.removeNotificationSubscription(responseSub);
+    };
+  }, [router]); // ← זה ה־deps היחיד שצריך
+
+  // שמירת לוגיקה קיימת של ניתוב לפי התחברות
+  useEffect(() => {
     if (!loading) {
       if (isLoggedIn) {
         if (
@@ -164,10 +195,7 @@ const data = response.notification.request.content.data as {
   }
 
   if ((segments[0] as string) === 'index') {
-    
-
     return <Slot />;
-
   }
 
   return (
@@ -186,7 +214,7 @@ const data = response.notification.request.content.data as {
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
         headerTitle: 'Safe Zone',
-        headerRight: () => (
+        headerRight: () =>
           !(
             segments[0] === 'login' ||
             segments[0] === 'signUpScreen' ||
@@ -199,14 +227,14 @@ const data = response.notification.request.content.data as {
               <ContactsButton />
               <HomeButton />
             </View>
-          ) : null
-        ),
+          ) : null,
       }}
     >
       <Slot />
     </Drawer>
   );
 };
+
 
 export default function Layout() {
   return (

@@ -64,9 +64,32 @@ const PostAlertScreen = () => {
     });
   };
 
-  const handleChat = () => {
-    // ניווט לצ׳אט או פתיחתו
-  };
+
+const handleChat = async () => {
+  try {
+    // שליפות אופציונליות (אם שמרת מפתחות כאלה)
+    const isAtHomeStr = await AsyncStorage.getItem('isAtHome');
+    const isAtHome = isAtHomeStr === 'true';
+    const city = (await AsyncStorage.getItem('userCity')) || ''; // אם אין לך key כזה – אפשר להשאיר ריק
+
+    // מה שיש לנו כבר מה־state
+    const shelterName = shelter?.name ?? '';
+    const distanceKm = typeof shelter?.distance === 'number' ? String(shelter.distance) : '';
+
+    router.push({
+      pathname: '/emotional-chat',
+      params: {
+        returnTo: 'postAlertScreen',
+        city,
+        isAtHome: isAtHome ? '1' : '0',   // מעבירים כמחרוזת
+        shelterName,
+        distanceKm,
+      },
+    });
+  } catch (e) {
+    console.error('שגיאה בפתיחת צ׳אט:', e);
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

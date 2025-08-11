@@ -12,8 +12,11 @@ import {
   FlatList,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation } from "expo-router";
 
-const BASE_URL = "https://uby7jbz88a.execute-api.us-east-1.amazonaws.com/default/emotional-support";
+
+const BASE_URL = "https://uby7jbz88a.execute-api.us-east-1.amazonaws.com/default/emotional-support"; 
 
 type Msg = { id: string; role: "user" | "assistant"; content: string };
 
@@ -25,6 +28,35 @@ export default function EmotionalChatScreen() {
   const [sending, setSending] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<Msg>>(null);
+  const params = useLocalSearchParams();
+  const router = useRouter();
+
+  // כפתור חזור
+  // לפני: השתמשת ב-params.from + router.push/back
+
+// בתוך הקומפוננטה:
+const goBack = useCallback(() => {
+  const target = typeof params.returnTo === "string" ? `/${params.returnTo}` : "/mainScreen";
+  console.log("⬅ goBack → replace to:", target);
+  router.replace(target);
+}, [params, router]);
+
+
+
+  // --- שאר הקוד שלך ללא שינוי חשוב ---
+  const baseCtx = {
+    city: typeof params.city === "string" ? params.city : "",
+    isAtHome: params.isAtHome === "1",
+    shelterName: typeof params.shelterName === "string" ? params.shelterName : "",
+    distanceKm:
+      typeof params.distanceKm === "string" && params.distanceKm !== ""
+        ? Number(params.distanceKm)
+        : undefined,
+    countdown:
+      typeof params.countdown === "string" && params.countdown !== ""
+        ? Number(params.countdown)
+        : undefined,
+  };
 
   useEffect(() => {
     (async () => {
@@ -49,8 +81,16 @@ export default function EmotionalChatScreen() {
     setSending(true);
 
     try {
-      const payload: any = { message: text };
+      const payload: Record<string, any> = { message: text };
       if (sessionIdRef.current) payload.sessionId = sessionIdRef.current;
+
+      if (baseCtx.city) payload.city = baseCtx.city;
+      if (typeof baseCtx.isAtHome === "boolean") payload.isAtHome = baseCtx.isAtHome;
+      if (baseCtx.shelterName) payload.shelterName = baseCtx.shelterName;
+      if (typeof baseCtx.distanceKm === "number" && !Number.isNaN(baseCtx.distanceKm))
+        payload.distanceKm = baseCtx.distanceKm;
+      if (typeof baseCtx.countdown === "number" && !Number.isNaN(baseCtx.countdown))
+        payload.countdown = baseCtx.countdown;
 
       const res = await fetch(BASE_URL, {
         method: "POST",
@@ -59,7 +99,7 @@ export default function EmotionalChatScreen() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
 
-      const data = await res.json(); // { reply, sessionId }
+      const data = await res.json();
       if (data.sessionId && !sessionIdRef.current) {
         sessionIdRef.current = data.sessionId;
         try { await AsyncStorage.setItem("chat_session_id", data.sessionId); } catch {}
@@ -81,7 +121,7 @@ export default function EmotionalChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [input, sending]);
+  }, [input, sending, baseCtx]);
 
   const renderItem = ({ item }: { item: Msg }) => {
     const isUser = item.role === "user";
@@ -108,6 +148,17 @@ export default function EmotionalChatScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7FB" }}>
+      {/* כותרת עליונה עם כפתור חזור */}
+      <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 12, gap: 12 }}>
+        <TouchableOpacity
+          onPress={goBack}
+          style={{ backgroundColor: "#E6EAF2", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10 }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "600" }}>⬅ חזרה</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: "#1f2937" }}>צ׳אט תמיכה – SafeZone</Text>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -122,6 +173,7 @@ export default function EmotionalChatScreen() {
           contentContainerStyle={{ paddingVertical: 10, flexGrow: 1, justifyContent: "flex-end" }}
           inverted
         />
+
         <View
           style={{
             flexDirection: "row",
@@ -138,6 +190,8 @@ export default function EmotionalChatScreen() {
             onChangeText={setInput}
             placeholder="כתבי הודעה…"
             multiline
+            onSubmitEditing={sendMessage}
+            blurOnSubmit={false}
             style={{
               flex: 1,
               minHeight: 44,
@@ -164,7 +218,11 @@ export default function EmotionalChatScreen() {
               justifyContent: "center",
             }}
           >
-            {sending ? <ActivityIndicator /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>שליחה</Text>}
+            {sending ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>שליחה</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

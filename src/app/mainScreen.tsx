@@ -5,8 +5,11 @@ import { getAuthUserEmail } from '../../utils/auth';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import proj4 from 'proj4';
+
+// ❌ הסירי ייבוא של useFocusEffect/useIsFocused – לא צריך יותר
+// import { useFocusEffect } from '@react-navigation/native';
+// import { useIsFocused } from '@react-navigation/native';
 
 proj4.defs(
   'EPSG:2039',
@@ -49,142 +52,146 @@ function deg2rad(deg: number) {
   return deg * (Math.PI / 180);
 }
 
+const DEADLINE_MS = 10 * 60 * 1000; // 10 דקות
+
 const ShelterInfoScreen = () => {
-const [minutes, setMinutes] = useState(0);
-const [seconds, setSeconds] = useState(10); // חכה 10 שניות בלבד
+  const [minutes, setMinutes] = useState(10);
+  const [seconds, setSeconds] = useState(0);
   const [progress, setProgress] = useState(1);
   const [shelterLocation, setShelterLocation] = useState('תל אביב');
-  const [zoneInfo, setZoneInfo] = useState(null);
-  const [nearestShelter, setNearestShelter] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
-  const [mapRegion, setMapRegion] = useState(null);
+  const [zoneInfo, setZoneInfo] = useState<any>(null);
+  const [nearestShelter, setNearestShelter] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<any>(null);
+  const [mapRegion, setMapRegion] = useState<any>(null);
   const router = useRouter();
-const [countdownOver, setCountdownOver] = useState(false);
-const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
+  const [countdownOver, setCountdownOver] = useState(false);
+  const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
 
-useFocusEffect(
-  React.useCallback(() => {
-    setMinutes(0);
-    setSeconds(10);
-    setProgress(1);
-    setCountdownOver(false);
-    return () => {};
-  }, [])
-);
+  // deadline גלובלי (חי בזיכרון האפליקציה) כדי שהטיימר "ימשיך לרוץ ברקע"
+  const deadlineRef = React.useRef<number>(0);
 
+  // אתחול deadline פעם אחת אם לא קיים, והפעלת טיקר קבוע
   useEffect(() => {
-const totalSeconds = 10;
-    const updateProgress = (remainingSeconds: number) => {
-      setProgress(remainingSeconds / totalSeconds);
+    if (!globalThis.safezoneShelterDeadline) {
+      globalThis.safezoneShelterDeadline = Date.now() + DEADLINE_MS;
+    }
+    deadlineRef.current = globalThis.safezoneShelterDeadline;
+
+    const tick = () => {
+      const now = Date.now();
+      const remainingMs = Math.max(0, deadlineRef.current - now);
+      const remSec = Math.ceil(remainingMs / 1000);
+
+      setMinutes(Math.floor(remSec / 60));
+      setSeconds(remSec % 60);
+      setProgress(remainingMs / DEADLINE_MS);
+
+      if (remainingMs <= 0) setCountdownOver(true);
     };
 
+    tick(); // עדכון מיידי
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
-    const timer = setInterval(() => {
-      setSeconds((prevSeconds) => {
-        if (prevSeconds === 0) {
-          if (minutes === 0) {
-  clearInterval(timer);
-  setCountdownOver(true);
-
-
-  return 0;
-}
-          setMinutes((prevMinutes) => prevMinutes - 1);
-          updateProgress((minutes - 1) * 60 + 59);
-          return 59;
-        }
-        const remainingSeconds = minutes * 60 + prevSeconds - 1;
-        updateProgress(remainingSeconds);
-        return prevSeconds - 1;
-      });
-    }, 1000);
-
-    
-
-    return () => clearInterval(timer);
-  }, [minutes]);
-
+  // נתוני מיקום/אזור
   useEffect(() => {
     const fetchCityFromServer = async () => {
       try {
         const email = await getAuthUserEmail();
         if (!email) return;
-  
+
         const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const data = await res.json();
-  
+
         if (data.city) {
           setShelterLocation(data.city);
-  
+
           const zonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
           const zonesRaw = await zonesRes.json();
           const zones = Array.isArray(zonesRaw) ? zonesRaw : JSON.parse(zonesRaw.body ?? '[]');
-          const matched = zones.find((z) => z.name === data.city);
+          const matched = zones.find((z: any) => z.name === data.city);
           if (matched) setZoneInfo(matched);
         }
       } catch (err) {
         console.log(' שגיאה בשליפת עיר מהשרת:', err);
       }
     };
-  
+
     fetchCityFromServer();
   }, []);
-  
+
+  // ניווט בסוף זמן – בלי תלות בפוקוס
   useEffect(() => {
-  if (countdownOver) {
-    router.push('/postAlertScreen');
-  }
-}, [countdownOver]);
-
-useEffect(() => {
-  const loadNearestShelter = async () => {
-    try {
-      const data = await AsyncStorage.getItem('nearestShelter');
-      const atHomeString = await AsyncStorage.getItem('isAtHome'); // ✅ הוספה חשובה
-
-      if (data) {
-        const shelter = JSON.parse(data);
-        setNearestShelter(shelter);
-        setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
-        setMapRegion({
-          latitude: shelter.latitude,
-          longitude: shelter.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        });
-      }
-
-      if (atHomeString !== null) {
-        setIsAtHome(atHomeString === 'true'); // ✅ גם זה
-        console.log('📍 isAtHome from AsyncStorage:', atHomeString); // לא חובה, רק דיבאג
-      }
-    } catch (err) {
-      console.error('שגיאה בשליפת המקלט הקרוב או isAtHome:', err);
+    if (countdownOver) {
+      router.push('/postAlertScreen');
     }
-  };
+  }, [countdownOver]);
 
-  loadNearestShelter();
-}, []);
+  // שליפת מקלט קרוב + מצב בבית/לא
+  useEffect(() => {
+    const loadNearestShelter = async () => {
+      try {
+        const data = await AsyncStorage.getItem('nearestShelter');
+        const atHomeString = await AsyncStorage.getItem('isAtHome');
 
+        if (data) {
+          const shelter = JSON.parse(data);
+          setNearestShelter(shelter);
+          setUserLocation({ latitude: shelter.latitude, longitude: shelter.longitude });
+          setMapRegion({
+            latitude: shelter.latitude,
+            longitude: shelter.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          });
+        }
+
+        if (atHomeString !== null) {
+          setIsAtHome(atHomeString === 'true');
+        }
+      } catch (err) {
+        console.error('שגיאה בשליפת המקלט הקרוב או isAtHome:', err);
+      }
+    };
+
+    loadNearestShelter();
+  }, []);
 
   const circleRadius = 45;
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circleCircumference * (1 - progress);
-  
+
   const handleUpdate = () => {
     Alert.alert('עדכון', 'המידע עודכן בהצלחה');
   };
-  
- const handleChat = () => {
-  router.push('/emotional-chat');
-};
-  
+
+  const handleChat = async () => {
+    try {
+      const isAtHomeStr = await AsyncStorage.getItem('isAtHome');
+      const atHome = isAtHomeStr === 'true';
+      const city = shelterLocation || '';
+      const countdown = zoneInfo?.countdown != null ? String(zoneInfo.countdown) : '';
+      const shelterName = nearestShelter?.name ?? '';
+      const distanceKm = typeof nearestShelter?.distance === 'number' ? String(nearestShelter.distance) : '';
+
+      // מעבר לצ׳אט – הטיימר ממשיך "ברקע" כי יש לנו deadline קבוע
+      router.push({
+        pathname: '/emotional-chat',
+        params: {returnTo: 'mainScreen', city, countdown, isAtHome: atHome ? '1' : '0', shelterName, distanceKm },
+      });
+    } catch (e) {
+      console.error('שגיאה בפתיחת צ׳אט:', e);
+      Alert.alert('שגיאה', 'לא הצלחתי לפתוח את הצ׳אט כרגע.');
+    }
+  };
+
   const handleReport = () => {
     if (!nearestShelter) {
       Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
       return;
     }
-  
+
     router.push({
       pathname: '/report-shelter/[id]',
       params: {
@@ -196,7 +203,7 @@ useEffect(() => {
       },
     });
   };
-  
+
   const handleNavigateToShelter = () => {
     if (!nearestShelter) {
       Alert.alert('אין מקלט', 'לא נמצא מקלט קרוב');
@@ -211,7 +218,7 @@ useEffect(() => {
       Linking.openURL(url).catch(err => console.error('שגיאה בניווט:', err));
     }
   };
-  
+
   return (
     <View style={styles.container}>
       <View style={styles.infoContainer}>
@@ -246,16 +253,15 @@ useEffect(() => {
                 description={`מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`}
               />
             )}
-           {!isAtHome ? (
-  <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
-    <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
-  </TouchableOpacity>
-) : (
-  <View style={[styles.floatingButton, { backgroundColor: '#777' }]}>
-    <Text style={styles.floatingButtonText}>🏠 אתה בבית - לך לממ״ד</Text>
-  </View>
-)}
-
+            {!isAtHome ? (
+              <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
+                <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.floatingButton, { backgroundColor: '#777' }]}>
+                <Text style={styles.floatingButtonText}>🏠 אתה בבית - לך לממ״ד</Text>
+              </View>
+            )}
           </MapView>
         )}
       </View>
@@ -296,131 +302,50 @@ useEffect(() => {
             <Text style={styles.buttonText}>פתיחת צ'אט</Text>
           </TouchableOpacity>
           {!isAtHome && (
-  <TouchableOpacity style={styles.button} onPress={handleReport}>
-    <Text style={styles.buttonText}>דיווח</Text>
-  </TouchableOpacity>
-)}
-
+            <TouchableOpacity style={styles.button} onPress={handleReport}>
+              <Text style={styles.buttonText}>דיווח</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
   );
 };
+
 export default ShelterInfoScreen;
 
+// styles ללא שינוי
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#f0f4f8',
-  },
+  container: { flex: 1, padding: 20, backgroundColor: '#f0f4f8' },
   infoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    alignItems: 'center', marginBottom: 20, padding: 20, backgroundColor: '#ffffff',
+    borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1, shadowRadius: 10, elevation: 8,
   },
-  infoText: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: '#222',
-    marginBottom: 8,
-  },
+  infoText: { fontSize: 20, fontWeight: '700', textAlign: 'center', color: '#222', marginBottom: 8 },
   mapContainer: {
-    flex: 1.5,  
-    borderRadius: 25,
-    overflow: 'hidden',
-    marginBottom: 30,
-    borderWidth: 5,
-    borderColor: '#11998e',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-    position: 'relative',
+    flex: 1.5, borderRadius: 25, overflow: 'hidden', marginBottom: 30, borderWidth: 5,
+    borderColor: '#11998e', shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 10, elevation: 8, position: 'relative',
   },
-  mapImage: {
-    width: '100%',
-    height: '100%',
-  },
+  mapImage: { width: '100%', height: '100%' },
   floatingButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#e60000',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 10,
+    position: 'absolute', bottom: 20, right: 20, backgroundColor: '#e60000',
+    paddingVertical: 14, paddingHorizontal: 20, borderRadius: 30,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 5, elevation: 10,
   },
-  floatingButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  bottomContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 15,
-  },
-  buttonsContainer: {
-    flex: 1,
-    marginLeft: 25,
-    justifyContent: 'space-between',
-  },
+  floatingButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  bottomContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 15 },
+  buttonsContainer: { flex: 1, marginLeft: 25, justifyContent: 'space-between' },
   button: {
-    backgroundColor: '#11998e',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 30,
-    marginBottom: 14,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 6,
+    backgroundColor: '#11998e', paddingVertical: 14, paddingHorizontal: 20, borderRadius: 30,
+    marginBottom: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2, shadowRadius: 5, elevation: 6,
   },
-  buttonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '700',
-  },
-  timerWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 15,
-  },
-  timerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#333',
-  },
-  timerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: 160,
-    height: 160,
-  },
-  timerText: {
-    position: 'absolute',
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#11998e',
-  },   
+  buttonText: { fontSize: 16, color: '#fff', fontWeight: '700' },
+  timerWrapper: { alignItems: 'center', justifyContent: 'center', marginRight: 15 },
+  timerTitle: { fontSize: 16, fontWeight: '600', marginBottom: 10, color: '#333' },
+  timerContainer: { alignItems: 'center', justifyContent: 'center', position: 'relative', width: 160, height: 160 },
+  timerText: { position: 'absolute', fontSize: 30, fontWeight: '800', color: '#11998e' },
 });
