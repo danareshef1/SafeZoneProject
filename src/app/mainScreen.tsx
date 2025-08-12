@@ -1,3 +1,4 @@
+// src/app/mainScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -171,8 +172,28 @@ useEffect(() => {
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circleCircumference * (1 - progress);
   
-  const handleUpdate = () => {
-    Alert.alert('עדכון', 'המידע עודכן בהצלחה');
+  const handleUpdate = async () => {
+    try {
+      const owner = await getAuthUserEmail();
+      if (!owner) return Alert.alert('שגיאה', 'לא נמצאה זהות משתמש');
+  
+      const isAtHome = (await AsyncStorage.getItem('isAtHome')) === 'true';
+      const res = await fetch('https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner,
+          city: shelterLocation,
+          atHome: isAtHome,
+        }),
+      });
+  
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      Alert.alert('נשלח', 'עדכנו את אנשי הקשר שבחרת שאת/ה בטוח/ה');
+    } catch (e) {
+      console.error(e);
+      Alert.alert('שגיאה', 'לא הצלחנו לשלוח עדכון כרגע');
+    }
   };
   
  const handleChat = () => {

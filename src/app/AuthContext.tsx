@@ -1,5 +1,7 @@
+// AuthContext.tsx
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import {
   CognitoUser,
   CognitoUserPool,
@@ -13,6 +15,10 @@ const poolData = {
 };
 
 const userPool = new CognitoUserPool(poolData);
+
+// ✅ דגל דילוג בפיתוח בלבד (קורא ל-expo.extra.bypassAuth)
+const BYPASS =
+  __DEV__ && Boolean((Constants.expoConfig?.extra as any)?.bypassAuth);
 
 interface AuthContextProps {
   isLoggedIn: boolean;
@@ -39,8 +45,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const init = async () => {
       try {
+        // 🟢 דילוג בפיתוח: שומר טוקן דמי ומדלג על קוגניטו
+        if (BYPASS) {
+          await AsyncStorage.setItem('userToken', 'DEV_BYPASS_TOKEN');
+          setIsLoggedIn(true);
+          return;
+        }
+
+        // בדיקת סשן רגילה
         const token = await AsyncStorage.getItem('userToken');
         setIsLoggedIn(!!token);
       } catch (error) {
@@ -50,15 +64,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setLoading(false);
       }
     };
-    checkAuth();
+    init();
   }, []);
 
-  const signUp = (
-    username: string,
-    password: string,
-    email: string,
-    phone: string
-  ) => {
+  const signUp = (username: string, password: string, email: string, phone: string) => {
     return new Promise((resolve, reject) => {
       if (!phone) {
         reject(new Error("Phone number is missing"));
@@ -67,46 +76,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const normalizedPhone = phone.startsWith('+')
         ? phone
         : `+972${phone.slice(1)}`;
-  
+
       const attributeList = [
-        new CognitoUserAttribute({
-          Name: 'email',
-          Value: email,
-        }),
-        new CognitoUserAttribute({
-          Name: 'phone_number',
-          Value: normalizedPhone,
-        }),
+        new CognitoUserAttribute({ Name: 'email', Value: email }),
+        new CognitoUserAttribute({ Name: 'phone_number', Value: normalizedPhone }),
       ];
-  
+
       userPool.signUp(username, password, attributeList, [], (err, result) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(result);
-        }
+        if (err) reject(err);
+        else resolve(result);
       });
     });
   };
 
   const login = async (username: string, password: string): Promise<void> => {
-      return new Promise<void>((resolve, reject) => {
-        const user = new CognitoUser({ Username: username, Pool: userPool });
-        const authDetails = new AuthenticationDetails({ Username: username, Password: password });
-  
-        user.authenticateUser(authDetails, {
-          onSuccess: async (result) => {
-            await AsyncStorage.setItem('userToken', result.getIdToken().getJwtToken());
-            setIsLoggedIn(true);
-            resolve();
-          },
-          onFailure: (err) => {
-            console.error('Cognito login failed', err);
-            reject(err);
-          },
-        });
+    return new Promise<void>((resolve, reject) => {
+      const user = new CognitoUser({ Username: username, Pool: userPool });
+      const authDetails = new AuthenticationDetails({ Username: username, Password: password });
+
+      user.authenticateUser(authDetails, {
+        onSuccess: async (result) => {
+          await AsyncStorage.setItem('userToken', result.getIdToken().getJwtToken());
+          setIsLoggedIn(true);
+          resolve();
+        },
+        onFailure: (err) => {
+          console.error('Cognito login failed', err);
+          reject(err);
+        },
       });
-    };
+    });
+  };
 
   const logout = async () => {
     await AsyncStorage.removeItem('userToken');

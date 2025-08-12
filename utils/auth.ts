@@ -1,3 +1,4 @@
+// utils/auth.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import jwt_decode from 'jwt-decode'; 
 
