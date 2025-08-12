@@ -1,3 +1,4 @@
+// src/app/_layout.tsx
 import React, { useContext, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Drawer } from 'expo-router/drawer';
@@ -13,7 +14,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext, AuthProvider } from './AuthContext';
 import ContactsButton from './contactsButton';
-import { ShelterProvider } from './contexts/ShelterContext';
+import { ShelterProvider } from './_contexts/ShelterContext';
 import * as Notifications from 'expo-notifications';
 
 

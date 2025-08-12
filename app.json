@@ -11,10 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": [
-          "location",
-          "location"
-        ],
+        "UIBackgroundModes": ["location", "location"],
         "NSLocationAlwaysUsageDescription": "SafeZone needs your location even when the app is in the background.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "SafeZone needs your location to notify you during alerts, even in the background.",
         "NSLocationWhenInUseUsageDescription": "SafeZone needs your location when the app is open.",
@@ -62,13 +59,15 @@
       "expo-web-browser"
     ],
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "b02089af-97ef-4a80-9497-858d9065c224"
-      }
+      "router": { "origin": false },
+      "eas": { "projectId": "b02089af-97ef-4a80-9497-858d9065c224" }
     },
+
+    "transpilePackages": [
+      "expo-router",
+      "@expo/metro-runtime"
+    ],
+
     "owner": "noyzion"
   }
 }

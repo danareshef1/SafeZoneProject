@@ -1,3 +1,4 @@
+// src/app/verifySignUpScreen.tsx
 import React from 'react';
 import {
   View,
@@ -30,7 +31,7 @@ const VerifySignUpScreen: React.FC = () => {
 
   const handleVerify = (values: { code: string }) => {
     const user = new CognitoUser({ Username: username, Pool: userPool });
-    user.confirmRegistration(values.code, true, (err, result) => {
+    user.sdkConfirmSignUp(values.code, true, (err, result) => {
       if (err) {
         Alert.alert('Verification Failed', err.message || 'Error verifying code.');
       } else {

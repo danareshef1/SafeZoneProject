@@ -1,18 +1,7 @@
+// src/app/AuthContext.tsx
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  CognitoUser,
-  CognitoUserPool,
-  AuthenticationDetails,
-  CognitoUserAttribute,
-} from 'amazon-cognito-identity-js';
-
-const poolData = {
-  UserPoolId: 'us-east-1_TgQIZsQBQ',
-  ClientId: '5tthevvlvskttb7ec21j5u1gtj',
-};
-
-const userPool = new CognitoUserPool(poolData);
+import { sdkLogin, sdkSignUp } from '../lib/awsAuth';
 
 interface AuthContextProps {
   isLoggedIn: boolean;
@@ -30,86 +19,42 @@ export const AuthContext = createContext<AuthContextProps>({
   loading: true,
 });
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+interface AuthProviderProps { children: ReactNode; }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    (async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
         setIsLoggedIn(!!token);
-      } catch (error) {
-        console.error('Error checking auth status:', error);
-        setIsLoggedIn(false);
       } finally {
         setLoading(false);
       }
-    };
-    checkAuth();
+    })();
   }, []);
 
-  const signUp = (
-    username: string,
-    password: string,
-    email: string,
-    phone: string
-  ) => {
-    return new Promise((resolve, reject) => {
-      if (!phone) {
-        reject(new Error("Phone number is missing"));
-        return;
-      }
-      const normalizedPhone = phone.startsWith('+')
-        ? phone
-        : `+972${phone.slice(1)}`;
-  
-      const attributeList = [
-        new CognitoUserAttribute({
-          Name: 'email',
-          Value: email,
-        }),
-        new CognitoUserAttribute({
-          Name: 'phone_number',
-          Value: normalizedPhone,
-        }),
-      ];
-  
-      userPool.signUp(username, password, attributeList, [], (err, result) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(result);
-        }
-      });
-    });
+  const signUp = async (username: string, password: string, email: string, phone: string) => {
+    if (!phone) throw new Error('Phone number is missing');
+    return sdkSignUp(username, password, email, phone);
   };
 
   const login = async (username: string, password: string): Promise<void> => {
-      return new Promise<void>((resolve, reject) => {
-        const user = new CognitoUser({ Username: username, Pool: userPool });
-        const authDetails = new AuthenticationDetails({ Username: username, Password: password });
-  
-        user.authenticateUser(authDetails, {
-          onSuccess: async (result) => {
-            await AsyncStorage.setItem('userToken', result.getIdToken().getJwtToken());
-            setIsLoggedIn(true);
-            resolve();
-          },
-          onFailure: (err) => {
-            console.error('Cognito login failed', err);
-            reject(err);
-          },
-        });
-      });
-    };
+    const resp = await sdkLogin(username, password);
+    const tokens = resp.AuthenticationResult;
+    if (!tokens?.IdToken) throw new Error('Missing IdToken');
+
+    await AsyncStorage.setItem('userToken', tokens.IdToken);
+    if (tokens.AccessToken) await AsyncStorage.setItem('accessToken', tokens.AccessToken);
+    if (tokens.RefreshToken) await AsyncStorage.setItem('refreshToken', tokens.RefreshToken);
+
+    setIsLoggedIn(true);
+  };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.multiRemove(['userToken', 'accessToken', 'refreshToken']);
     setIsLoggedIn(false);
   };
 

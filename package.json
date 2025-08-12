@@ -18,6 +18,7 @@
     "@aws-amplify/auth": "^6.12.1",
     "@aws-amplify/core": "^6.11.1",
     "@aws-amplify/react-native": "^1.1.7",
+    "@aws-sdk/client-cognito-identity-provider": "^3.864.0",
     "@expo/metro-config": "^0.20.13",
     "@expo/vector-icons": "^14.0.2",
     "@gorhom/bottom-sheet": "5",
@@ -29,9 +30,10 @@
     "@turf/boolean-point-in-polygon": "^7.2.0",
     "@turf/distance": "^7.2.0",
     "@turf/helpers": "^7.2.0",
-    "amazon-cognito-identity-js": "^6.3.12",
     "aws-amplify": "^6.14.1",
+    "base-64": "^1.0.0",
     "buffer": "^6.0.3",
+    "crypto-js": "^4.2.0",
     "expo": "^53.0.7",
     "expo-blur": "~14.1.4",
     "expo-checkbox": "^4.0.1",
@@ -53,6 +55,7 @@
     "expo-system-ui": "~5.0.7",
     "expo-task-manager": "~13.1.5",
     "expo-web-browser": "~14.1.6",
+    "fast-text-encoding": "^1.0.6",
     "formik": "^2.4.6",
     "jwt-decode": "3.1.2",
     "metro": "^0.82.0",
@@ -66,10 +69,11 @@
     "react-native-map-clustering": "^3.4.2",
     "react-native-maps": "1.20.1",
     "react-native-picker-select": "^9.3.1",
-    "react-native-reanimated": "^3.16.7",
+    "react-native-reanimated": "3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "react-native-svg": "^15.11.1",
+    "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
@@ -77,6 +81,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@babel/plugin-transform-class-static-block": "^7.27.1",
     "@types/jest": "^29.5.12",
     "@types/proj4": "^2.5.6",
     "@types/react": "~19.0.10",
@@ -86,5 +91,14 @@
     "react-test-renderer": "18.3.1",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "expo": {
+    "transpilePackages": [
+      "expo-router",
+      "@expo/metro-runtime"
+    ]
+  },
+  "private": true,
+  "volta": {
+    "node": "20.19.4"
+  }
 }

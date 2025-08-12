@@ -1,3 +1,4 @@
+// src/app/newPassword.tsx
 import React from 'react';
 import {
   View,
@@ -40,7 +41,7 @@ const NewPasswordScreen: React.FC = () => {
   ) => {
     const { verificationCode, newPassword } = values;
     const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
-    cognitoUser.confirmPassword(verificationCode, newPassword, {
+    cognitoUser.sdkConfirmForgotPassword(verificationCode, newPassword, {
       onSuccess: () => {
         Alert.alert('Success', 'Your password has been reset. You can now log in.');
         resetForm();

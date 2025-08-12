@@ -1,3 +1,4 @@
+// src/app/index.tsx
 import React, { useEffect } from 'react';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
