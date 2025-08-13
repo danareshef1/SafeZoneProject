@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -13,37 +12,93 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useNavigation } from "expo-router";
 
+// ===== API =====
+const BASE_URL =
+  "https://uby7jbz88a.execute-api.us-east-1.amazonaws.com/default/emotional-support";
 
-const BASE_URL = "https://uby7jbz88a.execute-api.us-east-1.amazonaws.com/default/emotional-support"; 
+// ===== Types =====
+type Msg = { id: string; role: "user" | "assistant"; content: string; ts?: number };
 
-type Msg = { id: string; role: "user" | "assistant"; content: string };
+// ===== Networking helpers =====
+const REQ_TIMEOUT_MS = 15000; // יותר מרווח, שלא נחתוך את הלמבדא
+async function fetchWithTimeout(
+  input: RequestInfo,
+  init?: RequestInit,
+  retries = 1
+): Promise<Response> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), REQ_TIMEOUT_MS);
+    try {
+      const res = await fetch(input, { ...init, signal: ctrl.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 350)); // backoff עדין
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  // לא מגיעים לכאן
+  // @ts-expect-error
+  return null;
+}
 
 export default function EmotionalChatScreen() {
-  const [messages, setMessages] = useState<Msg[]>([
-    { id: "sys1", role: "assistant", content: "היי! אני כאן בשבילך 💛 איך את מרגישה היום?" },
-  ]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const sessionIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<Msg>>(null);
-  const params = useLocalSearchParams();
-  const router = useRouter();
 
-  // כפתור חזור
-  // לפני: השתמשת ב-params.from + router.push/back
+  // הודעת פתיחה טבעית
+  const initialAssistant = useMemo<Msg>(
+    () => ({
+      id: `sys_${Date.now()}`,
+      role: "assistant",
+      content: "היי, אני כאן איתך. מה קורה ברגע זה?",
+      ts: Date.now(),
+    }),
+    []
+  );
 
-// בתוך הקומפוננטה:
-const goBack = useCallback(() => {
-  const target = typeof params.returnTo === "string" ? `/${params.returnTo}` : "/mainScreen";
-  console.log("⬅ goBack → replace to:", target);
-  router.replace(target);
-}, [params, router]);
+  const [messages, setMessages] = useState<Msg[]>([initialAssistant]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [typing, setTyping] = useState(false);
 
+  // ניווט אחורה – קטן, בלי אמוג'ים
+  const goBack = useCallback(() => {
+    const target = typeof params.returnTo === "string" ? `/${params.returnTo}` : "/mainScreen";
+    router.replace(target);
+  }, [params, router]);
 
+  // ניקוי שיחה: איפוס sessionId + cache מקומי
+  const clearChat = useCallback(() => {
+    // אישור רך (בלי מודאל כבד) – מודיע בשיחה
+    (async () => {
+      try {
+        await AsyncStorage.multiRemove(["safezone_chat_cache", "chat_session_id"]);
+      } catch {}
+      sessionIdRef.current = null;
+      setMessages([
+        {
+          id: `sys_${Date.now()}`,
+          role: "assistant",
+          content: "התחלנו מחדש. אני כאן, נשום/י רגע—מה נחוץ לך עכשיו?",
+          ts: Date.now(),
+        },
+      ]);
+      setInput("");
+    })();
+  }, []);
 
-  // --- שאר הקוד שלך ללא שינוי חשוב ---
+  // קונטקסט מהניווט (שולחים לשרת רק אם יש ערך)
   const baseCtx = {
     city: typeof params.city === "string" ? params.city : "",
     isAtHome: params.isAtHome === "1",
@@ -58,8 +113,13 @@ const goBack = useCallback(() => {
         : undefined,
   };
 
+  // טעינת קאש + sessionId
   useEffect(() => {
     (async () => {
+      try {
+        const cached = await AsyncStorage.getItem("safezone_chat_cache");
+        if (cached) setMessages(JSON.parse(cached));
+      } catch {}
       try {
         const sid = await AsyncStorage.getItem("chat_session_id");
         if (sid) sessionIdRef.current = sid;
@@ -67,18 +127,33 @@ const goBack = useCallback(() => {
     })();
   }, []);
 
+  // שמירת קאש חכמה (לא כל תו)
+  useEffect(() => {
+    AsyncStorage.setItem("safezone_chat_cache", JSON.stringify(messages)).catch(() => {});
+  }, [messages]);
+
+  // גלילה למטה על הודעה חדשה
   useEffect(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, [messages]);
+  }, [messages.length]);
+
+  // Quick replies
+  const quickReplies = ["אני מרגישה חרדה עכשיו", "יש לי דופק מהיר", "אני לבד בבית", "תן לי צעד אחד להרגעה"];
+  const sendQuick = (text: string) => {
+    if (sending) return;
+    setInput(text);
+    setTimeout(() => sendMessage(), 0);
+  };
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || !text.replace(/\s+/g, "") || sending) return;
 
-    const userMsg: Msg = { id: `u_${Date.now()}`, role: "user", content: text };
+    const userMsg: Msg = { id: `u_${Date.now()}`, role: "user", content: text, ts: Date.now() };
     setMessages((prev) => [userMsg, ...prev]);
     setInput("");
     setSending(true);
+    setTyping(true);
 
     try {
       const payload: Record<string, any> = { message: text };
@@ -92,33 +167,50 @@ const goBack = useCallback(() => {
       if (typeof baseCtx.countdown === "number" && !Number.isNaN(baseCtx.countdown))
         payload.countdown = baseCtx.countdown;
 
-      const res = await fetch(BASE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      // דוגמה ל־clientState (לא חובה)
+      payload.clientState = { panicLevel: "high" };
 
-      const data = await res.json();
+      const res = await fetchWithTimeout(
+        BASE_URL,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        1 // ריטריי אחד
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      const data = await res.json(); // { reply, sessionId, ... }
+
       if (data.sessionId && !sessionIdRef.current) {
         sessionIdRef.current = data.sessionId;
-        try { await AsyncStorage.setItem("chat_session_id", data.sessionId); } catch {}
+        try {
+          await AsyncStorage.setItem("chat_session_id", data.sessionId);
+        } catch {}
       }
 
       const botMsg: Msg = {
         id: `a_${Date.now()}`,
         role: "assistant",
-        content: String(data.reply || "").trim() || "🙂",
+        content: String(data.reply || "").trim() || "…",
+        ts: Date.now(),
       };
       setMessages((prev) => [botMsg, ...prev]);
     } catch (err) {
       console.error(err);
-      Alert.alert("שגיאה", "לא הצלחתי לשלוח כרגע. נסי שוב.");
+      // הודעת שגיאה עדינה בשיחה (לא פותחים Alert באמצע התקף חרדה)
       setMessages((prev) => [
-        { id: `e_${Date.now()}`, role: "assistant", content: "אופס… לא הצלחתי לענות כרגע." },
+        {
+          id: `e_${Date.now()}`,
+          role: "assistant",
+          content: "לא הצלחתי לענות כרגע. אפשר לנסות שוב.",
+          ts: Date.now(),
+        },
         ...prev,
       ]);
     } finally {
+      setTyping(false);
       setSending(false);
     }
   }, [input, sending, baseCtx]);
@@ -129,7 +221,7 @@ const goBack = useCallback(() => {
       <View
         style={{
           alignSelf: isUser ? "flex-end" : "flex-start",
-          backgroundColor: isUser ? "#DCF8C6" : "#fff",
+          backgroundColor: isUser ? "#EAF7E7" : "#FFFFFF",
           borderRadius: 16,
           paddingVertical: 10,
           paddingHorizontal: 12,
@@ -139,24 +231,63 @@ const goBack = useCallback(() => {
           shadowOpacity: 0.05,
           shadowRadius: 4,
           elevation: 1,
+          borderWidth: 1,
+          borderColor: isUser ? "#CDE6C8" : "#ECEFF5",
         }}
       >
-        <Text style={{ fontSize: 16, lineHeight: 22, color: "#222" }}>{item.content}</Text>
+        <Text style={{ fontSize: 16, lineHeight: 22, color: "#1f2937" }}>{item.content}</Text>
+        {item.ts && (
+          <Text
+            style={{
+              fontSize: 11,
+              color: "#9CA3AF",
+              marginTop: 4,
+              textAlign: isUser ? "right" : "left",
+            }}
+          >
+            {new Date(item.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </Text>
+        )}
       </View>
     );
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F7FB" }}>
-      {/* כותרת עליונה עם כפתור חזור */}
-      <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 12, gap: 12 }}>
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: "#E3E7EE",
+          backgroundColor: "#FFFFFF",
+        }}
+      >
+        {/* Back – קטן וצלול */}
         <TouchableOpacity
           onPress={goBack}
-          style={{ backgroundColor: "#E6EAF2", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="חזרה"
+          style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: "#EEF2F7" }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600" }}>⬅ חזרה</Text>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#374151" }}>חזרה</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#1f2937" }}>צ׳אט תמיכה – SafeZone</Text>
+
+        <Text style={{ fontSize: 16, fontWeight: "700", color: "#1f2937" }}>צ׳אט תמיכה · SafeZone</Text>
+
+        {/* Clear chat */}
+        <TouchableOpacity
+          onPress={clearChat}
+          accessibilityRole="button"
+          accessibilityLabel="נקה שיחה"
+          style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: "#FBEAEA" }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#B91C1C" }}>נקה</Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -172,8 +303,52 @@ const goBack = useCallback(() => {
           style={{ flex: 1, paddingHorizontal: 14 }}
           contentContainerStyle={{ paddingVertical: 10, flexGrow: 1, justifyContent: "flex-end" }}
           inverted
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={7}
         />
 
+        {typing && (
+          <View
+            style={{
+              alignSelf: "flex-start",
+              marginHorizontal: 16,
+              marginBottom: 8,
+              backgroundColor: "#fff",
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "#ECEFF5",
+            }}
+          >
+            <Text style={{ color: "#6B7280" }}>העוזר מקליד…</Text>
+          </View>
+        )}
+
+        {/* Quick Replies */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingBottom: 8 }}>
+          {quickReplies.map((q) => (
+            <TouchableOpacity
+              key={q}
+              onPress={() => sendQuick(q)}
+              disabled={sending}
+              style={{
+                backgroundColor: "#E6EAF2",
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 14,
+                opacity: sending ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: "#1f2937" }}>{q}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Composer */}
         <View
           style={{
             flexDirection: "row",
@@ -192,6 +367,7 @@ const goBack = useCallback(() => {
             multiline
             onSubmitEditing={sendMessage}
             blurOnSubmit={false}
+            returnKeyType="send"
             style={{
               flex: 1,
               minHeight: 44,
@@ -218,11 +394,7 @@ const goBack = useCallback(() => {
               justifyContent: "center",
             }}
           >
-            {sending ? (
-              <ActivityIndicator />
-            ) : (
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>שליחה</Text>
-            )}
+            {sending ? <ActivityIndicator /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>שליחה</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
