@@ -15,7 +15,7 @@ interface Hospital {
   phone: string;  
 }
 
-const HospitalsScreen: React.FC = () => {
+const HospitalScreen: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [nearbyHospitals, setNearbyHospitals] = useState<Hospital[]>([]);
@@ -309,4 +309,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HospitalsScreen;
+export default HospitalScreen;

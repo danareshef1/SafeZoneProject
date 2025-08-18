@@ -1,3 +1,6 @@
+// src/app/loginScreen.tsx
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import React, { useContext } from 'react';
 import {
   View,
@@ -8,12 +11,14 @@ import {
   Alert,
   ImageBackground,
 } from 'react-native';
-import { AuthContext } from './AuthContext';
+import { AuthContext } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { sendLocationToBackend } from '../../utils/api';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 
 const LoginSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'),
@@ -26,23 +31,41 @@ const LoginScreen: React.FC = () => {
 
   const handleLogin = async (values: { username: string; password: string }) => {
     try {
-      await login(values.username, values.password);
-  
+      console.log('🔐 Attempting login...');
+// במקום login(values.username, values.password)
+      await login(values.username /* email */, values.password);
+      console.log('✅ Login successful');
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
+        console.log('📍 Got location:', location.coords);
         await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
+      } else {
+        console.warn('⚠️ Location permission denied');
       }
-  
+
+      const notificationStatus = await Notifications.requestPermissionsAsync();
+      if (notificationStatus.status !== 'granted') {
+        console.warn('❗ Push notification permissions not granted');
+      } else {
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: Constants.expoConfig?.extra?.eas?.projectId,
+        });
+        const expoPushToken = tokenData.data;
+        console.log('📱 Expo push token:', expoPushToken);
+
+      }
       router.replace('/home');
     } catch (error: any) {
+      console.error('❌ Login failed:', error);
       if (error.code === 'UserNotConfirmedException') {
         Alert.alert('Account Not Verified', 'Please verify your account before signing in.');
         router.push(`/verifySignUpScreen?username=${values.username}`);
       } else {
         Alert.alert('Login Failed', error.message || 'Invalid username or password.');
       }
-    }  
+    }
   };
 
   return (

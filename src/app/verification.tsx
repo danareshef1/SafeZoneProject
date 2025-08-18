@@ -1,3 +1,7 @@
+// ✅ חובה להיות בראש הקובץ – לפני הכל
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+
 import React, { useState } from 'react';
 import {
   View,

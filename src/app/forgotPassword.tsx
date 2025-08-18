@@ -1,3 +1,6 @@
+// ✅ חובה להיות בראש הקובץ – לפני הכל
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import React, { useState } from 'react';
 import {
   View,
@@ -9,17 +12,16 @@ import {
   ImageBackground,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { CognitoUser, CognitoUserPool } from 'amazon-cognito-identity-js';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { MaterialIcons } from '@expo/vector-icons';
+import { forgotPassword } from '@/utils/auth';
 
 const poolData = {
   UserPoolId: 'us-east-1_TgQIZsQBQ',
   ClientId: '5tthevvlvskttb7ec21j5u1gtj',
 };
 
-const userPool = new CognitoUserPool(poolData);
 
 const EmailSchema = Yup.object().shape({
   email: Yup.string().email('Invalid email').required('Email is required.'),
@@ -35,20 +37,17 @@ const ForgotPasswordScreen: React.FC = () => {
     }, [])
   );
 
-  const handleRequestReset = (values: { email: string }, resetForm: () => void) => {
-    const { email } = values;
-    const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
-    cognitoUser.forgotPassword({
-      onSuccess: () => {
-        Alert.alert('Check your email', 'A verification code has been sent.');
-        resetForm();
-        router.push({ pathname: '/newPassword', params: { email } });
-      },
-      onFailure: (err) => {
-        Alert.alert('Error', err.message || 'Something went wrong.');
-      },
-    });
-  };
+
+  const handleRequestReset = async (values: { email: string }, resetForm: () => void) => {
+  try {
+    await forgotPassword(values.email);
+    Alert.alert('Check your email', 'A verification code has been sent.');
+    resetForm();
+    router.push({ pathname: '/newPassword', params: { email: values.email } });
+  } catch (err: any) {
+    Alert.alert('Error', err.message || 'Something went wrong.');
+  }
+};
 
   return (
     <ImageBackground

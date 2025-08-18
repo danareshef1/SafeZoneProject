@@ -15,6 +15,12 @@ interface ContactItem {
   phoneNumbers?: { number: string }[];
 }
 
+// ---------- logging helper ----------
+const LOG_PREFIX = '[ContactsButton]';
+const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
+const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
+const err = (...args: any[]) => console.error(LOG_PREFIX, ...args);
+
 function normPhone(p: string) {
   const d = (p || '').replace(/\D/g, '');
   if (!d) return '';
@@ -34,25 +40,40 @@ const ContactsButton = () => {
   const fetchContacts = async () => {
     setLoadingContacts(true);
     try {
+      log('Requesting contacts permission...');
       const { status } = await Contacts.requestPermissionsAsync();
+      log('Contacts permission status =', status);
       if (status !== 'granted') {
-        setLoadingContacts(false);
+        Alert.alert('אין הרשאה', 'לא אושרה גישה לאנשי קשר');
         return;
       }
 
+      log('Loading device contacts (with phone numbers)...');
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers],
       });
+      log('Total contacts received from device =', data.length);
 
-      const stored = await AsyncStorage.getItem('registeredContacts');
-      const registeredNumbers = stored ? JSON.parse(stored) : [];
-      const registeredSet = new Set(registeredNumbers);
+      // registeredContacts – מה שאצלך נשמר ב‑AsyncStorage (מספרים גולמיים/ברקמות)
+      let registeredNumbers: string[] = [];
+      try {
+        const stored = await AsyncStorage.getItem('registeredContacts');
+        registeredNumbers = stored ? JSON.parse(stored) : [];
+        log('registeredContacts from AsyncStorage count =', registeredNumbers.length);
+      } catch (e) {
+        warn('Failed to parse registeredContacts from AsyncStorage:', e);
+      }
+      const asDigits = (x: string = '') => x.replace(/\D/g, '');
+      const registeredSet = new Set(registeredNumbers.map(asDigits));
 
+      // סינון אנשי קשר שיש להם לפחות מספר שנמצא ב‑registeredContacts
       const matchedContacts = data.filter((contact) =>
         contact.phoneNumbers?.some((phone) =>
-          registeredSet.has(phone.number?.replace(/\D/g, ''))
+          registeredSet.has(asDigits(phone.number || ''))
         )
       );
+
+      log('Matched contacts count =', matchedContacts.length);
 
       setContacts(
         matchedContacts.map((contact) => ({
@@ -64,30 +85,48 @@ const ContactsButton = () => {
         }))
       );
 
-      const storedSelected = await AsyncStorage.getItem('selectedContacts');
-      if (storedSelected) setSelectedContacts(new Set(JSON.parse(storedSelected)));
+      try {
+        const storedSelected = await AsyncStorage.getItem('selectedContacts');
+        if (storedSelected) {
+          const parsed = JSON.parse(storedSelected);
+          setSelectedContacts(new Set(parsed));
+          log('Loaded selectedContacts from AsyncStorage size =', Array.isArray(parsed) ? parsed.length : 0);
+        } else {
+          log('No selectedContacts in AsyncStorage');
+        }
+      } catch (e) {
+        warn('Failed to parse selectedContacts:', e);
+      }
 
       setModalVisible(true);
-    } catch (err) {
-      console.error('שגיאה בטעינת אנשי קשר:', err);
+    } catch (e) {
+      err('שגיאה בטעינת אנשי קשר:', e);
+      Alert.alert('שגיאה', 'אירעה שגיאה בטעינת אנשי קשר');
     } finally {
       setLoadingContacts(false);
     }
   };
 
+  // החזרת true/false להצלחת הקריאה, כולל הדפסות מלאות
   const doToggleAPICall = async (
     { id, phoneNumber, name, nextSelected }: { id: string; phoneNumber: string; name: string; nextSelected: boolean }
-  ) => {
+  ): Promise<boolean> => {
+    setToggleLoading(true);
     try {
-      setToggleLoading(true);
-
       const owner = await getAuthUserEmail();
+      log('Resolved owner from token =', owner);
       if (!owner) {
         Alert.alert('שגיאה', 'לא נמצא משתמש מחובר (owner).');
-        return;
+        return false;
       }
 
       const normalizedPhone = normPhone(phoneNumber);
+      if (!normalizedPhone) {
+        warn('Phone normalization returned empty for raw number =', phoneNumber);
+        Alert.alert('שגיאה', 'מספר טלפון לא תקין');
+        return false;
+      }
+
       const url = nextSelected
         ? 'https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/saveContact'
         : 'https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/removeContact';
@@ -96,32 +135,78 @@ const ContactsButton = () => {
         ? { owner, id, phone: normalizedPhone, name }
         : { owner, phone: normalizedPhone };
 
-      await fetch(url, {
+      log(nextSelected ? 'Calling SAVE contact' : 'Calling REMOVE contact', { url, body });
+
+      const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // אם הוספת Authorization ל‑API, הכניסי כאן:
+          // ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(body),
       });
-    } catch (error) {
-      console.error('Error in doToggleAPICall:', error);
+
+      const text = await res.text();
+      let parsed: any = null;
+      try { parsed = JSON.parse(text); } catch { /* לא JSON – נשמור טקסט גולמי */ }
+
+      log('API response:', { status: res.status, ok: res.ok, body: parsed ?? text });
+
+      if (!res.ok) {
+        Alert.alert('שגיאה', `הקריאה לשרת נכשלה (status ${res.status})`);
+        return false;
+      }
+
+      // וידוא מינימלי שהשרת החזיר ok או sent וכו'
+      const okish = parsed?.ok === true || typeof parsed?.sent === 'number';
+      if (!okish) {
+        warn('Server response did not include an {ok:true}/{sent} shape');
+      }
+
+      return true;
+    } catch (e) {
+      err('Error in doToggleAPICall:', e);
+      Alert.alert('שגיאה', 'אירעה שגיאה בהתקשרות לשרת');
+      return false;
     } finally {
       setToggleLoading(false);
     }
   };
 
-  const toggleSelect = (id: string, phoneNumber: string, name: string) => {
-    // חשבי את המצב הבא לפני setState
-    const nextSelected = !selectedContacts.has(id);
+  const toggleSelect = async (id: string, phoneNumber: string, name: string) => {
+    // קבענו מראש את המצב הבא
+    const wasSelected = selectedContacts.has(id);
+    const nextSelected = !wasSelected;
+    log('toggleSelect ->', { id, name, phoneNumber, wasSelected, nextSelected });
 
+    // עדכון אופטימי + שמירה ל‑AsyncStorage
     setSelectedContacts((prev) => {
       const newSet = new Set(prev);
       if (nextSelected) newSet.add(id);
       else newSet.delete(id);
-      AsyncStorage.setItem('selectedContacts', JSON.stringify([...newSet]));
+      AsyncStorage.setItem('selectedContacts', JSON.stringify([...newSet]))
+        .then(() => log('Persisted selectedContacts with size =', newSet.size))
+        .catch((e) => warn('Failed to persist selectedContacts', e));
       return newSet;
     });
 
-    // קראי ל-API לפי המצב הבא
-    doToggleAPICall({ id, phoneNumber, name, nextSelected });
+    // קריאה ל‑API
+    const ok = await doToggleAPICall({ id, phoneNumber, name, nextSelected });
+
+    // אם נכשל – רולבאק למצבים הקודמים
+    if (!ok) {
+      log('API failed – rolling back UI selection');
+      setSelectedContacts((prev) => {
+        const newSet = new Set(prev);
+        if (wasSelected) newSet.add(id);
+        else newSet.delete(id);
+        AsyncStorage.setItem('selectedContacts', JSON.stringify([...newSet]))
+          .then(() => log('Rollback persisted selectedContacts with size =', newSet.size))
+          .catch((e) => warn('Failed to persist selectedContacts (rollback)', e));
+        return newSet;
+      });
+    }
   };
 
   return (
@@ -172,6 +257,11 @@ const ContactsButton = () => {
                 </View>
               );
             }}
+            ListEmptyComponent={
+              <Text style={{ textAlign: 'center', color: 'gray', marginTop: 20 }}>
+                לא נמצאו אנשי קשר תואמים ל‑registeredContacts
+              </Text>
+            }
           />
 
           <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>

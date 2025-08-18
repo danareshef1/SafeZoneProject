@@ -2,12 +2,47 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { getAuthUserEmail } from '../../utils/auth';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import proj4 from 'proj4';
+
+const Storage = {
+  setItem: (k: string, v: string) => AsyncStorage.setItem(k, v),
+  getItem: (k: string) => AsyncStorage.getItem(k),
+  removeItem: (k: string) => AsyncStorage.removeItem(k),
+  clear: () => AsyncStorage.clear(),
+};
+
+
+
+
+export async function bridgeCognitoIdTokenToPlainKey() {
+  const keys = await AsyncStorage.getAllKeys();
+  const lastAuthKey = keys.find(
+    k => k.includes('CognitoIdentityServiceProvider') && k.endsWith('.LastAuthUser')
+  );
+  if (!lastAuthKey) return null;
+
+  const lastUser = await AsyncStorage.getItem(lastAuthKey);
+  if (!lastUser) return null;
+
+  const prefix = lastAuthKey.replace('.LastAuthUser',''); // כולל Pool+ClientId
+  const idTokenKey = `${prefix}.${lastUser}.idToken`;
+  const accessTokenKey = `${prefix}.${lastUser}.accessToken`;
+
+  const [idToken, accessToken] = await Promise.all([
+    AsyncStorage.getItem(idTokenKey),
+    AsyncStorage.getItem(accessTokenKey),
+  ]);
+
+  if (idToken) await AsyncStorage.setItem('idToken', idToken);
+  if (accessToken) await AsyncStorage.setItem('accessToken', accessToken);
+
+  return idToken || null;
+}
+
 
 proj4.defs(
   'EPSG:2039',
@@ -108,9 +143,7 @@ const totalSeconds = 10;
   useEffect(() => {
     const fetchCityFromServer = async () => {
       try {
-        const email = await getAuthUserEmail();
-        if (!email) return;
-  
+
         const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const data = await res.json();
   
@@ -172,30 +205,42 @@ useEffect(() => {
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circleCircumference * (1 - progress);
   
-  const handleUpdate = async () => {
-    try {
-      const owner = await getAuthUserEmail();
-      if (!owner) return Alert.alert('שגיאה', 'לא נמצאה זהות משתמש');
-  
-      const isAtHome = (await AsyncStorage.getItem('isAtHome')) === 'true';
-      const res = await fetch('https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
+// בראש הקומפוננטה
+useEffect(() => {
+  // רענון/גשר טוקן בתחילת המסך
+  (async () => {
+    await ensureIdToken();
+  })();
+}, []);
+
+const handleUpdate = async () => {
+  try {
+    await ensureIdToken();
+
+    
+
+    const isAtHome = (await AsyncStorage.getItem('isAtHome')) === 'true';
+    const res = await fetch(
+      'https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe',
+      {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          owner,
           city: shelterLocation,
           atHome: isAtHome,
         }),
-      });
-  
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      Alert.alert('נשלח', 'עדכנו את אנשי הקשר שבחרת שאת/ה בטוח/ה');
-    } catch (e) {
-      console.error(e);
-      Alert.alert('שגיאה', 'לא הצלחנו לשלוח עדכון כרגע');
-    }
-  };
-  
+      }
+    );
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    Alert.alert('נשלח', 'עדכנו את אנשי הקשר שבחרת שאת/ה בטוח/ה');
+  } catch (e) {
+    console.error(e);
+    Alert.alert('שגיאה', 'לא הצלחנו לשלוח עדכון כרגע');
+  }
+};
+
+
  const handleChat = () => {
   router.push('/emotional-chat');
 };

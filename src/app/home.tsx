@@ -26,6 +26,76 @@ import { Ionicons } from '@expo/vector-icons';
 import proj4 from 'proj4';
 import { Animated } from 'react-native';
 import * as Contacts from 'expo-contacts';
+import { getAuthUserEmail } from '../../utils/auth';
+// utils/notifications.ts
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+const HomeScreen: React.FC = () => {
+
+ const refreshAndSendExpoPushToken = async (email: string | null) => {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const res = await Notifications.requestPermissionsAsync();
+      if (res.status !== 'granted') {
+        console.warn('❌ הרשאות התראות לא אושרו');
+        return;
+      }
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: Constants.expoConfig?.extra?.eas?.projectId,
+    });
+    const expoToken = tokenData.data;
+
+    await AsyncStorage.setItem('expoPushToken', expoToken);
+    console.log('✅ expoPushToken נשמר:', expoToken);
+
+    if (email) {
+      await fetch("https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, expoToken }),
+      });
+      console.log('📡 expoPushToken נשלח ל־Lambda');
+    }
+  } catch (err) {
+    console.warn('❌ שגיאה בשליחת expoPushToken:', err);
+  }
+};
+
+useEffect(() => {
+  (async () => {
+    const email = await getAuthUserEmail();
+    await refreshAndSendExpoPushToken(email);
+  })();
+}, []);
+
+useEffect(() => {
+  const saveTokenIfAvailable = async () => {
+    try {
+      const expoToken = await AsyncStorage.getItem('expoPushToken');
+      const email = await getAuthUserEmail();
+console.log('🚀 בדיקה: expoToken =', expoToken);
+console.log('📧 בדיקה: email =', email);
+
+      if (expoToken && email) {
+        await fetch("https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, expoToken }),
+        });
+        console.log('✅ Expo token נשמר בענן בהצלחה');
+      } else {
+        console.log('❌ חסר טוקן או אימייל');
+      }
+    } catch (err) {
+      console.error('שגיאה בשליחת הטוקן:', err);
+    }
+  };
+
+  saveTokenIfAvailable();
+}, []);
 
 useEffect(() => {
   checkIfUserAtHome();
@@ -54,7 +124,7 @@ const handleSaveHomeLocation = async () => {
   }
 };
 
-export const storeNearestHospital = async () => {
+ const storeNearestHospital = async () => {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return;
@@ -93,7 +163,7 @@ export const storeNearestHospital = async () => {
   }
 };
 
-export const storeRegisteredContacts = async () => {
+ const storeRegisteredContacts = async () => {
   try {
     const { status } = await Contacts.requestPermissionsAsync();
     if (status !== 'granted') return;
@@ -213,7 +283,6 @@ type Alarm = {
   expanded?: boolean;
 };
 
-const HomeScreen: React.FC = () => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
 
