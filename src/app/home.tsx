@@ -26,7 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import proj4 from 'proj4';
 import { Animated } from 'react-native';
 import * as Contacts from 'expo-contacts';
-import { getAuthUserEmail } from '../../utils/auth';
+import { getUserEmail } from '../../utils/auth';
 // utils/notifications.ts
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -66,7 +66,7 @@ const HomeScreen: React.FC = () => {
 
 useEffect(() => {
   (async () => {
-    const email = await getAuthUserEmail();
+    const email = await getUserEmail();
     await refreshAndSendExpoPushToken(email);
   })();
 }, []);
@@ -75,7 +75,7 @@ useEffect(() => {
   const saveTokenIfAvailable = async () => {
     try {
       const expoToken = await AsyncStorage.getItem('expoPushToken');
-      const email = await getAuthUserEmail();
+      const email = await getUserEmail();
 console.log('🚀 בדיקה: expoToken =', expoToken);
 console.log('📧 בדיקה: email =', email);
 

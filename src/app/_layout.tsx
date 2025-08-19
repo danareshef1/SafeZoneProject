@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { AuthContext, AuthProvider } from '../contexts/AuthContext';
+import AuthProvider, { AuthContext } from '../contexts/AuthContext';
 import ContactsButton from './contactsButton';
 import { ShelterProvider } from './contexts/ShelterContext';
 import * as Notifications from 'expo-notifications';

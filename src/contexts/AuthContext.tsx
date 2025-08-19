@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.tsx
 // ✅ חובה להיות בראש הקובץ
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
@@ -5,7 +6,10 @@ import 'react-native-url-polyfill/auto';
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getExpoPushTokenAsync } from 'expo-notifications';
+import { jwtDecode } from 'jwt-decode'; 
 import { login as loginAPI, signUp as signUpAPI } from '../../utils/auth';
+
+interface JwtPayload { exp?: number; [k: string]: any }
 
 interface AuthContextProps {
   isLoggedIn: boolean;
@@ -23,42 +27,71 @@ export const AuthContext = createContext<AuthContextProps>({
   loading: true,
 });
 
-interface AuthProviderProps {
-  children: ReactNode;
+interface AuthProviderProps { children: ReactNode }
+
+function isTokenValid(token?: string | null) {
+  if (!token) return false;
+  try {
+    const payload = jwtDecode<JwtPayload>(token);
+    const now = Math.floor(Date.now() / 1000);
+    // אם אין exp—נתייחס כתקף (יש טוקנים בלי exp)
+    return typeof payload.exp === 'number' ? payload.exp > now : true;
+  } catch {
+    return false;
+  }
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // בדיקת התחברות בטעינה + ניקוי טוקן שפג תוקפו
   useEffect(() => {
-    const checkLogin = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      setIsLoggedIn(!!token);
-      setLoading(false);
+    const init = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        if (!isTokenValid(token)) {
+          await AsyncStorage.multiRemove(['userToken']);
+          setIsLoggedIn(false);
+        } else {
+          setIsLoggedIn(true);
+        }
+      } catch {
+        setIsLoggedIn(false);
+      } finally {
+        setLoading(false);
+      }
     };
-    checkLogin();
+    init();
   }, []);
 
   const login = async (email: string, password: string) => {
     await loginAPI(email, password);
     setIsLoggedIn(true);
 
+    // אופציונלי: קבלת Expo Push Token ושליחה ל־Lambda שלך
     try {
       const expoToken = (await getExpoPushTokenAsync()).data;
       console.log('✅ Expo push token:', expoToken);
-      // כאן אפשר לשלוח ל-Lambda אם תרצי לשמור device token
+      // TODO: שליחה ל-Lambda אם צריך (email/phone/idToken כבר שמורים ב-AsyncStorage לפי utils/auth.ts)
     } catch (err) {
       console.warn('❌ Failed to get push token:', err);
     }
   };
 
   const signUp = async (email: string, password: string, phone: string) => {
-    return await signUpAPI(email, password, phone);
+    return signUpAPI(email, password, phone);
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.multiRemove([
+      'userToken',
+      'userEmail',
+      'userPhone',
+      'lastSignupUsername',
+      'lastSignupEmail',
+      'lastSignupPhone',
+    ]);
     setIsLoggedIn(false);
   };
 

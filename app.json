@@ -63,7 +63,7 @@
       "expo-web-browser"
     ],
     "extra": {
-      "bypassAuth": true,
+      "bypassAuth": false,
       "router": {
         "origin": false
       },
