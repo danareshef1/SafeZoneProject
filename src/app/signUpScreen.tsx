@@ -1,5 +1,4 @@
 // src/app/signUpScreen.tsx
-// ✅ חובה להיות בראש הקובץ – לפני הכל
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import React, { useContext } from 'react';
@@ -17,34 +16,49 @@ import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ✅ אין username יותר; displayName אופציונלי בלבד
 const SignUpSchema = Yup.object().shape({
-  password: Yup.string().required('Password is required.'),
+  displayName: Yup.string().max(50, 'Up to 50 characters'),
   email: Yup.string().email('Invalid email').required('Email is required.'),
   phone: Yup.string()
     .required('Phone number is required.')
     .matches(/^\+?[0-9]{10,14}$/, 'Invalid phone number'),
+  password: Yup.string().required('Password is required.'),
 });
 
 const SignUpScreen: React.FC = () => {
-  const { signUp } = useContext(AuthContext);
+  const { signUp } = useContext(AuthContext); // צפוי לקבל (email, password, phone)
   const router = useRouter();
 
-const handleSignUp = async (values: { email: string; password: string; phone: string }) => {
-  try {
-    const res = await signUp(values.email, values.password, values.phone);
-    const genUsername = res?.username; // 👈 מהשרת
-    Alert.alert('Registration Successful', 'Please check your email for the code.');
+  const handleSignUp = async (values: {
+    displayName: string;
+    email: string;
+    password: string;
+    phone: string;
+  }) => {
+    try {
+      // 👇 השרת מייצר username — אנחנו לא שולחים username מהלקוח
+      const res = await signUp(values.email, values.password, values.phone);
 
-    // נעביר את ה-username האמיתי שקיבלנו
-    router.push(
-      `/verifySignUpScreen?username=${encodeURIComponent(genUsername || '')}&email=${encodeURIComponent(values.email)}&phone=${encodeURIComponent(values.phone)}`
-    );
-  } catch (error: any) {
-    Alert.alert('Sign Up Failed', error.message || 'An error occurred during registration.');
-  }
-};
+      // נשמור את שם ההצגה (לא קשור לקוגניטו; לשימוש פנימי באפליקציה)
+      await AsyncStorage.setItem('displayName', values.displayName || '');
 
+      const generatedUsername = (res?.username || '').trim();
+
+      Alert.alert('Registration Successful', 'Please check your email for the code.');
+
+      // 👇 נעביר ל-verify את ה-username שנוצר בשרת + אימייל/טלפון שמילא/ה
+      router.push(
+        `/verifySignUpScreen?username=${encodeURIComponent(generatedUsername)}&email=${encodeURIComponent(
+          values.email
+        )}&phone=${encodeURIComponent(values.phone)}`
+      );
+    } catch (error: any) {
+      Alert.alert('Sign Up Failed', error?.message || 'An error occurred during registration.');
+    }
+  };
 
   return (
     <ImageBackground
@@ -56,22 +70,35 @@ const handleSignUp = async (values: { email: string; password: string; phone: st
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={30} color="#fff" />
         </TouchableOpacity>
+
         <Text style={styles.title}>Create Account</Text>
+
         <View style={styles.card}>
           <Formik
-            initialValues={{ password: '', email: '', phone: '' }}
+            initialValues={{ displayName: '', email: '', phone: '', password: '' }}
             validationSchema={SignUpSchema}
             onSubmit={async (values, { resetForm }) => {
-              try {
-                await handleSignUp(values);
-                resetForm();
-              } catch (error) {
-                console.error('Sign up failed:', error);
-              }
+              await handleSignUp(values);
+              resetForm();
             }}
           >
             {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
               <>
+                {/* Display name (optional) */}
+                <TextInput
+                  placeholder="Display name (optional)"
+                  placeholderTextColor="#888"
+                  style={styles.input}
+                  autoCapitalize="words"
+                  onChangeText={handleChange('displayName')}
+                  onBlur={handleBlur('displayName')}
+                  value={values.displayName}
+                />
+                {!!errors.displayName && touched.displayName && (
+                  <Text style={styles.error}>{errors.displayName}</Text>
+                )}
+
+                {/* Email */}
                 <TextInput
                   placeholder="Email"
                   placeholderTextColor="#888"
@@ -82,9 +109,9 @@ const handleSignUp = async (values: { email: string; password: string; phone: st
                   onBlur={handleBlur('email')}
                   value={values.email}
                 />
-                {errors.email && touched.email && (
-                  <Text style={styles.error}>{errors.email}</Text>
-                )}
+                {!!errors.email && touched.email && <Text style={styles.error}>{errors.email}</Text>}
+
+                {/* Phone */}
                 <TextInput
                   placeholder="Phone Number"
                   placeholderTextColor="#888"
@@ -94,9 +121,9 @@ const handleSignUp = async (values: { email: string; password: string; phone: st
                   onBlur={handleBlur('phone')}
                   value={values.phone}
                 />
-                {errors.phone && touched.phone && (
-                  <Text style={styles.error}>{errors.phone}</Text>
-                )}
+                {!!errors.phone && touched.phone && <Text style={styles.error}>{errors.phone}</Text>}
+
+                {/* Password */}
                 <TextInput
                   placeholder="Password"
                   placeholderTextColor="#888"
@@ -106,9 +133,10 @@ const handleSignUp = async (values: { email: string; password: string; phone: st
                   onBlur={handleBlur('password')}
                   value={values.password}
                 />
-                {errors.password && touched.password && (
+                {!!errors.password && touched.password && (
                   <Text style={styles.error}>{errors.password}</Text>
                 )}
+
                 <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                   <Text style={styles.buttonText}>Sign Up</Text>
                 </TouchableOpacity>
@@ -124,26 +152,15 @@ const handleSignUp = async (values: { email: string; password: string; phone: st
 export default SignUpScreen;
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-  },
-  backgroundImage: {
-    resizeMode: 'contain',
-    transform: [{ scale: 1.2 }],
-    alignSelf: 'center',
-  },
+  background: { flex: 1 },
+  backgroundImage: { resizeMode: 'contain', transform: [{ scale: 1.2 }], alignSelf: 'center' },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(176, 255, 247, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#11998e',
-    marginBottom: 20,
-  },
+  title: { fontSize: 24, fontWeight: '600', color: '#11998e', marginBottom: 20 },
   card: {
     width: '90%',
     maxWidth: 400,
@@ -167,11 +184,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  error: {
-    color: '#ff4d4d',
-    fontSize: 14,
-    marginBottom: 8,
-  },
+  error: { color: '#ff4d4d', fontSize: 14, marginBottom: 8 },
   button: {
     backgroundColor: '#11998e',
     paddingVertical: 12,
@@ -179,15 +192,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButton: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    padding: 10,
-  },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  backButton: { position: 'absolute', top: 40, left: 20, padding: 10 },
 });

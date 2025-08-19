@@ -20,62 +20,53 @@ import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { jwtDecode } from 'jwt-decode';
 
 const SAVE_TOKEN_API =
-  'https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken'; // ← החליפי אם צריך
+  'https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken';
 
 const LoginSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'), // כאן זה אימייל בפועל
   password: Yup.string().required('Password is required.'),
 });
 
-// --- עזר: פענוח JWT כדי להוציא sub (לא שולח את ה-JWT לשרת)
-function decodeJwt(token?: string | null): any {
+// בטוח ל-RN: שימוש ב-jwt-decode
+function getClaims(token?: string | null): any {
   if (!token) return null;
   try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
+    return jwtDecode(token);
   } catch {
     return null;
   }
 }
 
-// --- שליחת המכשיר ל-DeviceTokens Lambda
+// שליחת טוקן המכשיר ל-Lambda
 async function sendDeviceToken(expoToken: string) {
   try {
-    const [idToken, email, phone] = await Promise.all([
+    const [idToken, email, phone, displayName] = await Promise.all([
       AsyncStorage.getItem('userToken'),
       AsyncStorage.getItem('userEmail'),
       AsyncStorage.getItem('userPhone'),
+      AsyncStorage.getItem('displayName'), // שם להצגה שנשמר ב-signUp
     ]);
 
-    const claims = decodeJwt(idToken);
-    const sub = claims?.sub || ''; // מזהה המשתמש ב-Cognito
+    const claims = getClaims(idToken);
+    const sub = claims?.sub || '';
 
     const res = await fetch(SAVE_TOKEN_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // אם ה-API שלך דורש אימות, אפשר להוסיף:
-      // Authorization: idToken || ''
       body: JSON.stringify({
         email: (email || '').trim().toLowerCase(),
         phoneNumber: phone || 'unknown',
         username: sub || 'unknown',
         expoPushToken: expoToken,
+        displayName: displayName || '', // ⚠️ תואם לשם השדה בלמבדה
       }),
     });
 
     const text = await res.text();
-    if (!res.ok) {
-      throw new Error(text || 'Failed to save device token');
-    }
+    if (!res.ok) throw new Error(text || 'Failed to save device token');
     console.log('✅ Saved DeviceToken:', text);
   } catch (err) {
     console.error('❌ Failed sending device token:', err);
@@ -89,13 +80,13 @@ const LoginScreen: React.FC = () => {
   const handleLogin = async (values: { username: string; password: string }) => {
     try {
       console.log('🔐 Attempting login...');
-      // פה username הוא למעשה אימייל
+      // כאן username הוא למעשה אימייל
       await login(values.username, values.password);
       console.log('✅ Login successful');
 
-      // בקשת הרשאת מיקום + שליחה לשרת שלך
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
+      // הרשאת מיקום + שליחה לשרת שלך
+      const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locStatus === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
         console.log('📍 Got location:', location.coords);
         await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
@@ -103,27 +94,32 @@ const LoginScreen: React.FC = () => {
         console.warn('⚠️ Location permission denied');
       }
 
-      // הרשאות פוש + קבלת Expo Push Token
-      const notificationStatus = await Notifications.requestPermissionsAsync();
-      if (notificationStatus.status !== 'granted') {
+      // הרשאות פוש → קבלת Expo Push Token → שליחה לשרת
+      const notifPerm = await Notifications.requestPermissionsAsync();
+      if (notifPerm.status !== 'granted') {
         console.warn('❗ Push notification permissions not granted');
       } else {
-        const tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: Constants.expoConfig?.extra?.eas?.projectId,
-        });
+        // projectId – פולבאק לשני המקומות האפשריים
+        const projectId =
+          (Constants as any)?.easConfig?.projectId ||
+          (Constants as any)?.expoConfig?.extra?.eas?.projectId;
+
+        const tokenData = await Notifications.getExpoPushTokenAsync(
+          projectId ? { projectId } : undefined
+        );
         const expoPushToken = tokenData.data;
         console.log('📱 Expo push token:', expoPushToken);
 
-        // 👇 שליחה ל-DeviceTokens Lambda
         await sendDeviceToken(expoPushToken);
       }
 
+      // ודאי שהנתיב קיים אצלך
       router.replace('/home');
     } catch (error: any) {
       console.error('❌ Login failed:', error);
       if (error.code === 'UserNotConfirmedException') {
         Alert.alert('Account Not Verified', 'Please verify your account before signing in.');
-        // נעדיף לעבור עם האימייל שקלטנו
+        // נעבור למסך אימות עם האימייל שהוקלד
         router.push(`/verifySignUpScreen?email=${encodeURIComponent(values.username)}`);
       } else {
         Alert.alert('Login Failed', error.message || 'Invalid username or password.');
@@ -141,7 +137,11 @@ const LoginScreen: React.FC = () => {
         <View style={styles.formContainer}>
           <Text style={styles.title}>Welcome!</Text>
           <View style={styles.card}>
-            <Formik initialValues={{ username: '', password: '' }} validationSchema={LoginSchema} onSubmit={handleLogin}>
+            <Formik
+              initialValues={{ username: '', password: '' }}
+              validationSchema={LoginSchema}
+              onSubmit={handleLogin}
+            >
               {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
                 <>
                   <TextInput
@@ -154,7 +154,10 @@ const LoginScreen: React.FC = () => {
                     onBlur={handleBlur('username')}
                     value={values.username}
                   />
-                  {errors.username && touched.username && <Text style={styles.error}>{errors.username}</Text>}
+                  {errors.username && touched.username && (
+                    <Text style={styles.error}>{errors.username}</Text>
+                  )}
+
                   <TextInput
                     placeholder="Password"
                     placeholderTextColor="#888"
@@ -164,14 +167,25 @@ const LoginScreen: React.FC = () => {
                     onBlur={handleBlur('password')}
                     value={values.password}
                   />
-                  {errors.password && touched.password && <Text style={styles.error}>{errors.password}</Text>}
+                  {errors.password && touched.password && (
+                    <Text style={styles.error}>{errors.password}</Text>
+                  )}
+
                   <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
                     <Text style={styles.buttonText}>Sign In</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/forgotPassword')}>
+
+                  <TouchableOpacity
+                    style={styles.linkButton}
+                    onPress={() => router.push('/forgotPassword')}
+                  >
                     <Text style={styles.linkText}>Forgot your password?</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/signUpScreen')}>
+
+                  <TouchableOpacity
+                    style={styles.linkButton}
+                    onPress={() => router.push('/signUpScreen')}
+                  >
                     <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
                   </TouchableOpacity>
                 </>
@@ -186,7 +200,6 @@ const LoginScreen: React.FC = () => {
 
 export default LoginScreen;
 
-// --- styles נשארו כמו אצלך ---
 const styles = StyleSheet.create({
   background: { flex: 1 },
   backgroundImage: { resizeMode: 'contain', transform: [{ scale: 1.2 }], alignSelf: 'center' },

@@ -1,5 +1,4 @@
 // src/contexts/AuthContext.tsx
-// ✅ חובה להיות בראש הקובץ
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
@@ -14,7 +13,7 @@ interface JwtPayload { exp?: number; [k: string]: any }
 interface AuthContextProps {
   isLoggedIn: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, phone: string) => Promise<any>;
+  signUp: (email: string, password: string, phone: string) => Promise<any>; // 👈 בלי username
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -34,7 +33,6 @@ function isTokenValid(token?: string | null) {
   try {
     const payload = jwtDecode<JwtPayload>(token);
     const now = Math.floor(Date.now() / 1000);
-    // אם אין exp—נתייחס כתקף (יש טוקנים בלי exp)
     return typeof payload.exp === 'number' ? payload.exp > now : true;
   } catch {
     return false;
@@ -45,10 +43,10 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // בדיקת התחברות בטעינה + ניקוי טוקן שפג תוקפו
   useEffect(() => {
     const init = async () => {
       try {
+        await AsyncStorage.removeItem('userToken');
         const token = await AsyncStorage.getItem('userToken');
         if (!isTokenValid(token)) {
           await AsyncStorage.multiRemove(['userToken']);
@@ -69,16 +67,16 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await loginAPI(email, password);
     setIsLoggedIn(true);
 
-    // אופציונלי: קבלת Expo Push Token ושליחה ל־Lambda שלך
     try {
       const expoToken = (await getExpoPushTokenAsync()).data;
       console.log('✅ Expo push token:', expoToken);
-      // TODO: שליחה ל-Lambda אם צריך (email/phone/idToken כבר שמורים ב-AsyncStorage לפי utils/auth.ts)
+      // TODO: שליחה ל-Lambda אם צריך
     } catch (err) {
       console.warn('❌ Failed to get push token:', err);
     }
   };
 
+  // 👇 רק 3 פרמטרים
   const signUp = async (email: string, password: string, phone: string) => {
     return signUpAPI(email, password, phone);
   };

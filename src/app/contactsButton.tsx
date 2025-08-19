@@ -7,7 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAuthUserEmail } from '../../utils/auth';
+import { getUserEmail } from '../../utils/auth';
 
 interface ContactItem {
   id: string;
@@ -113,7 +113,7 @@ const ContactsButton = () => {
   ): Promise<boolean> => {
     setToggleLoading(true);
     try {
-      const owner = await getAuthUserEmail();
+      const owner = await getUserEmail();
       log('Resolved owner from token =', owner);
       if (!owner) {
         Alert.alert('שגיאה', 'לא נמצא משתמש מחובר (owner).');

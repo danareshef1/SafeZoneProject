@@ -1,78 +1,12 @@
-// src/app/mainScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import proj4 from 'proj4';
+import { getUserEmail } from '../../utils/auth';
 
-// ❌ הסירי ייבוא של useFocusEffect/useIsFocused – לא צריך יותר
-// import { useFocusEffect } from '@react-navigation/native';
-// import { useIsFocused } from '@react-navigation/native';
-
-// ❌ הסירי ייבוא של useFocusEffect/useIsFocused – לא צריך יותר
-// import { useFocusEffect } from '@react-navigation/native';
-// import { useIsFocused } from '@react-navigation/native';
-
-// --------- טיפוסים קלים ---------
-type Shelter = {
-  id: string;
-  name?: string;
-  location?: string;
-  status?: string;
-  image?: string;
-  latitude: number;
-  longitude: number;
-  distance?: number; // ק"מ
-};
-
-type ZoneInfo = {
-  name: string;
-  countdown?: number; // שניות
-};
-
-// --------- עטיפות נוחות ל-AsyncStorage ---------
-const Storage = {
-  setItem: (k: string, v: string) => AsyncStorage.setItem(k, v),
-  getItem: (k: string) => AsyncStorage.getItem(k),
-  removeItem: (k: string) => AsyncStorage.removeItem(k),
-  clear: () => AsyncStorage.clear(),
-};
-
-// --------- גשר מטוקנים ישנים של Cognito (אם הוחזקו ע"י ספריה אחרת) ---------
-export async function bridgeCognitoIdTokenToPlainKey() {
-  const keys = await AsyncStorage.getAllKeys();
-  const lastAuthKey = keys.find((k) => k.includes('CognitoIdentityServiceProvider') && k.endsWith('.LastAuthUser'));
-  if (!lastAuthKey) return null;
-
-  const lastUser = await AsyncStorage.getItem(lastAuthKey);
-  if (!lastUser) return null;
-
-  const prefix = lastAuthKey.replace('.LastAuthUser', '');
-  const idTokenKey = `${prefix}.${lastUser}.idToken`;
-  const accessTokenKey = `${prefix}.${lastUser}.accessToken`;
-
-  const [idToken, accessToken] = await Promise.all([
-    AsyncStorage.getItem(idTokenKey),
-    AsyncStorage.getItem(accessTokenKey),
-  ]);
-
-  if (idToken) await AsyncStorage.setItem('idToken', idToken);
-  if (accessToken) await AsyncStorage.setItem('accessToken', accessToken);
-
-  return idToken || null;
-}
-
-// --------- ensureIdToken חסרה – הוספתי ---------
-async function ensureIdToken() {
-  const token = await AsyncStorage.getItem('userToken'); // אנחנו שומרים את זה ב-login
-  if (token) return token;
-  // נסה לגשר מטוקנים של ספרייה אחרת אם קיימים:
-  return bridgeCognitoIdTokenToPlainKey();
-}
-
-// --------- הגדרות הקרנה ITM/WGS84 (נשאר כמו שהיה) ---------
 proj4.defs(
   'EPSG:2039',
   '+proj=tmerc +lat_0=31.7343938888889 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +units=m +no_defs'
@@ -84,16 +18,20 @@ const targetLat = 32.0785788989309;
 const targetLon = 34.7786417155005;
 
 const result = proj4('EPSG:4326', 'EPSG:2039', [targetLon, targetLat]);
-const invE = result ? (result as number[])[0] : 0;
-const invN = result ? (result as number[])[1] : 0;
+const invE = result ? result[0] : 0;
+const invN = result ? result[1] : 0;
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
 function convertITMtoWGS84(easting: number, northing: number) {
   const correctedE = easting + deltaE;
   const correctedN = northing + deltaN;
-  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]) as number[];
+  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
   return { latitude: lat, longitude: lon };
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI / 180);
 }
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -102,16 +40,13 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   const dLon = deg2rad(lon2 - lon1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
-function deg2rad(deg: number) {
-  return deg * (Math.PI / 180);
-}
-
-const DEADLINE_MS = 10 * 60 * 1000; // 10 דקות
+const DEADLINE_MS = 10 * 60 * 1000;
 
 const ShelterInfoScreen = () => {
   const [minutes, setMinutes] = useState(10);
@@ -125,65 +60,45 @@ const ShelterInfoScreen = () => {
   const router = useRouter();
   const [countdownOver, setCountdownOver] = useState(false);
   const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
+  const deadlineRef = useRef<number>(0);
 
-// למעלה בקובץ:
-const DEADLINE_MS = 10 * 60 * 1000; // 10 דקות
-const deadlineRef = React.useRef<number>(0);
+  useEffect(() => {
+    if (!globalThis.safezoneShelterDeadline) {
+      globalThis.safezoneShelterDeadline = Date.now() + DEADLINE_MS;
+      console.log('⏱️ init local deadline (no global yet)', globalThis.safezoneShelterDeadline);
+    }
 
-// ...
+    const tick = () => {
+      const currentDeadline =
+        globalThis.safezoneShelterDeadline ||
+        deadlineRef.current ||
+        (Date.now() + DEADLINE_MS);
 
-// ⏱️ טיימר שמסתנכרן מול ה-deadline הגלובלי בכל שנייה
-useEffect(() => {
-  // אם אין deadline גלובלי עדיין (לדוגמה פתיחה ידנית של המסך) – אתחל ל-10 דק' מהעכשיו
-  if (!globalThis.safezoneShelterDeadline) {
-    globalThis.safezoneShelterDeadline = Date.now() + DEADLINE_MS;
-    console.log('⏱️ init local deadline (no global yet)', globalThis.safezoneShelterDeadline);
-  }
+      deadlineRef.current = currentDeadline;
 
-  const tick = () => {
-    // ✅ תמיד קוראים מהגלובלי (אם יש), אחרת נשתמש ב-ref/ברירת מחדל
-    const currentDeadline =
-      globalThis.safezoneShelterDeadline ||
-      deadlineRef.current ||
-      (Date.now() + DEADLINE_MS);
+      const now = Date.now();
+      const remainingMs = Math.max(0, currentDeadline - now);
+      const remSec = Math.ceil(remainingMs / 1000);
 
-    deadlineRef.current = currentDeadline;
+      setMinutes(Math.floor(remSec / 60));
+      setSeconds(remSec % 60);
+      setProgress(remainingMs / DEADLINE_MS);
 
-    const now = Date.now();
-    const remainingMs = Math.max(0, currentDeadline - now);
-    const remSec = Math.ceil(remainingMs / 1000);
+      if (remainingMs <= 0) setCountdownOver(true);
+    };
 
-    setMinutes(Math.floor(remSec / 60));
-    setSeconds(remSec % 60);
-    setProgress(remainingMs / DEADLINE_MS);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
-    if (remainingMs <= 0) setCountdownOver(true);
-  };
-
-  tick(); // עדכון מיידי בכניסה למסך
-  const id = setInterval(tick, 1000);
-  return () => clearInterval(id);
-}, []);
-
-  // נתוני מיקום/אזור
   useEffect(() => {
     const fetchCityFromServer = async () => {
       try {
-        const email = await getAuthUserEmail();
+        const email = await getUserEmail();
         if (!email) return;
 
         const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
-        const storedEmail = (await AsyncStorage.getItem('userEmail')) || ''; // ← נשמר בלוגין
-        const email = storedEmail.trim().toLowerCase();
-        if (!email) {
-          console.log('ℹ️ אין userEmail ב-AsyncStorage; דלגי על fetchCityFromServer');
-          return;
-        }
-
-        const res = await fetch(
-          `https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${encodeURIComponent(email)}`
-        );
-        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
 
         if (data.city) {
@@ -203,14 +118,12 @@ useEffect(() => {
     fetchCityFromServer();
   }, []);
 
-  // ניווט בסוף זמן – בלי תלות בפוקוס
   useEffect(() => {
     if (countdownOver) {
       router.push('/postAlertScreen');
     }
   }, [countdownOver]);
 
-  // שליפת מקלט קרוב + מצב בבית/לא
   useEffect(() => {
     const loadNearestShelter = async () => {
       try {
@@ -244,27 +157,31 @@ useEffect(() => {
   const circleCircumference = 2 * Math.PI * circleRadius;
   const strokeDashoffset = circleCircumference * (1 - progress);
 
-  const handleUpdate = async () => {
-    try {
-      await ensureIdToken();
+const handleUpdate = async () => {
+  try {
+    const atHomeFlag = (await AsyncStorage.getItem('isAtHome')) === 'true';
+    const email = await getUserEmail(); // 👈 נוספה שורה זו
+    if (!email) throw new Error('Email not found');
 
-      const atHomeFlag = (await AsyncStorage.getItem('isAtHome')) === 'true';
-      const res = await fetch('https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          city: shelterLocation,
-          atHome: atHomeFlag,
-        }),
-      });
+    const res = await fetch('https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        owner: email,               // 👈 חובה
+        city: shelterLocation,
+        atHome: atHomeFlag,
+      }),
+    });
 
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      Alert.alert('נשלח', 'עדכנו את אנשי הקשר שבחרת שאת/ה בטוח/ה');
-    } catch (e) {
-      console.error(e);
-      Alert.alert('שגיאה', 'לא הצלחנו לשלוח עדכון כרגע');
-    }
-  };
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    Alert.alert('נשלח', 'עדכנו את אנשי הקשר שבחרת שאת/ה בטוח/ה');
+  } catch (e) {
+    console.error(e);
+    Alert.alert('שגיאה', 'לא הצלחנו לשלוח עדכון כרגע');
+  }
+};
+
+
 
   const handleChat = async () => {
     try {
@@ -275,10 +192,9 @@ useEffect(() => {
       const shelterName = nearestShelter?.name ?? '';
       const distanceKm = typeof nearestShelter?.distance === 'number' ? String(nearestShelter.distance) : '';
 
-      // מעבר לצ׳אט – הטיימר ממשיך "ברקע" כי יש לנו deadline קבוע
       router.push({
         pathname: '/emotional-chat',
-        params: {returnTo: 'mainScreen', city, countdown, isAtHome: atHome ? '1' : '0', shelterName, distanceKm },
+        params: { returnTo: 'mainScreen', city, countdown, isAtHome: atHome ? '1' : '0', shelterName, distanceKm },
       });
     } catch (e) {
       console.error('שגיאה בפתיחת צ׳אט:', e);
@@ -301,9 +217,8 @@ useEffect(() => {
         status: nearestShelter.status ?? '',
         image: nearestShelter.image ?? '',
       },
-    } as any);
+    });
   };
-
 
   const handleNavigateToShelter = () => {
     if (!nearestShelter) {
@@ -312,11 +227,11 @@ useEffect(() => {
     }
     const { latitude, longitude, name } = nearestShelter;
     const url = Platform.select({
-      ios: `maps:0,0?q=${encodeURIComponent(name ?? 'Shelter')}@${latitude},${longitude}`,
-      android: `geo:0,0?q=${latitude},${longitude}(${encodeURIComponent(name ?? 'Shelter')})`,
+      ios: `maps:0,0?q=${name}@${latitude},${longitude}`,
+      android: `geo:0,0?q=${latitude},${longitude}(${name})`,
     });
     if (url) {
-      Linking.openURL(url).catch((err) => console.error('שגיאה בניווט:', err));
+      Linking.openURL(url).catch(err => console.error('שגיאה בניווט:', err));
     }
   };
 
@@ -343,11 +258,7 @@ useEffect(() => {
               <Marker
                 coordinate={{ latitude: nearestShelter.latitude, longitude: nearestShelter.longitude }}
                 title={nearestShelter.name ?? 'מקלט'}
-                description={
-                  typeof nearestShelter.distance === 'number'
-                    ? `מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`
-                    : undefined
-                }
+                description={typeof nearestShelter.distance === 'number' ? `מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ` : undefined}
               />
             )}
             {!isAtHome ? (
@@ -355,16 +266,7 @@ useEffect(() => {
                 <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
               </TouchableOpacity>
             ) : (
-              <View style={[styles.floatingButton, { backgroundColor: '#777' }]}>
-                <Text style={styles.floatingButtonText}>🏠 אתה בבית - לך לממ״ד</Text>
-              </View>
-            )}
-            {!isAtHome ? (
-              <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
-                <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.floatingButton, { backgroundColor: '#777' }]}>
+              <View style={[styles.floatingButton, { backgroundColor: '#777' }]}>...
                 <Text style={styles.floatingButtonText}>🏠 אתה בבית - לך לממ״ד</Text>
               </View>
             )}
@@ -407,20 +309,14 @@ useEffect(() => {
               <Text style={styles.buttonText}>דיווח</Text>
             </TouchableOpacity>
           )}
-            <TouchableOpacity style={styles.button} onPress={handleReport}>
-              <Text style={styles.buttonText}>דיווח</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     </View>
   );
 };
 
-
 export default ShelterInfoScreen;
 
-// styles ללא שינוי
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f0f4f8' },
   infoContainer: {
@@ -429,13 +325,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1, shadowRadius: 10, elevation: 8,
   },
   infoText: { fontSize: 20, fontWeight: '700', textAlign: 'center', color: '#222', marginBottom: 8 },
-  infoText: { fontSize: 20, fontWeight: '700', textAlign: 'center', color: '#222', marginBottom: 8 },
   mapContainer: {
     flex: 1.5, borderRadius: 25, overflow: 'hidden', marginBottom: 30, borderWidth: 5,
     borderColor: '#11998e', shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15, shadowRadius: 10, elevation: 8, position: 'relative',
   },
-  mapImage: { width: '100%', height: '100%' },
   mapImage: { width: '100%', height: '100%' },
   floatingButton: {
     position: 'absolute', bottom: 20, right: 20, backgroundColor: '#e60000',
@@ -443,9 +337,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 5, elevation: 10,
   },
-  floatingButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  bottomContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 15 },
-  buttonsContainer: { flex: 1, marginLeft: 25, justifyContent: 'space-between' },
   floatingButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   bottomContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 15 },
   buttonsContainer: { flex: 1, marginLeft: 25, justifyContent: 'space-between' },
@@ -459,10 +350,6 @@ const styles = StyleSheet.create({
   timerTitle: { fontSize: 16, fontWeight: '600', marginBottom: 10, color: '#333' },
   timerContainer: { alignItems: 'center', justifyContent: 'center', position: 'relative', width: 160, height: 160 },
   timerText: { position: 'absolute', fontSize: 30, fontWeight: '800', color: '#11998e' },
-  buttonText: { fontSize: 16, color: '#fff', fontWeight: '700' },
-  timerWrapper: { alignItems: 'center', justifyContent: 'center', marginRight: 15 },
-  timerTitle: { fontSize: 16, fontWeight: '600', marginBottom: 10, color: '#333' },
-  timerContainer: { alignItems: 'center', justifyContent: 'center', position: 'relative', width: 160, height: 160 },
-  timerText: { position: 'absolute', fontSize: 30, fontWeight: '800', color: '#11998e' },
 });
+
 
