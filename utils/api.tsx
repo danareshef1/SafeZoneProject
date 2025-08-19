@@ -1,6 +1,6 @@
 // utils/api.tsx
 import * as Notifications from 'expo-notifications';
-import { getAuthUserEmail } from './auth';
+import { getUserEmail } from './auth';
 import { AlertZone, findUserZone } from './zoneUtils';
 
 const API_URL = 'https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/update-location';
@@ -23,7 +23,7 @@ export const sendLocationToBackend = async (
   type: 'home' | 'current' = 'current'
 ) => {
   try {
-    const email = await getAuthUserEmail();
+    const email = await getUserEmail();
     if (!email) return;
 
     let payload: any = {

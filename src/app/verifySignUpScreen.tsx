@@ -17,6 +17,12 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 // אם אין לך alias של "@/utils/auth", החליפי ל: '../../utils/auth'
 import { confirmSignUp } from '@/utils/auth';
+import { resendConfirmationCode } from '@/utils/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// ...
+
+const { username, email } = useLocalSearchParams() as { username?: string; email?: string };
 
 // (אופציונלי) שליחת פרטי המשתמש ללמבדה אחרי אימות
 const saveUserDataToLambda = async (email: string, phoneNumber: string) => {
@@ -67,6 +73,28 @@ const handleVerify = async ({ code }: { code: string }) => {
     Alert.alert('Verification Failed', err?.message || 'Error verifying code.');
   }
 };
+
+const handleResend = async () => {
+  try {
+    // נעדיף את ה-username שנוצר בהרשמה; אם אין, ננסה מה-AsyncStorage; ואם גם אין – אימייל
+    const fallbackUsername = (await AsyncStorage.getItem('lastSignupUsername')) || '';
+    const fallbackEmail    = (await AsyncStorage.getItem('lastSignupEmail')) || '';
+    const who = (username || fallbackUsername || email || fallbackEmail || '').trim();
+    if (!who) {
+      Alert.alert('חסר פרטים', 'חזרי להרשמה, ואז נסי שוב.');
+      return;
+    }
+    await resendConfirmationCode(who);
+    Alert.alert('נשלח', 'קוד חדש נשלח אלייך.');
+  } catch (e: any) {
+    Alert.alert('שגיאה', e?.message || 'Resend failed');
+  }
+};
+
+// ב-JSX:
+<TouchableOpacity style={[styles.button, { backgroundColor: '#777' }]} onPress={handleResend}>
+  <Text style={styles.buttonText}>שלחי שוב קוד</Text>
+</TouchableOpacity>
 
   return (
     <ImageBackground
