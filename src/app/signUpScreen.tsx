@@ -1,3 +1,7 @@
+// src/app/signUpScreen.tsx
+// ✅ חובה להיות בראש הקובץ – לפני הכל
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import React, { useContext } from 'react';
 import {
   View,
@@ -8,14 +12,13 @@ import {
   Alert,
   ImageBackground,
 } from 'react-native';
-import { AuthContext } from './AuthContext';
+import { AuthContext } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const SignUpSchema = Yup.object().shape({
-  username: Yup.string().required('Username is required.'),
   password: Yup.string().required('Password is required.'),
   email: Yup.string().email('Invalid email').required('Email is required.'),
   phone: Yup.string()
@@ -26,22 +29,22 @@ const SignUpSchema = Yup.object().shape({
 const SignUpScreen: React.FC = () => {
   const { signUp } = useContext(AuthContext);
   const router = useRouter();
-  const handleSignUp = async (values: {
-    username: string;
-    password: string;
-    email: string;
-    phone: string;
-  }) => {
-    try {
-      await signUp(values.username, values.password, values.email, values.phone);
-      Alert.alert('Registration Successful', 'Please check your email for the verification code.');
-      router.push(`/verifySignUpScreen?username=${values.username}`);
-    } catch (error: any) {
-      Alert.alert('Sign Up Failed', error.message || 'An error occurred during registration.');
-      throw error; 
-    }
-  };
-  
+
+const handleSignUp = async (values: { email: string; password: string; phone: string }) => {
+  try {
+    const res = await signUp(values.email, values.password, values.phone);
+    const genUsername = res?.username; // 👈 מהשרת
+    Alert.alert('Registration Successful', 'Please check your email for the code.');
+
+    // נעביר את ה-username האמיתי שקיבלנו
+    router.push(
+      `/verifySignUpScreen?username=${encodeURIComponent(genUsername || '')}&email=${encodeURIComponent(values.email)}&phone=${encodeURIComponent(values.phone)}`
+    );
+  } catch (error: any) {
+    Alert.alert('Sign Up Failed', error.message || 'An error occurred during registration.');
+  }
+};
+
 
   return (
     <ImageBackground
@@ -56,30 +59,19 @@ const SignUpScreen: React.FC = () => {
         <Text style={styles.title}>Create Account</Text>
         <View style={styles.card}>
           <Formik
-            initialValues={{ username: '', password: '', email: '', phone: '' }}
+            initialValues={{ password: '', email: '', phone: '' }}
             validationSchema={SignUpSchema}
             onSubmit={async (values, { resetForm }) => {
               try {
                 await handleSignUp(values);
-                resetForm(); 
+                resetForm();
               } catch (error) {
                 console.error('Sign up failed:', error);
               }
-            }}            
+            }}
           >
             {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
               <>
-                <TextInput
-                  placeholder="Username"
-                  placeholderTextColor="#888"
-                  style={styles.input}
-                  onChangeText={handleChange('username')}
-                  onBlur={handleBlur('username')}
-                  value={values.username}
-                />
-                {errors.username && touched.username && (
-                  <Text style={styles.error}>{errors.username}</Text>
-                )}
                 <TextInput
                   placeholder="Email"
                   placeholderTextColor="#888"
@@ -130,6 +122,7 @@ const SignUpScreen: React.FC = () => {
 };
 
 export default SignUpScreen;
+
 const styles = StyleSheet.create({
   background: {
     flex: 1,

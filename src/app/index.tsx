@@ -1,6 +1,11 @@
+// ✅ חייב להיות בראש הקובץ – לפני הכל
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+
 import React, { useEffect } from 'react';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+
 
 export default function SplashScreen() {
   const router = useRouter();

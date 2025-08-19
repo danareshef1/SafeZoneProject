@@ -1,3 +1,6 @@
+// ✅ חובה להיות בראש הקובץ – לפני הכל
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 import React from 'react';
 import {
   View,
@@ -9,17 +12,16 @@ import {
   ImageBackground,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { CognitoUser, CognitoUserPool } from 'amazon-cognito-identity-js';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { MaterialIcons } from '@expo/vector-icons';
+import { confirmForgotPassword } from '@/utils/auth';
 
 const poolData = {
   UserPoolId: 'us-east-1_TgQIZsQBQ',
   ClientId: '5tthevvlvskttb7ec21j5u1gtj',
 };
 
-const userPool = new CognitoUserPool(poolData);
 
 const ResetSchema = Yup.object().shape({
   verificationCode: Yup.string().required('Verification code is required.'),
@@ -34,23 +36,19 @@ const NewPasswordScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const email = params.email as string;
 
-  const handleNewPassword = (
-    values: { verificationCode: string; newPassword: string },
-    resetForm: () => void
-  ) => {
-    const { verificationCode, newPassword } = values;
-    const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
-    cognitoUser.confirmPassword(verificationCode, newPassword, {
-      onSuccess: () => {
-        Alert.alert('Success', 'Your password has been reset. You can now log in.');
-        resetForm();
-        router.replace('/login');
-      },
-      onFailure: (err) => {
-        Alert.alert('Error', err.message || 'Something went wrong.');
-      },
-    });
-  };
+const handleNewPassword = async (
+  values: { verificationCode: string; newPassword: string },
+  resetForm: () => void
+) => {
+  try {
+    await confirmForgotPassword(email, values.verificationCode, values.newPassword);
+    Alert.alert('Success', 'Your password has been reset. You can now log in.');
+    resetForm();
+    router.replace('/login');
+  } catch (err: any) {
+    Alert.alert('Error', err.message || 'Something went wrong.');
+  }
+};
 
   return (
     <ImageBackground
