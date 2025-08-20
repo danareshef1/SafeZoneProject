@@ -160,15 +160,26 @@ const ShelterInfoScreen = () => {
 const handleUpdate = async () => {
   try {
     const atHomeFlag = (await AsyncStorage.getItem('isAtHome')) === 'true';
-    const email = await getUserEmail(); // 👈 נוספה שורה זו
+    const email = await getUserEmail();
     if (!email) throw new Error('Email not found');
+
+    const tokenRes = await fetch(
+      `https://q129s4gw8l.execute-api.us-east-1.amazonaws.com/getUserDetails?email=${encodeURIComponent(email)}`
+    );
+    const tokenJson = await tokenRes.json();
+    const displayName = tokenJson?.displayName || '';
+
+    // ✅ שליפת שם המקלט במקום עיר
+    const shelterName = atHomeFlag ? '' : nearestShelter?.name ?? shelterLocation;
 
     const res = await fetch('https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        owner: email,               // 👈 חובה
-        city: shelterLocation,
+        owner: email,
+        displayName,
+        city: atHomeFlag ? shelterLocation : '',
+        shelterName,
         atHome: atHomeFlag,
       }),
     });
