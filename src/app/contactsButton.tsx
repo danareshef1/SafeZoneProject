@@ -21,6 +21,10 @@ const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
 const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
 const err = (...args: any[]) => console.error(LOG_PREFIX, ...args);
 
+// --- NEW: API URL to fetch registered contacts ---
+const GET_REGISTERED_URL =
+  'https://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts'; // ← החליפי ל-Invoke URL שלך אם שונה
+
 function normPhone(p: string) {
   const d = (p || '').replace(/\D/g, '');
   if (!d) return '';
@@ -37,6 +41,31 @@ const ContactsButton = () => {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
 
+  // --- NEW: keep latest device contacts + "refreshing" spinner ---
+  const [allDeviceContacts, setAllDeviceContacts] = useState<Contacts.Contact[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const asDigits = (x: string = '') => x.replace(/\D/g, '');
+
+  const filterAndSetMatched = (
+    deviceContacts: Contacts.Contact[],
+    registeredNumbers: string[]
+  ) => {
+    const registeredSet = new Set(registeredNumbers.map(asDigits));
+    const matched = deviceContacts.filter((c) =>
+      c.phoneNumbers?.some((p) => registeredSet.has(asDigits(p.number || '')))
+    );
+    log('Matched contacts count =', matched.length);
+
+    setContacts(
+      matched.map((c) => ({
+        id: c.id || '',
+        name: c.name,
+        phoneNumbers: c.phoneNumbers?.map((p) => ({ number: p.number || '' })),
+      }))
+    );
+  };
+
   const fetchContacts = async () => {
     setLoadingContacts(true);
     try {
@@ -52,9 +81,10 @@ const ContactsButton = () => {
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers],
       });
+      setAllDeviceContacts(data);
       log('Total contacts received from device =', data.length);
 
-      // registeredContacts – מה שאצלך נשמר ב‑AsyncStorage (מספרים גולמיים/ברקמות)
+      // registeredContacts from AsyncStorage
       let registeredNumbers: string[] = [];
       try {
         const stored = await AsyncStorage.getItem('registeredContacts');
@@ -63,27 +93,8 @@ const ContactsButton = () => {
       } catch (e) {
         warn('Failed to parse registeredContacts from AsyncStorage:', e);
       }
-      const asDigits = (x: string = '') => x.replace(/\D/g, '');
-      const registeredSet = new Set(registeredNumbers.map(asDigits));
 
-      // סינון אנשי קשר שיש להם לפחות מספר שנמצא ב‑registeredContacts
-      const matchedContacts = data.filter((contact) =>
-        contact.phoneNumbers?.some((phone) =>
-          registeredSet.has(asDigits(phone.number || ''))
-        )
-      );
-
-      log('Matched contacts count =', matchedContacts.length);
-
-      setContacts(
-        matchedContacts.map((contact) => ({
-          id: contact.id || '',
-          name: contact.name,
-          phoneNumbers: contact.phoneNumbers?.map((phone) => ({
-            number: phone.number || '',
-          })),
-        }))
-      );
+      filterAndSetMatched(data, registeredNumbers);
 
       try {
         const storedSelected = await AsyncStorage.getItem('selectedContacts');
@@ -106,6 +117,104 @@ const ContactsButton = () => {
       setLoadingContacts(false);
     }
   };
+
+  // --- NEW: Refresh flow (fetch device contacts + ask backend who is registered) ---
+// helper: קחי כל תשובה אפשרית והפכי לרשימת מחרוזות
+const extractRegisteredFromResponse = (text: string): string[] => {
+  try {
+    const json = JSON.parse(text);
+    const body = typeof json?.body === 'string' ? JSON.parse(json.body) : json;
+
+    const arr =
+      (Array.isArray(body) && body) ||
+      body?.registered ||
+      body?.phones ||
+      body?.numbers ||
+      body?.data ||
+      body?.result ||
+      [];
+
+    return Array.isArray(arr) ? arr.map(String) : [];
+  } catch {
+    return [];
+  }
+};
+
+const refreshRegisteredAndList = async () => {
+  setRefreshing(true);
+  try {
+    // 1) הרשאות + אנשי קשר מהמכשיר
+    const perm = await Contacts.getPermissionsAsync();
+    if (perm.status !== 'granted') {
+      const req = await Contacts.requestPermissionsAsync();
+      if (req.status !== 'granted') {
+        Alert.alert('אין הרשאה', 'לא אושרה גישה לאנשי קשר');
+        return;
+      }
+    }
+
+    const { data } = await Contacts.getContactsAsync({
+      fields: [Contacts.Fields.PhoneNumbers],
+    });
+    setAllDeviceContacts(data);
+
+    // 2) מכינים רשימת E.164 עם פלוס (ולא asDigits)
+    const e164Phones = Array.from(
+      new Set(
+        data
+          .flatMap(c => (c.phoneNumbers || []).map(p => normPhone(p.number || '')))
+          .filter(Boolean)
+      )
+    );
+
+    log('Refreshing… sending', e164Phones.length, 'E.164 phones to backend');
+
+    // 3) אפשר צ׳אנקינג אם הרשימה גדולה
+    const CHUNK = 200;
+    const foundDigits = new Set<string>();
+
+    for (let i = 0; i < e164Phones.length; i += CHUNK) {
+      const chunk = e164Phones.slice(i, i + CHUNK);
+      const res = await fetch(GET_REGISTERED_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phones: chunk }), // שליחת E.164 עם פלוס
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        err('GetRegisteredContacts failed', res.status, text);
+        Alert.alert('שגיאה', `הקריאה לשרת נכשלה (status ${res.status})`);
+        return;
+      }
+      const returned = extractRegisteredFromResponse(text);
+      // נאחסן בפורמט ספרות-בלבד להשוואה מול אנשי הקשר במכשיר
+      returned.map(x => x.replace(/\D/g, '')).forEach(d => d && foundDigits.add(d));
+    }
+
+    const registeredDigits = Array.from(foundDigits);
+
+// 4) Persist authoritative server result (even if empty)
+await AsyncStorage.setItem('registeredContacts', JSON.stringify(registeredDigits));
+log('Registered (authoritative) written to AsyncStorage =', registeredDigits.length);
+
+// 5) קחי את הרשימה המעודכנת וסנני מסך
+const storedNow = await AsyncStorage.getItem('registeredContacts');
+const finalRegistered: string[] = storedNow ? JSON.parse(storedNow) : [];
+filterAndSetMatched(data, finalRegistered);
+
+log('Refresh done', {
+  deviceCount: data.length,
+  registeredCount: finalRegistered.length,
+});
+
+  } catch (e) {
+    err('Error in refreshRegisteredAndList:', e);
+    Alert.alert('שגיאה', 'אירעה שגיאה בריענון אנשי קשר');
+  } finally {
+    setRefreshing(false);
+  }
+};
+
 
   // החזרת true/false להצלחת הקריאה, כולל הדפסות מלאות
   const doToggleAPICall = async (
@@ -139,17 +248,13 @@ const ContactsButton = () => {
 
       const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // אם הוספת Authorization ל‑API, הכניסי כאן:
-          // ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
       const text = await res.text();
       let parsed: any = null;
-      try { parsed = JSON.parse(text); } catch { /* לא JSON – נשמור טקסט גולמי */ }
+      try { parsed = JSON.parse(text); } catch {}
 
       log('API response:', { status: res.status, ok: res.ok, body: parsed ?? text });
 
@@ -158,7 +263,6 @@ const ContactsButton = () => {
         return false;
       }
 
-      // וידוא מינימלי שהשרת החזיר ok או sent וכו'
       const okish = parsed?.ok === true || typeof parsed?.sent === 'number';
       if (!okish) {
         warn('Server response did not include an {ok:true}/{sent} shape');
@@ -175,12 +279,10 @@ const ContactsButton = () => {
   };
 
   const toggleSelect = async (id: string, phoneNumber: string, name: string) => {
-    // קבענו מראש את המצב הבא
     const wasSelected = selectedContacts.has(id);
     const nextSelected = !wasSelected;
     log('toggleSelect ->', { id, name, phoneNumber, wasSelected, nextSelected });
 
-    // עדכון אופטימי + שמירה ל‑AsyncStorage
     setSelectedContacts((prev) => {
       const newSet = new Set(prev);
       if (nextSelected) newSet.add(id);
@@ -191,10 +293,8 @@ const ContactsButton = () => {
       return newSet;
     });
 
-    // קריאה ל‑API
     const ok = await doToggleAPICall({ id, phoneNumber, name, nextSelected });
 
-    // אם נכשל – רולבאק למצבים הקודמים
     if (!ok) {
       log('API failed – rolling back UI selection');
       setSelectedContacts((prev) => {
@@ -225,9 +325,25 @@ const ContactsButton = () => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.titleWrapper}>
-            <Text style={styles.title}>Select Contacts</Text>
-            <View style={styles.titleUnderline} />
+          {/* --- NEW: header with Refresh button --- */}
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={styles.title}>Select Contacts</Text>
+              <View style={styles.titleUnderline} />
+            </View>
+
+            <TouchableOpacity
+              onPress={refreshRegisteredAndList}
+              disabled={refreshing}
+              style={styles.refreshBtn}
+              accessibilityLabel="Refresh registered contacts"
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" />
+              ) : (
+                <MaterialIcons name="refresh" size={24} color="#11998e" />
+              )}
+            </TouchableOpacity>
           </View>
 
           {toggleLoading && (
@@ -259,9 +375,12 @@ const ContactsButton = () => {
             }}
             ListEmptyComponent={
               <Text style={{ textAlign: 'center', color: 'gray', marginTop: 20 }}>
-                לא נמצאו אנשי קשר תואמים ל‑registeredContacts
+                לא נמצאו אנשי קשר תואמים ל-registeredContacts
               </Text>
             }
+            // --- NEW: pull-to-refresh on the list itself ---
+            refreshing={refreshing}
+            onRefresh={refreshRegisteredAndList}
           />
 
           <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
@@ -284,6 +403,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+  },
+  // --- NEW ---
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  refreshBtn: {
+    padding: 8,
+    marginLeft: 8,
   },
   titleWrapper: { marginBottom: 30, alignItems: 'center' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#2C3E50', textAlign: 'center' },
