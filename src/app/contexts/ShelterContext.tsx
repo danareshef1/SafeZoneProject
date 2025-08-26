@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
+const API_URL = 'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters';
 
 const ShelterContext = createContext<any>(null);
 
