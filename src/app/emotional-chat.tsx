@@ -15,7 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 // ===== API =====
 const BASE_URL =
-  "https://uby7jbz88a.execute-api.us-east-1.amazonaws.com/default/emotional-support";
+  "https://mhlkyg7otc.execute-api.us-east-1.amazonaws.com/emotional-support";
 
 // ===== Types =====
 type Msg = { id: string; role: "user" | "assistant"; content: string; ts?: number };

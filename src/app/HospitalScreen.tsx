@@ -65,7 +65,7 @@ const HospitalScreen: React.FC = () => {
         const location = await Location.getCurrentPositionAsync({});
         setCurrentLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
 
-        const response = await fetch('https://p7543alg74.execute-api.us-east-1.amazonaws.com/prod/hospitals');
+        const response = await fetch('https://0p6zgldny2.execute-api.us-east-1.amazonaws.com/get-hospitals');
         const data = await response.json();
 
         const hospitalsWithDistance = data.map((hospital: any) => {

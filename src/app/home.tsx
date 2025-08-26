@@ -52,7 +52,7 @@ const HomeScreen: React.FC = () => {
     console.log('✅ expoPushToken נשמר:', expoToken);
 
     if (email) {
-      await fetch("https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken", {
+      await fetch("https://jlsl54dmzl.execute-api.us-east-1.amazonaws.com/saveToken", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, expoToken }),
@@ -71,31 +71,6 @@ useEffect(() => {
   })();
 }, []);
 
-useEffect(() => {
-  const saveTokenIfAvailable = async () => {
-    try {
-      const expoToken = await AsyncStorage.getItem('expoPushToken');
-      const email = await getUserEmail();
-console.log('🚀 בדיקה: expoToken =', expoToken);
-console.log('📧 בדיקה: email =', email);
-
-      if (expoToken && email) {
-        await fetch("https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken", {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, expoToken }),
-        });
-        console.log('✅ Expo token נשמר בענן בהצלחה');
-      } else {
-        console.log('❌ חסר טוקן או אימייל');
-      }
-    } catch (err) {
-      console.error('שגיאה בשליחת הטוקן:', err);
-    }
-  };
-
-  saveTokenIfAvailable();
-}, []);
 
 useEffect(() => {
   checkIfUserAtHome();
@@ -130,7 +105,7 @@ const handleSaveHomeLocation = async () => {
     if (status !== 'granted') return;
 
     const location = await Location.getCurrentPositionAsync({});
-    const res = await fetch('https://p7543alg74.execute-api.us-east-1.amazonaws.com/prod/hospitals');
+    const res = await fetch('https://0p6zgldny2.execute-api.us-east-1.amazonaws.com/get-hospitals');
     const hospitals = await res.json();
 
     const toRad = (val) => (val * Math.PI) / 180;
@@ -177,7 +152,7 @@ const handleSaveHomeLocation = async () => {
       .map((phone) => phone.number?.replace(/\D/g, ''))
       .filter((num) => !!num);
 
-    const response = await fetch('https://s9aavxmut7.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
+    const response = await fetch('https://rudac13hpb.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phoneNumbers }),
@@ -225,7 +200,7 @@ useEffect(() => {
   checkIfUserAtHome(); 
 }, []);
 
-const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
+const API_URL = 'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters';
 
 proj4.defs(
   'EPSG:2039',
@@ -310,7 +285,7 @@ type Alarm = {
   
   const fetchAlerts = async () => {
     try {
-      const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts');
+      const response = await fetch('https://rvx1waqqmj.execute-api.us-east-1.amazonaws.com/get-alerts-logs');
       const rawData = await response.json();
       const body = typeof rawData.body === 'string' ? JSON.parse(rawData.body) : rawData.body ?? rawData;
 
@@ -666,7 +641,7 @@ const refreshLocation = async () => {
 
 const getSignedUploadUrl = async (type: 'shelter') => {
   const response = await fetch(
-    'https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl',
+    'https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

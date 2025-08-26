@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, ActivityIndicator, I18nManager } from 'react-native';
-import { getAuthUserEmail } from '../../utils/auth';
+import { getUserEmail } from '../../utils/auth';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { ToastAndroid, Platform, Alert, TouchableOpacity } from 'react-native';
 
-const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
+const REPORTS_URL = 'https://66pv06z732.execute-api.us-east-1.amazonaws.com/get-reports';
 
 type Report = {
   reportId: string;
@@ -30,7 +30,7 @@ const MyReportsScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       const fetchReports = async () => {
-        const email = await getAuthUserEmail();
+        const email = await getUserEmail();
         if (!email) return;
 
         try {

@@ -8,7 +8,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
-import { getAuthUserEmail } from '../../utils/auth';
+import { getUserEmail } from '../../utils/auth';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { findUserZone, AlertZone } from '../../utils/zoneUtils';
 
@@ -24,13 +24,13 @@ export default function EmergencyStatusScreen() {
   useEffect(() => {
     const fetchZones = async () => {
       try {
-        const email = await getAuthUserEmail();
+        const email = await getUserEmail();
         if (!email) return;
 
-        const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
+        const res = await fetch(`https://tnryta2al0.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const userLocation = await res.json();
 
-        const allZonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
+        const allZonesRes = await fetch('https://4i7xc6hael.execute-api.us-east-1.amazonaws.com/GetAllAlertZones');
         const allZonesData = await allZonesRes.json();
 
         let zonesArray = [];
@@ -82,7 +82,7 @@ export default function EmergencyStatusScreen() {
 
   const getAlertsForZone = async (zoneName: string) => {
     try {
-      const res = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts');
+      const res = await fetch('https://rvx1waqqmj.execute-api.us-east-1.amazonaws.com/get-alerts-logs');
       const alertsData = await res.json();
 
       const lastMonthDate = new Date();

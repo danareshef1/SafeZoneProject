@@ -16,7 +16,7 @@ const AlarmHistoryScreen = () => {
   useEffect(() => {
     const fetchAlarms = async () => {
       try {
-        const response = await fetch('https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts');
+        const response = await fetch('https://rvx1waqqmj.execute-api.us-east-1.amazonaws.com/get-alerts-logs');
         const rawData = await response.json();
         const body = typeof rawData.body === 'string' ? JSON.parse(rawData.body) : rawData.body ?? rawData;
 

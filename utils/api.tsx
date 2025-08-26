@@ -3,9 +3,9 @@ import * as Notifications from 'expo-notifications';
 import { getUserEmail } from './auth';
 import { AlertZone, findUserZone } from './zoneUtils';
 
-const API_URL = 'https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/update-location';
-const ZONES_API_URL = 'https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones';
-const GET_USER_LOCATION_API = 'https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location';
+const API_URL = 'https://4rmea844n9.execute-api.us-east-1.amazonaws.com/update-user-location';
+const ZONES_API_URL = 'https://4i7xc6hael.execute-api.us-east-1.amazonaws.com/GetAllAlertZones';
+const GET_USER_LOCATION_API = 'https://4rmea844n9.execute-api.us-east-1.amazonaws.com/get-user-location';
 
 const getAllZonesFromAPI = async (): Promise<AlertZone[]> => {
   const res = await fetch(ZONES_API_URL);

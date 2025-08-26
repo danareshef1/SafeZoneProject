@@ -12,12 +12,12 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getAuthUserEmail } from '../../../utils/auth'
+import { getUserEmail } from '../../../utils/auth'
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer'; 
 
-const API_URL = 'https://ud6fou77q6.execute-api.us-east-1.amazonaws.com/prod/get-il-shelters';
-const REPORTS_URL = 'https://nq6yv4sht1.execute-api.us-east-1.amazonaws.com/report';
+const API_URL = 'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters';
+const REPORTS_URL = 'https://66pv06z732.execute-api.us-east-1.amazonaws.com/add-report';
 
 const ShelterDetail: React.FC = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -82,7 +82,7 @@ const ShelterDetail: React.FC = () => {
   };
 
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
-    const response = await fetch('https://nt66vuij24.execute-api.us-east-1.amazonaws.com/getSignedUploadUrl', 
+    const response = await fetch('https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload', 
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,7 +150,7 @@ const ShelterDetail: React.FC = () => {
   
     try {
       setIsSubmitting(true); 
-      const userEmail = await getAuthUserEmail();
+      const userEmail = await getUserEmail();
       if (!userEmail) {
         Alert.alert('Error', 'User email not found.');
         return;

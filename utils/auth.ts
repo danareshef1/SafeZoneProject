@@ -1,12 +1,12 @@
 // utils/auth.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_SIGN_UP  = 'https://wo6785je4a.execute-api.us-east-1.amazonaws.com/sign-up';
-const API_LOG_IN   = 'https://1kbva3i505.execute-api.us-east-1.amazonaws.com/log-in';
-const API_CONFIRM_SIGN_UP         = 'https://znh8cmzyxi.execute-api.us-east-1.amazonaws.com/confirm-sign-up';
-const API_FORGOT_PASSWORD         = 'https://gevzjt69c1.execute-api.us-east-1.amazonaws.com/forgot-password';
-const API_CONFIRM_FORGOT_PASSWORD = 'https://aju1szb7v7.execute-api.us-east-1.amazonaws.com/confirm-forgot-password';
-const API_RESEND_CONFIRM_CODE     = 'https://1mg4gcdkga.execute-api.us-east-1.amazonaws.com/default/resend-confirm-code';
+const API_SIGN_UP  = 'https://svxds3ehfb.execute-api.us-east-1.amazonaws.com/sign-up';
+const API_LOG_IN   = 'https://h82iu91w70.execute-api.us-east-1.amazonaws.com/log-in';
+const API_CONFIRM_SIGN_UP         = 'https://d7h2yhrpmi.execute-api.us-east-1.amazonaws.com/confirm-sign-up';
+const API_FORGOT_PASSWORD         = 'https://ohkcgrpygf.execute-api.us-east-1.amazonaws.com/forgot-password';
+const API_CONFIRM_FORGOT_PASSWORD = 'https://3v43pn9b3e.execute-api.us-east-1.amazonaws.com/confirm-forgot-password';
+const API_RESEND_CONFIRM_CODE     = 'https://wxl14c7af2.execute-api.us-east-1.amazonaws.com/resend-code';
 
 const normalizeEmail = (email: string) => (email || '').trim().toLowerCase();
 const normalizePhone = (phone: string) => {

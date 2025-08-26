@@ -17,11 +17,6 @@ import * as Yup from 'yup';
 import { MaterialIcons } from '@expo/vector-icons';
 import { forgotPassword } from '@/utils/auth';
 
-const poolData = {
-  UserPoolId: 'us-east-1_TgQIZsQBQ',
-  ClientId: '5tthevvlvskttb7ec21j5u1gtj',
-};
-
 
 const EmailSchema = Yup.object().shape({
   email: Yup.string().email('Invalid email').required('Email is required.'),

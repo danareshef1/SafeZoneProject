@@ -128,8 +128,8 @@ const ContactsButton = () => {
       }
 
       const url = nextSelected
-        ? 'https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/saveContact'
-        : 'https://jdd8xkf4o1.execute-api.us-east-1.amazonaws.com/prod/removeContact';
+        ? 'https://l983i479h4.execute-api.us-east-1.amazonaws.com/save-contact'
+        : 'https://tjxpec1cnc.execute-api.us-east-1.amazonaws.com/remove-contact';
 
       const body = nextSelected
         ? { owner, id, phone: normalizedPhone, name }

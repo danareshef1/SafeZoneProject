@@ -23,7 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 
 const SAVE_TOKEN_API =
-  'https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken';
+  'https://jlsl54dmzl.execute-api.us-east-1.amazonaws.com/saveToken';
 
 const LoginSchema = Yup.object().shape({
   username: Yup.string().required('Username is required.'), // כאן זה אימייל בפועל

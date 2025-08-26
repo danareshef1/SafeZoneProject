@@ -25,23 +25,6 @@ const VerifySchema = Yup.object().shape({
     .required('Verification code is required.'),
 });
 
-// אופציונלי: שמירת פרטי משתמש ללמבדה אחרי אימות
-async function saveUserDataToLambda(email: string, phoneNumber: string) {
-  try {
-    const res = await fetch(
-      'https://epgs59jgnd.execute-api.us-east-1.amazonaws.com/default/saveToken',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, phoneNumber }),
-      }
-    );
-    if (!res.ok) throw new Error('Failed to save to Lambda');
-    console.log('✅ User data saved to Lambda');
-  } catch (e) {
-    console.warn('❌ Failed to save user info to Lambda:', e);
-  }
-}
 
 function asString(v: string | string[] | undefined): string {
   if (Array.isArray(v)) return v[0] ?? '';

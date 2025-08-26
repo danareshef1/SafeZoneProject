@@ -98,13 +98,13 @@ const ShelterInfoScreen = () => {
         const email = await getUserEmail();
         if (!email) return;
 
-        const res = await fetch(`https://3xzztnl8bf.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
+        const res = await fetch(`https://tnryta2al0.execute-api.us-east-1.amazonaws.com/get-user-location?email=${email}`);
         const data = await res.json();
 
         if (data.city) {
           setShelterLocation(data.city);
 
-          const zonesRes = await fetch('https://x5vsugson1.execute-api.us-east-1.amazonaws.com/getAllAlertZones');
+          const zonesRes = await fetch('https://4i7xc6hael.execute-api.us-east-1.amazonaws.com/GetAllAlertZones');
           const zonesRaw = await zonesRes.json();
           const zones = Array.isArray(zonesRaw) ? zonesRaw : JSON.parse(zonesRaw.body ?? '[]');
           const matched = zones.find((z: any) => z.name === data.city);
@@ -164,7 +164,7 @@ const handleUpdate = async () => {
     if (!email) throw new Error('Email not found');
 
     const tokenRes = await fetch(
-      `https://q129s4gw8l.execute-api.us-east-1.amazonaws.com/getUserDetails?email=${encodeURIComponent(email)}`
+      `https://p0l8kgq8gk.execute-api.us-east-1.amazonaws.com/getUserDetails?email=${encodeURIComponent(email)}`
     );
     const tokenJson = await tokenRes.json();
     const displayName = tokenJson?.displayName || '';
@@ -172,7 +172,7 @@ const handleUpdate = async () => {
     // ✅ שליפת שם המקלט במקום עיר
     const shelterName = atHomeFlag ? '' : nearestShelter?.name ?? shelterLocation;
 
-    const res = await fetch('https://vpn66bt94h.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
+    const res = await fetch('https://tzjxjyn7hl.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
