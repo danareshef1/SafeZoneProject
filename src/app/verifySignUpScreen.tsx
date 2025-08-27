@@ -52,9 +52,6 @@ const VerifySignUpScreen: React.FC = () => {
       await confirmSignUp(u || e, code.trim());
 
       // אופציונלי: לשמור ללמבדה (אם חשוב כרגע)
-      if (e) {
-        await saveUserDataToLambda(e, String(phoneParam || ''));
-      }
 
       Alert.alert('Verification Successful', 'You can now sign in.');
       // נעביר חזרה את האימייל והטלפון למסך הלוגאין (רק לנוחות מילוי)

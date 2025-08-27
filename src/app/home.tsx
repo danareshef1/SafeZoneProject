@@ -8,6 +8,8 @@ import {
   TouchableWithoutFeedback,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker } from 'react-native-maps';
@@ -19,52 +21,70 @@ import CustomMarker from '../components/ui/Map/CustomMarker';
 import { Shelter } from '../types/Shelter';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { Buffer } from 'buffer';
 import { sendLocationToBackend } from '../../utils/api';
 import { Ionicons } from '@expo/vector-icons';
-import proj4 from 'proj4';
 import { Animated } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import { getUserEmail } from '../../utils/auth';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
-/**
- * HomeScreen — UPDATED
- *  - Single bootstrap pipeline (serial) to avoid spikes of parallel Lambda invocations
- *  - Keeps UX and features intact
- *  - Adds small caches and defensive guards
- */
-
-const API_URL_SHELTERS = 'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters';
-const API_URL_ALERTS   = 'https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts';
-const API_URL_HOSPITALS = 'https://p7543alg74.execute-api.us-east-1.amazonaws.com/prod/hospitals';
-const API_URL_SIGNED   = 'https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload';
-
-// ---- Projections (ITM/EPSG:2039 ↔ WGS84) ----
-proj4.defs(
-  'EPSG:2039',
-  '+proj=tmerc +lat_0=31.7343938888889 +lon_0=35.2045169444444 '
-  + '+k=1.0000067 +x_0=219529.584 +y_0=626907.39 '
-  + '+ellps=GRS80 +units=m +no_defs'
-);
-
-// Calibration (as in your original file)
-const sampleE = 179254.9219000004;
-const sampleN = 665111.2525999993;
-const targetLat = 32.0785788989309;
-const targetLon = 34.7786417155005;
-const [invE, invN] = proj4('EPSG:4326','EPSG:2039',[ targetLon, targetLat ]);
-const deltaE = invE - sampleE;
-const deltaN = invN - sampleN;
-
-function convertITMtoWGS84(easting: number, northing: number) {
-  const correctedE = easting + deltaE;
-  const correctedN = northing + deltaN;
-  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
-  return { latitude: lat, longitude: lon };
+/* ---------- Concurrency limiter: max 10 lambdas in parallel ---------- */
+const MAX_LAMBDA_CONCURRENCY = 10;
+let __active = 0;
+const __queue: Array<() => void> = [];
+async function __limit<T>(fn: () => Promise<T>): Promise<T> {
+  if (__active >= MAX_LAMBDA_CONCURRENCY) {
+    await new Promise<void>((res) => __queue.push(res));
+  }
+  __active++;
+  try {
+    return await fn();
+  } finally {
+    __active--;
+    const next = __queue.shift();
+    if (next) next();
+  }
 }
+const lambdaFetch = (url: string, init?: RequestInit) => __limit(() => fetch(url, init));
 
+/* -------------------- Helpers: עיר -------------------- */
+const API_URL_USER_LOC = 'https://<your-id>.execute-api.us-east-1.amazonaws.com/get-user-location';
+
+const normalizeCity = (name?: string | null) =>
+  (name || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim() || null;
+
+const detectCityName = async (lat: number, lon: number) => {
+  try {
+    const placemarks = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+    const p = placemarks?.[0];
+    const c = normalizeCity(p?.city || p?.subregion || p?.district || p?.region);
+    return c;
+  } catch {
+    return null;
+  }
+};
+
+const getCityFromServer = async (email: string | null) => {
+  if (!email) return null;
+  try {
+    const res = await lambdaFetch(`${API_URL_USER_LOC}?email=${encodeURIComponent(email)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim() || null;
+  } catch {
+    return null;
+  }
+};
+
+/* -------------------- URLs -------------------- */
+const API_URL_SHELTERS = 'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters';
+const API_URL_ALERTS = 'https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts';
+const API_URL_HOSPITALS = 'https://0p6zgldny2.execute-api.us-east-1.amazonaws.com/get-hospitals';
+const API_URL_SIGNED = 'https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload';
+const API_URL_SHELTER_ITEM = API_URL_SHELTERS.replace('/get-il-shelters', '/shelters');
+
+/* -------------------- Distance helper -------------------- */
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3;
   const phi1 = (lat1 * Math.PI) / 180;
@@ -73,40 +93,38 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const dlmb = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(dphi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dlmb / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // meters
+  return R * c;
 }
-
-function kmDistance(lat1:number, lon1:number, lat2:number, lon2:number) {
+function kmDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return calculateDistance(lat1, lon1, lat2, lon2) / 1000;
 }
 
-// ---- Types ----
- type Alarm = {
+/* -------------------- Types & consts -------------------- */
+type Alarm = {
   id: string;
   date: string;
   time: string;
   descriptions: string[];
   expanded?: boolean;
 };
-
 const HOME_RADIUS_METERS = 50;
 const LOAD_COUNT = 100;
 
-// Small caches to avoid repeated network calls
+/* -------------------- Hospitals cache -------------------- */
 let hospitalsCache: { data: any[]; fetchedAt: number } | null = null;
 const HOSP_TTL_MS = 10 * 60 * 1000;
-
 async function fetchHospitalsCached(): Promise<any[]> {
   const now = Date.now();
   if (hospitalsCache && now - hospitalsCache.fetchedAt < HOSP_TTL_MS) return hospitalsCache.data;
-  const res = await fetch(API_URL_HOSPITALS);
+  const res = await lambdaFetch(API_URL_HOSPITALS);
   const data = await res.json();
   hospitalsCache = { data, fetchedAt: now };
   return data;
 }
 
+/* ==================== Component ==================== */
 const HomeScreen: React.FC = () => {
-  // ---- Map & UI state ----
+  /* ---- Map & UI state ---- */
   const [mapRegion, setMapRegion] = useState<null | {
     latitude: number;
     longitude: number;
@@ -122,65 +140,87 @@ const HomeScreen: React.FC = () => {
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [alerts, setAlerts] = useState<Alarm[]>([]);
 
+  // ---- City selection ----
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [userCity, setUserCity] = useState<string | null>(null);
+  const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [cityInput, setCityInput] = useState('');
+  const [currentLL, setCurrentLL] = useState<{ lat: number; lon: number } | null>(null);
+
   const mapRef = useRef<MapView | null>(null);
   const router = useRouter();
 
-  // ---- Animations ----
+  /* ---- Animations ---- */
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
   const scaleAnim = useMemo(() => new Animated.Value(0.8), []);
   const pulseAnim = useMemo(() => new Animated.Value(1), []);
   const snapPoints = useMemo(() => ['8%', '50%', '90%'], []);
 
-  // ---- Bootstrap: SERIAL pipeline then parallel batch ----
+  useEffect(() => {
+    if (!mapRegion) return;
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 6, tension: 50, useNativeDriver: true }),
+    ]).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.8, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [mapRegion]);
+
+  /* ---- Bootstrap ---- */
   useEffect(() => {
     (async () => {
       try {
-        // (1) Push permissions + send Expo token (serial)
+        // 1) Push token
         const email = await getUserEmail();
         await refreshAndSendExpoPushToken(email);
 
-        // (2) Get location (serial)
-        let lat = 32.0853, lon = 34.7818; // Tel Aviv fallback
+        // 2) Location
+        let lat = 32.0853, lon = 34.7818; // TA fallback
         const perm = await Location.requestForegroundPermissionsAsync();
         if (perm.status === 'granted') {
           const here = await Location.getCurrentPositionAsync({});
-          lat = here.coords.latitude; lon = here.coords.longitude;
+          lat = here.coords.latitude;
+          lon = here.coords.longitude;
         } else {
           Alert.alert('Permission Denied', 'Permission to access location was denied. Using default location.');
         }
+        setCurrentLL({ lat, lon });
         setMapRegion({ latitude: lat, longitude: lon, latitudeDelta: 0.01, longitudeDelta: 0.005 });
 
-        // (4) Parallel group (after the above steps finished)
-        await Promise.all([
-          fetchShelters(lat, lon),
-          fetchAlerts(),
-          storeNearestHospital(lat, lon),
-          storeRegisteredContacts(),
-          checkIfUserAtHome(),
-        ]);
+        // 3) City: server → device → saved → default
+        const serverCity = await getCityFromServer(email);
+        const deviceCity = serverCity ? null : await detectCityName(lat, lon);
+        const saved = await AsyncStorage.getItem('selectedCity');
+        const initialCity = (saved && saved.trim()) || serverCity || deviceCity || 'תל אביב-יפו';
+        setUserCity(deviceCity || serverCity);
+        setSelectedCity(initialCity);
 
-        // (5) Start UI animations
-        if (mapRegion || true) {
-          Animated.parallel([
-            Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-            Animated.spring(scaleAnim, { toValue: 1, friction: 6, tension: 50, useNativeDriver: true }),
-          ]).start();
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(pulseAnim, { toValue: 1.8, duration: 1000, useNativeDriver: true }),
-              Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-            ])
-          ).start();
-        }
+        // 4) Light things in parallel (3 בלבד — רחוק מתקרת 10)
+        await Promise.allSettled([storeNearestHospital(lat, lon), storeRegisteredContacts(), checkIfUserAtHome()]);
+
+        // 5) Alerts
+        await fetchAlerts();
       } catch (e) {
         console.error('Error during bootstrap:', e);
         Alert.alert('Error', 'Failed to load initial data.');
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Helpers ----
+  /* ---- Fetch shelters when city changes ---- */
+  useEffect(() => {
+    if (selectedCity && currentLL) {
+      fetchShelters(currentLL.lat, currentLL.lon, selectedCity);
+      AsyncStorage.setItem('selectedCity', selectedCity);
+      setSelectedShelter(null);
+    }
+  }, [selectedCity]);
+
+  /* -------------------- Helpers -------------------- */
   const refreshAndSendExpoPushToken = async (email: string | null) => {
     try {
       const { status } = await Notifications.getPermissionsAsync();
@@ -191,19 +231,20 @@ const HomeScreen: React.FC = () => {
           return;
         }
       }
-
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: (Constants as any).expoConfig?.extra?.eas?.projectId,
-      });
+      const projectId =
+        (Constants as any).expoConfig?.extra?.eas?.projectId || (Constants as any).easConfig?.projectId;
+      const tokenData = projectId
+        ? await Notifications.getExpoPushTokenAsync({ projectId })
+        : await Notifications.getExpoPushTokenAsync();
       const expoToken = tokenData.data;
 
-      // store locally only if changed
       const prev = await AsyncStorage.getItem('expoPushToken');
       if (prev !== expoToken) {
         await AsyncStorage.setItem('expoPushToken', expoToken);
         if (email) {
-          await fetch('https://jlsl54dmzl.execute-api.us-east-1.amazonaws.com/saveToken', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+          await lambdaFetch('https://jlsl54dmzl.execute-api.us-east-1.amazonaws.com/saveToken', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, expoToken }),
           });
         }
@@ -224,10 +265,14 @@ const HomeScreen: React.FC = () => {
         .map((p) => p.number?.replace(/\D/g, ''))
         .filter((num) => !!num);
 
-      const response = await fetch('https://rudac13hpb.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumbers }),
-      });
+      const response = await lambdaFetch(
+        'https://rudac13hpb.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumbers }),
+        }
+      );
 
       const json = await response.json();
       const result = json.registeredNumbers;
@@ -256,8 +301,6 @@ const HomeScreen: React.FC = () => {
 
       const isAtHome = dist <= HOME_RADIUS_METERS;
       await AsyncStorage.setItem('isAtHome', JSON.stringify(isAtHome));
-      console.log('מרחק מהמיקום שנשמר לבית:', dist);
-      console.log('isAtHome?', isAtHome);
     } catch (err) {
       console.error(' שגיאה בבדיקת האם המשתמש בבית:', err);
     }
@@ -265,7 +308,7 @@ const HomeScreen: React.FC = () => {
 
   const fetchAlerts = async () => {
     try {
-      const response = await fetch(API_URL_ALERTS);
+      const response = await lambdaFetch(API_URL_ALERTS);
       const rawData = await response.json();
       const body = typeof rawData.body === 'string' ? JSON.parse(rawData.body) : rawData.body ?? rawData;
       if (!Array.isArray(body)) return;
@@ -274,8 +317,13 @@ const HomeScreen: React.FC = () => {
       body.forEach((item: any, index: number) => {
         const timestamp = new Date(item.timestamp);
         const formatter = new Intl.DateTimeFormat('he-IL', {
-          day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-          timeZone: 'Asia/Jerusalem', hour12: false,
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Jerusalem',
+          hour12: false,
         });
         const [dateIL, timeIL] = formatter.format(timestamp).split(',').map((s) => s.trim());
         const key = `${dateIL} ${timeIL}`;
@@ -303,34 +351,43 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const fetchShelters = async (latRef?: number, lonRef?: number) => {
+  const fetchShelters = async (latRef?: number, lonRef?: number, city?: string | null) => {
+    if (!city) return;
     setIsSheltersLoading(true);
     try {
-      let items: Shelter[] = [];
+      let items: any[] = [];
       let startKey: any = null;
+
+      // פאג'ינציה סדרתית (Concurrency = 1)
       do {
-        const url = startKey ? `${API_URL_SHELTERS}?startKey=${encodeURIComponent(JSON.stringify(startKey))}` : API_URL_SHELTERS;
-        const response = await fetch(url);
+        const base = `${API_URL_SHELTERS}?city=${encodeURIComponent(city)}`;
+        const url = startKey ? `${base}&startKey=${encodeURIComponent(JSON.stringify(startKey))}` : base;
+        const response = await lambdaFetch(url);
         const data = await response.json();
-        items = [...items, ...data.items];
-        startKey = data.lastEvaluatedKey || null;
+        const body = typeof data.body === 'string' ? JSON.parse(data.body) : data;
+        items = [...items, ...(body.items || [])];
+        startKey = body.lastEvaluatedKey || null;
       } while (startKey);
 
+      // ❌ בלי המרות ITM — הנתונים כבר WGS84
+      const toLatLon = (s: any) => {
+        const lat = Number(s.location?.lat ?? s.location?.latitude ?? s.lat ?? s.latitude);
+        const lon = Number(s.location?.lon ?? s.location?.lng ?? s.location?.longitude ?? s.lon ?? s.longitude);
+        return { latitude: lat, longitude: lon };
+      };
+
       const converted = items
-        .map((shelter) => {
-          const x = shelter.longitude; // ITM X
-          const y = shelter.latitude;  // ITM Y
-          const { latitude, longitude } = convertITMtoWGS84(x, y);
-          return { ...shelter, latitude, longitude } as Shelter;
+        .map((s) => {
+          const { latitude, longitude } = toLatLon(s);
+          const name = s.name || s.shelterName || s.shelter_name || 'מקלט';
+          return { ...s, name, latitude, longitude } as Shelter;
         })
         .filter((s) => !isNaN(s.latitude) && !isNaN(s.longitude));
 
-      // Optional sorting by distance to current region
       let region = mapRegion;
       if (!region && latRef && lonRef) {
         region = { latitude: latRef, longitude: lonRef, latitudeDelta: 0.01, longitudeDelta: 0.005 };
       }
-
       if (region) {
         converted.sort((a, b) => {
           const da = calculateDistance(region!.latitude, region!.longitude, a.latitude, a.longitude);
@@ -343,6 +400,15 @@ const HomeScreen: React.FC = () => {
       setAllShelters(converted);
       setSheltersToShow(converted.slice(0, LOAD_COUNT));
       await AsyncStorage.setItem('shelters', JSON.stringify(converted));
+
+      if (converted.length && selectedCity && selectedCity !== userCity) {
+        setMapRegion({
+          latitude: converted[0].latitude,
+          longitude: converted[0].longitude,
+          latitudeDelta: 0.04,
+          longitudeDelta: 0.02,
+        });
+      }
     } catch (error) {
       console.error('Error fetching shelters:', error);
       Alert.alert('Error', 'Unable to fetch shelter data.');
@@ -359,13 +425,16 @@ const HomeScreen: React.FC = () => {
         .map((h: any) => ({ ...h, distance: kmDistance(lat, lon, h.lat, h.lon) }))
         .sort((a: any, b: any) => a.distance - b.distance)[0];
       if (nearest) {
-        await AsyncStorage.setItem('nearestHospital', JSON.stringify({
-          id: nearest.name,
-          name: nearest.name,
-          latitude: nearest.lat,
-          longitude: nearest.lon,
-          phone: nearest.phone,
-        }));
+        await AsyncStorage.setItem(
+          'nearestHospital',
+          JSON.stringify({
+            id: nearest.name,
+            name: nearest.name,
+            latitude: nearest.lat,
+            longitude: nearest.lon,
+            phone: nearest.phone,
+          })
+        );
       }
     } catch (err) {
       console.error('שגיאה בשמירת בית חולים קרוב:', err);
@@ -413,8 +482,9 @@ const HomeScreen: React.FC = () => {
   };
 
   const getSignedUploadUrl = async (type: 'shelter') => {
-    const response = await fetch(API_URL_SIGNED, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const response = await lambdaFetch(API_URL_SIGNED, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type }),
     });
     if (!response.ok) throw new Error('Failed to get signed URL');
@@ -423,9 +493,11 @@ const HomeScreen: React.FC = () => {
 
   const uploadImageToS3 = async (localUri: string, type: 'shelter') => {
     const { uploadUrl, imageUrl } = await getSignedUploadUrl(type);
-    const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
-    const buffer = Buffer.from(base64, 'base64');
-    await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: buffer });
+    await FileSystem.uploadAsync(uploadUrl, localUri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
     return imageUrl;
   };
 
@@ -447,13 +519,18 @@ const HomeScreen: React.FC = () => {
       try {
         setIsImageUploading(true);
         const uploadedImageUrl = await uploadImageToS3(localUri, 'shelter');
-        const response = await fetch(`${API_URL_SHELTERS}/${selectedShelter.id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        const response = await lambdaFetch(`${API_URL_SHELTER_ITEM}/${selectedShelter.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: uploadedImageUrl }),
         });
         if (!response.ok) throw new Error('Failed to update shelter image');
-        await fetchShelters();
+
         setSelectedShelter((prev) => (prev ? { ...prev, image: uploadedImageUrl } : null));
+        setAllShelters((prev) => prev.map((s) => (s.id === selectedShelter.id ? { ...s, image: uploadedImageUrl } : s)));
+        setSheltersToShow((prev) =>
+          prev.map((s) => (s.id === selectedShelter.id ? { ...s, image: uploadedImageUrl } : s))
+        );
       } catch {
         Alert.alert('Error', 'Failed to upload image.');
       } finally {
@@ -484,11 +561,11 @@ const HomeScreen: React.FC = () => {
 
   const handleDeselectShelter: () => void = () => setSelectedShelter(null);
 
-  // ---- Render ----
+  /* -------------------- Render -------------------- */
   if (!mapRegion) {
     return (
       <View style={styles.loadingOverlay}>
-        <ActivityIndicator size="large" color="'#11998e'" />
+        <ActivityIndicator size="large" color="#11998e" />
         <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
       </View>
     );
@@ -497,35 +574,98 @@ const HomeScreen: React.FC = () => {
   return (
     <TouchableWithoutFeedback onPress={handleDeselectShelter}>
       <View style={{ flex: 1 }}>
+        {/* City picker modal */}
+        <Modal
+          visible={cityModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCityModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>בחירת עיר</Text>
+              <TextInput
+                placeholder="שם עיר (לדוגמה: חולון)"
+                value={cityInput}
+                onChangeText={setCityInput}
+                style={styles.modalInput}
+                textAlign="right"
+              />
+              <View style={{ flexDirection: 'row-reverse', marginTop: 12 }}>
+                <TouchableOpacity
+                  style={[styles.topButton, { flex: 1, marginLeft: 8 }]}
+                  onPress={() => {
+                    const c = normalizeCity(cityInput);
+                    if (c) setSelectedCity(c);
+                    setCityModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.topButtonText}>אישור</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.topButton, { flex: 1 }]}
+                  onPress={async () => {
+                    if (currentLL) {
+                      const c = await detectCityName(currentLL.lat, currentLL.lon);
+                      if (c) {
+                        setCityInput(c);
+                        setSelectedCity(c);
+                      }
+                    }
+                    setCityModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.topButtonText}>השתמש בעיר הנוכחית</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
           <View style={styles.container}>
             <MapView ref={mapRef} style={styles.map} region={mapRegion}>
-              <TouchableOpacity style={styles.refreshButton} onPress={refreshLocation}>
-                <Text style={styles.refreshButtonText}>רענן את מיקומך</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveHomeButton} onPress={handleSaveHomeLocation}>
-                <Text style={styles.refreshButtonText}>שמור מיקום בית</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.centerButton} onPress={() => { if (mapRegion) { mapRef.current?.animateToRegion(mapRegion, 1000); } }}>
+              {/* Top buttons bar */}
+              <View style={styles.topButtons}>
+                <TouchableOpacity style={[styles.topButton, { marginLeft: 10 }]} onPress={() => setCityModalVisible(true)}>
+                  <Text style={styles.topButtonText}>{selectedCity ? `עיר: ${selectedCity}` : 'בחר עיר'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.topButton} onPress={refreshLocation}>
+                  <Text style={styles.topButtonText}>רענן מיקומך</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.topButton, { marginRight: 10 }]} onPress={handleSaveHomeLocation}>
+                  <Text style={styles.topButtonText}>שמור מיקום בית</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.centerButton}
+                onPress={() => {
+                  if (mapRegion) {
+                    mapRef.current?.animateToRegion(mapRegion, 1000);
+                  }
+                }}
+              >
                 <Ionicons name="locate-outline" size={24} color="#fff" />
               </TouchableOpacity>
 
               {/* My location */}
               <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }}>
                 <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <Animated.View style={{
-                    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(17,153,142,0.3)',
-                    transform: [{ scale: pulseAnim }],
-                  }} />
+                  <Animated.View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: 'rgba(17,153,142,0.3)',
+                      transform: [{ scale: pulseAnim }],
+                    }}
+                  />
                 </View>
               </Marker>
 
-              {allShelters.map((shelter) => (
-                <CustomMarker
-                  key={`${shelter.id}-${shelter.status}`}
-                  shelter={shelter}
-                  onPress={() => setSelectedShelter(shelter)}
-                />
+              {sheltersToShow.map((shelter) => (
+                <CustomMarker key={`${shelter.id}-${shelter.status}`} shelter={shelter} onPress={() => setSelectedShelter(shelter)} />
               ))}
             </MapView>
 
@@ -542,7 +682,8 @@ const HomeScreen: React.FC = () => {
                           key={alert.id}
                           style={styles.alertItem}
                           {...(isMultiple && {
-                            onPress: () => setAlerts((prev) => prev.map((a, i) => ({ ...a, expanded: i === idx ? !a.expanded : false }))),
+                            onPress: () =>
+                              setAlerts((prev) => prev.map((a, i) => ({ ...a, expanded: i === idx ? !a.expanded : false }))),
                           })}
                         >
                           <Text style={styles.alertIcon}>🚨</Text>
@@ -550,17 +691,26 @@ const HomeScreen: React.FC = () => {
                             <View style={{ flex: 1, alignItems: 'flex-end' }}>
                               {isMultiple && alert.expanded ? (
                                 alert.descriptions.map((desc, i) => (
-                                  <Text key={i} style={styles.alertDescription}>{desc}</Text>
+                                  <Text key={i} style={styles.alertDescription}>
+                                    {desc}
+                                  </Text>
                                 ))
                               ) : (
                                 <Text style={styles.alertDescription}>
                                   {isMultiple ? `${alert.descriptions.length} איזורי התרעה` : alert.descriptions[0]}
                                 </Text>
                               )}
-                              <Text style={styles.alertTime}>{alert.date} - {alert.time}</Text>
+                              <Text style={styles.alertTime}>
+                                {alert.date} - {alert.time}
+                              </Text>
                             </View>
                             {isMultiple && (
-                              <Ionicons name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color="#666" style={{ marginRight: 10, alignSelf: 'flex-start' }} />
+                              <Ionicons
+                                name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                                size={20}
+                                color="#666"
+                                style={{ marginRight: 10, alignSelf: 'flex-start' }}
+                              />
                             )}
                           </View>
                         </Container>
@@ -577,7 +727,7 @@ const HomeScreen: React.FC = () => {
                   <Ionicons name="home-outline" size={28} color="#11998e" style={{ marginRight: 10 }} />
                   <Text style={styles.shelterTitle}>{selectedShelter.name}</Text>
                 </View>
-                <View className="shelterDetails">
+                <View style={styles.shelterDetails}>
                   {selectedShelter.location && <Text style={styles.locationText}>{selectedShelter.location}</Text>}
                 </View>
                 <View style={styles.buttonRowInline}>
@@ -601,12 +751,15 @@ const HomeScreen: React.FC = () => {
 
             <BottomSheet index={0} snapPoints={snapPoints}>
               <View style={styles.contentContainer}>
-                <Text style={styles.listTitle}>Over {allShelters.length} shelters</Text>
+                <Text style={styles.listTitle}>
+                  {selectedCity ? `מקלטים ב־${selectedCity} (${allShelters.length})` : `Over ${allShelters.length} shelters`}
+                </Text>
                 <BottomSheetFlatList
                   data={sheltersToShow}
                   onEndReached={loadMoreShelters}
                   onEndReachedThreshold={0.5}
-                  contentContainerStyle={{ gap: 10, padding: 10 }}
+                  contentContainerStyle={{ padding: 10 }}
+                  ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
                   renderItem={({ item }) => (
                     <ShelterListItem
                       shelter={item}
@@ -614,12 +767,7 @@ const HomeScreen: React.FC = () => {
                       distance={
                         mapRegion
                           ? Math.round(
-                              calculateDistance(
-                                mapRegion.latitude,
-                                mapRegion.longitude,
-                                item.latitude,
-                                item.longitude
-                              )
+                              calculateDistance(mapRegion.latitude, mapRegion.longitude, item.latitude, item.longitude)
                             )
                           : null
                       }
@@ -633,7 +781,7 @@ const HomeScreen: React.FC = () => {
 
         {isSheltersLoading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="'#11998e'" />
+            <ActivityIndicator size="large" color="#11998e" />
             <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
           </View>
         )}
@@ -642,7 +790,7 @@ const HomeScreen: React.FC = () => {
   );
 };
 
-// ---- Styles ----
+/* -------------------- Styles -------------------- */
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { width: '100%', height: '50%' },
@@ -661,55 +809,156 @@ const styles = StyleSheet.create({
   },
   alertsTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, textAlign: 'right', color: '#333' },
   alertItem: {
-    flexDirection: 'row-reverse', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8,
-    paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8, borderLeftWidth: 4, borderLeftColor: '#e74c3c',
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e74c3c',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
   },
   alertIcon: { fontSize: 22, marginLeft: 10 },
   alertTextContainer: { flex: 1, alignItems: 'flex-end', flexDirection: 'row-reverse' },
   alertDescription: { fontSize: 15, fontWeight: '500', color: '#444', marginBottom: 2 },
   alertTime: { fontSize: 13, color: '#888' },
   selectedShelter: { position: 'absolute', bottom: 120, right: 10, left: 10 },
-  refreshButton: {
-    position: 'absolute', top: 20, right: 20, backgroundColor: '#11998e', paddingVertical: 10,
-    paddingHorizontal: 16, borderRadius: 25, zIndex: 10, elevation: 5, shadowColor: '#000', shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
+
+  topButtons: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
   },
-  refreshButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  topButton: {
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  topButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+
   contentContainer: { flex: 1 },
   listTitle: { textAlign: 'center', fontSize: 16, marginVertical: 5, marginBottom: 20 },
   imagePreviewContainer: { marginTop: 10, alignItems: 'center' },
   previewImage: { width: '100%', height: 150, borderRadius: 10, resizeMode: 'cover' },
   buttonRow: {
-    position: 'absolute', bottom: 60, right: 10, left: 10, flexDirection: 'row', justifyContent: 'space-between',
-    gap: 10, backgroundColor: 'white', padding: 10, borderRadius: 10, elevation: 5,
+    position: 'absolute',
+    bottom: 60,
+    right: 10,
+    left: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
+    elevation: 5,
   },
   imageLoaderOverlay: { position: 'absolute', top: '50%', left: '50%', marginLeft: -10, marginTop: -10 },
   actionButton: { flex: 1, backgroundColor: '#11998e', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   actionButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  reportButtonContainer: { position: 'absolute', bottom: 60, right: 10, left: 10, backgroundColor: 'white', padding: 10, borderRadius: 10, elevation: 5 },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(176, 255, 247, 0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 999 },
+  reportButtonContainer: {
+    position: 'absolute',
+    bottom: 60,
+    right: 10,
+    left: 10,
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
+    elevation: 5,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(176, 255, 247, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
   centerButton: {
-    position: 'absolute', top: 80, right: 20, backgroundColor: '#11998e', padding: 10, borderRadius: 25, zIndex: 10,
-    elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    backgroundColor: '#11998e',
+    padding: 10,
+    borderRadius: 25,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
   shelterInfoBox: {
-    position: 'absolute', top: 120, left: 20, right: 20, backgroundColor: '#fff', borderRadius: 15, padding: 15,
-    elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, zIndex: 15,
+    position: 'absolute',
+    top: 120,
+    left: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 15,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    zIndex: 15,
   },
   shelterHeader: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 10 },
   shelterTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', flexShrink: 1, textAlign: 'right' },
   shelterDetails: { flexDirection: 'column', alignItems: 'flex-end', marginBottom: 15 },
   locationText: { fontSize: 14, color: '#666', marginTop: 5, textAlign: 'right' },
-  buttonRowInline: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  buttonRowInline: { flexDirection: 'row', justifyContent: 'space-between' },
   actionButtonInline: {
-    flexDirection: 'row', alignItems: 'center', flex: 1, backgroundColor: '#11998e', paddingVertical: 10,
-    justifyContent: 'center', borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#11998e',
+    paddingVertical: 10,
+    justifyContent: 'center',
+    borderRadius: 8,
+    marginHorizontal: 5,
   },
   actionButtonTextInline: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-  saveHomeButton: {
-    position: 'absolute', top: 20, right: 280, backgroundColor: '#11998e', paddingVertical: 10, paddingHorizontal: 16,
-    borderRadius: 25, zIndex: 10, elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
+
+  /* modal */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'right' },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 10,
   },
 });
 

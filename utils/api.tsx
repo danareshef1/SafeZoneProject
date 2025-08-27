@@ -2,8 +2,9 @@
 import * as Notifications from 'expo-notifications';
 import { getUserEmail } from './auth';
 import { AlertZone, findUserZone } from './zoneUtils';
+import * as Location from 'expo-location';
 
-const UPDATE_API = 'https://4rmea844n9.execute-api.us-east-1.amazonaws.com/update-user-location';
+const UPDATE_API = 'https://4rmea844n9.execute-api.us-east-1.amazonaws.com/add-user-location';
 const ZONES_API = 'https://4i7xc6hael.execute-api.us-east-1.amazonaws.com/GetAllAlertZones';
 const GET_USER_LOCATION_API = 'https://4rmea844n9.execute-api.us-east-1.amazonaws.com/get-user-location';
 
@@ -47,52 +48,73 @@ async function getExpoPushTokenSafe(): Promise<string | undefined> {
     return;
   }
 }
+const normalizeCity = (s?: string | null) =>
+  (s || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim() || null;
+
+// utils/api.ts (רק sendLocationToBackend)
+const FETCH_TIMEOUT_MS = 8000; // אפשר לכוונן
 
 export async function sendLocationToBackend(
   lat: number,
   lon: number,
-  type: 'home' | 'current' = 'current'
+  source: 'home' | 'device' | 'manual' = 'device',
+  accuracy?: number
 ) {
-  // 🔒 מונע קריאות מקבילות
+  // מנע כפילויות: אם יש שליחה רצה, נוותר בשקט
   if (sendLocationMutex) return;
   sendLocationMutex = true;
 
   try {
-    const email = await getUserEmail();
-    if (!email) return;
-
-    let payload: Record<string, any> = { email, type };
-
-    if (type === 'home') {
-      payload = { ...payload, lat, lon, homeLat: lat, homeLon: lon };
-    } else {
-      const pushToken = await getExpoPushTokenSafe();
-      const allZones = await getAllZonesFromAPI();
-
-      let zoneMatch = findUserZone(lat, lon, allZones);
-      let zoneName = zoneMatch?.zone;
-
-      if (!zoneMatch) {
-        const userCity = await getUserLastCityByEmail(email);
-        if (userCity) {
-          const fb = allZones.find(
-            z => (z.name && z.name.includes(userCity)) || (z.zone && z.zone.includes(userCity))
-          );
-          if (fb) { zoneMatch = fb; zoneName = fb.zone; }
-        }
-      }
-
-      payload = zoneMatch && zoneName
-        ? { ...payload, lat, lon, zone: zoneMatch.zone, city: zoneMatch.name, pushToken }
-        : { ...payload, lat, lon, pushToken };
+    const email = await getUserEmail().catch(() => null);
+    if (!email) {
+      console.warn('sendLocationToBackend: missing email — aborting');
+      return;
     }
 
-    await fetch(UPDATE_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    // 1) ננסה להפיק עיר בצד המכשיר
+    let city: string | null = null;
+    try {
+      const placemarks = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+      const p = placemarks?.[0];
+      city = normalizeCity(p?.city || p?.subregion || p?.district || p?.region);
+    } catch {}
+
+    // 2) אם אין לנו עיר מהמכשיר — ננסה להביא את האחרונה מהשרת (עדיף מ-null)
+    if (!city) {
+      try {
+        const last = await getUserLastCityByEmail(email!);
+        if (last) city = last;
+      } catch {}
+    }
+
+    // 3) שליחת העדכון עם timeout
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(UPDATE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          email,
+          lat,
+          lng: lon,     // שדה השרת
+          source,
+          accuracy,
+          city,         // אם עדיין null — השרת ישלים/ישמור בלי, אבל ניסינו פעמיים
+        }),
+      });
+      if (!res.ok) {
+        console.warn('sendLocationToBackend: server responded', res.status);
+      }
+    } finally {
+      clearTimeout(t);
+    }
+  } catch (e) {
+    console.warn('sendLocationToBackend error:', e);
   } finally {
     sendLocationMutex = false;
   }
 }
+

@@ -40,14 +40,14 @@ function getClaims(token?: string | null): any {
   }
 }
 
-// שליחת טוקן המכשיר ל-Lambda
+// ✅ צרף את sub לבקשה, ושמור local key כדי לא לשגר שוב אם אין שינוי
 async function sendDeviceToken(expoToken: string) {
   try {
     const [idToken, email, phone, displayName] = await Promise.all([
       AsyncStorage.getItem('userToken'),
       AsyncStorage.getItem('userEmail'),
       AsyncStorage.getItem('userPhone'),
-      AsyncStorage.getItem('displayName'), // שם להצגה שנשמר ב-signUp
+      AsyncStorage.getItem('displayName'),
     ]);
 
     const claims = getClaims(idToken);
@@ -57,21 +57,24 @@ async function sendDeviceToken(expoToken: string) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        sub,                                                     // ✅ חדש
         email: (email || '').trim().toLowerCase(),
-        phoneNumber: phone || 'unknown',
-        username: sub || 'unknown',
-        expoPushToken: expoToken,
-        displayName: displayName || '', // ⚠️ תואם לשם השדה בלמבדה
+        phoneNumber: phone || '',
+        expoToken: expoToken,
+        displayName: displayName || '',
       }),
     });
 
     const text = await res.text();
     if (!res.ok) throw new Error(text || 'Failed to save device token');
     console.log('✅ Saved DeviceToken:', text);
+
+    await AsyncStorage.setItem('lastExpoPushToken', expoToken); // ✅ עדכון מקומי
   } catch (err) {
     console.error('❌ Failed sending device token:', err);
   }
 }
+
 
 const LoginScreen: React.FC = () => {
   const { login } = useContext(AuthContext);
