@@ -118,32 +118,50 @@ const ContactsButton = () => {
     }
   };
 
-  // --- NEW: Refresh flow (fetch device contacts + ask backend who is registered) ---
-// helper: קחי כל תשובה אפשרית והפכי לרשימת מחרוזות
+// --- helper: פרסור גמיש של תגובת השרת ---
 const extractRegisteredFromResponse = (text: string): string[] => {
   try {
     const json = JSON.parse(text);
     const body = typeof json?.body === 'string' ? JSON.parse(json.body) : json;
-
     const arr =
       (Array.isArray(body) && body) ||
-      body?.registered ||
-      body?.phones ||
-      body?.numbers ||
-      body?.data ||
-      body?.result ||
-      [];
-
+      body?.registered || body?.phones || body?.numbers || body?.data || body?.result || [];
     return Array.isArray(arr) ? arr.map(String) : [];
   } catch {
     return [];
   }
 };
 
+// --- helper: קריאת ה־API במנות + לוגים שימושיים ---
+const postPhonesInChunks = async (phones: string[]): Promise<string[]> => {
+  const CHUNK = 200;
+  const found = new Set<string>();
+  for (let i = 0; i < phones.length; i += CHUNK) {
+    const chunk = phones.slice(i, i + CHUNK);
+    const res = await fetch(GET_REGISTERED_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // שולחים במספר שמות שדות כדי להתאים לכל מיפוי אפשרי ב־Lambda/APIGW
+      body: JSON.stringify({ phones: chunk, numbers: chunk, data: chunk }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      err('GetRegisteredContacts failed', res.status, text.slice(0, 200));
+      throw new Error(`GetRegisteredContacts HTTP ${res.status}`);
+    }
+    const returned = extractRegisteredFromResponse(text);
+    if (i === 0 && returned.length === 0) {
+      warn('First chunk returned empty. Sample body:', text.slice(0, 200));
+    }
+    returned.map(x => x.replace(/\D/g, '')).forEach(d => d && found.add(d));
+  }
+  return Array.from(found);
+};
+
 const refreshRegisteredAndList = async () => {
   setRefreshing(true);
   try {
-    // 1) הרשאות + אנשי קשר מהמכשיר
+    // 1) אנשי קשר מהמכשיר
     const perm = await Contacts.getPermissionsAsync();
     if (perm.status !== 'granted') {
       const req = await Contacts.requestPermissionsAsync();
@@ -152,61 +170,34 @@ const refreshRegisteredAndList = async () => {
         return;
       }
     }
-
-    const { data } = await Contacts.getContactsAsync({
-      fields: [Contacts.Fields.PhoneNumbers],
-    });
+    const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
     setAllDeviceContacts(data);
 
-    // 2) מכינים רשימת E.164 עם פלוס (ולא asDigits)
-    const e164Phones = Array.from(
-      new Set(
-        data
-          .flatMap(c => (c.phoneNumbers || []).map(p => normPhone(p.number || '')))
-          .filter(Boolean)
-      )
-    );
+    // 2) נכין גם E.164 וגם digits
+    const e164List = Array.from(new Set(
+      data.flatMap(c => (c.phoneNumbers || []).map(p => normPhone(p.number || '')))
+         .filter(Boolean)
+    ));
+    const digitsList = Array.from(new Set(e164List.map(p => p.replace(/\D/g, ''))));
 
-    log('Refreshing… sending', e164Phones.length, 'E.164 phones to backend');
+    log('Refreshing… trying E.164 first. count =', e164List.length);
 
-    // 3) אפשר צ׳אנקינג אם הרשימה גדולה
-    const CHUNK = 200;
-    const foundDigits = new Set<string>();
+    // 3) ניסיון 1: E.164
+    let registeredDigits = await postPhonesInChunks(e164List);
 
-    for (let i = 0; i < e164Phones.length; i += CHUNK) {
-      const chunk = e164Phones.slice(i, i + CHUNK);
-      const res = await fetch(GET_REGISTERED_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phones: chunk }), // שליחת E.164 עם פלוס
-      });
-      const text = await res.text();
-      if (!res.ok) {
-        err('GetRegisteredContacts failed', res.status, text);
-        Alert.alert('שגיאה', `הקריאה לשרת נכשלה (status ${res.status})`);
-        return;
-      }
-      const returned = extractRegisteredFromResponse(text);
-      // נאחסן בפורמט ספרות-בלבד להשוואה מול אנשי הקשר במכשיר
-      returned.map(x => x.replace(/\D/g, '')).forEach(d => d && foundDigits.add(d));
+    // 4) אם אין כלום—ניסיון 2: digits-only (יש למבדות שמצפות לזה)
+    if (registeredDigits.length === 0) {
+      warn('E.164 returned 0. Falling back to digits-only. count =', digitsList.length);
+      registeredDigits = await postPhonesInChunks(digitsList);
     }
 
-    const registeredDigits = Array.from(foundDigits);
+    // 5) כותבים את תוצאת השרת (authoritative) – גם אם ריק
+    await AsyncStorage.setItem('registeredContacts', JSON.stringify(registeredDigits));
+    log('Registered written to AsyncStorage =', registeredDigits.length);
 
-// 4) Persist authoritative server result (even if empty)
-await AsyncStorage.setItem('registeredContacts', JSON.stringify(registeredDigits));
-log('Registered (authoritative) written to AsyncStorage =', registeredDigits.length);
-
-// 5) קחי את הרשימה המעודכנת וסנני מסך
-const storedNow = await AsyncStorage.getItem('registeredContacts');
-const finalRegistered: string[] = storedNow ? JSON.parse(storedNow) : [];
-filterAndSetMatched(data, finalRegistered);
-
-log('Refresh done', {
-  deviceCount: data.length,
-  registeredCount: finalRegistered.length,
-});
-
+    // 6) מסננים ומציגים
+    filterAndSetMatched(data, registeredDigits);
+    log('Refresh done', { deviceCount: data.length, registeredCount: registeredDigits.length });
   } catch (e) {
     err('Error in refreshRegisteredAndList:', e);
     Alert.alert('שגיאה', 'אירעה שגיאה בריענון אנשי קשר');
@@ -214,6 +205,7 @@ log('Refresh done', {
     setRefreshing(false);
   }
 };
+
 
 
   // החזרת true/false להצלחת הקריאה, כולל הדפסות מלאות

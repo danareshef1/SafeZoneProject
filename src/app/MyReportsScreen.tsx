@@ -1,3 +1,4 @@
+// src/app/MyReportsScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, ActivityIndicator, I18nManager } from 'react-native';
 import { getAuthUserEmail } from '../../utils/auth';
