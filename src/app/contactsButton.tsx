@@ -35,11 +35,17 @@ async function refreshRegisteredContactsNow(): Promise<string[]> {
       log('refreshRegisteredContactsNow: sending phones count =', phones.length);
       log('refreshRegisteredContactsNow: sample phones =', phones.slice(0, 5));
 
-    const res = await fetch(GET_REGISTERED_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phones }), // 👈 ה-Lambda מצפה ל-phones
-    });
+const me = await getMyIdentity(); // כפי שהוספנו בצד לקוח
+const res = await fetch(GET_REGISTERED_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    phones,                // רשימת הטלפונים מהמכשיר
+    ownerEmail: me.email,  // כדי שהשרת ישלוף את המספר שלך ויסנן
+    excludePhones: me.phone ? [me.phone] : [] // חגורת בטיחות
+  }),
+});
+
     const txt = await res.text();
     log('refreshRegisteredContactsNow: status', res.status, 'ok', res.ok);
     log('refreshRegisteredContactsNow: raw', txt.slice(0, 400)); // 👈 חשוב לראות את ה-debug 
@@ -71,6 +77,24 @@ function normPhone(p: string) {
   if (d.startsWith('972')) return '+' + d;
   if ((p || '').trim().startsWith('+')) return (p || '').trim();
   return '+' + d;
+}
+async function getMyIdentity() {
+  const email = await getUserEmail();
+  if (!email) return { email: null as string | null, phone: '', name: '' };
+
+  try {
+    const r = await fetch(`${USER_DETAILS_URL}?email=${encodeURIComponent(email)}`);
+    const raw = await r.json();
+    // 👇 חלק קריטי: אם הלמבדה מחזירה { body: "..." } נפענח את ה-body
+    const j = typeof (raw as any)?.body === 'string' ? JSON.parse((raw as any).body) : ((raw as any)?.body ?? raw);
+
+    const phone = normPhone(j?.phone_number || j?.phoneNumber || j?.phone || '');
+    const name  = (j?.displayName || j?.name || '').toLowerCase().trim();
+
+    return { email, phone, name };
+  } catch {
+    return { email, phone: '', name: '' };
+  }
 }
 
 const ContactsButton = () => {
@@ -118,22 +142,11 @@ if (registeredNumbers.length === 0) {
 }
 
 // --- מי המשתמש הנוכחי? מה המספר והשם שלו?
-const ownerEmail = await getUserEmail();
-let myPhone = '';
-let myName = '';
-try {
-  if (ownerEmail) {
-    const r = await fetch(`${USER_DETAILS_URL}?email=${encodeURIComponent(ownerEmail)}`);
-    const j = await r.json();
-    // קולט כל האפשרויות
-    myPhone = normPhone(j?.phone_number || j?.phoneNumber || j?.phone || '');
-    myName  = (j?.displayName || j?.name || '').toLowerCase().trim();
-  }
-} catch (e) {
-  warn('failed to resolve my phone/name', e);
-}
-log('[me]', { ownerEmail, myPhone, myName });
-
+const me = await getMyIdentity();
+const myPhone = me.phone;
+const myName  = me.name;
+log('[me] phone =', myPhone, 'name =', myName);
+log('[me] local =', myPhone.startsWith('+972') ? ('0' + myPhone.slice(4)) : '');
 // אל תתני לעצמך להופיע בהתאמות מהשרת
 if (myPhone) {
   registeredNumbers = registeredNumbers.filter(p => normPhone(p) !== myPhone);
@@ -214,15 +227,9 @@ if (data[0]?.phoneNumbers?.[0]?.number) {
       let registeredNumbers = await refreshRegisteredContactsNow();
 
       // מי המשתמש? סינון עצמי
-      const ownerEmail = await getUserEmail();
-      let myPhone = '';
-      if (ownerEmail) {
-        try {
-          const r = await fetch(`${USER_DETAILS_URL}?email=${encodeURIComponent(ownerEmail)}`);
-          const j = await r.json();
-          myPhone = normPhone(j?.phone_number || j?.phoneNumber || j?.phone || '');
-        } catch {}
-      }
+const me = await getMyIdentity();
+const myPhone = me.phone;
+
       if (myPhone) {
         registeredNumbers = registeredNumbers.filter(p => normPhone(p) !== myPhone);
       }
