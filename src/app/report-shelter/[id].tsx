@@ -10,71 +10,62 @@ import { getUserEmail } from '../../../utils/auth';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
 
-// ---- ENDPOINTS (לא משנים בקאנד) ----
+// ---- ENDPOINTS ----
 const API_SHELTERS_BY_CITY =
   'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters'; // ?city=<name>
 const SIGN_URL =
-  'https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload';     // POST
+  'https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload';
 const REPORTS_URL =
-  'https://66pv06z732.execute-api.us-east-1.amazonaws.com/add-report';      // POST
+  'https://66pv06z732.execute-api.us-east-1.amazonaws.com/add-report';
 
 type PickerMode = 'city' | 'shelter';
+const PAGE_LIMIT = 500;            // ננסה למשוך הרבה בכל עמוד
+const LOAD_ALL_HARD_CAP = 25;      // הגבלת בטיחות
 
 const ShelterDetail: React.FC = () => {
   const router = useRouter();
   const { id, name, location, image } = useLocalSearchParams();
 
-  // --- UI state ---
+  // --- UI / report ---
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
-
-  // --- report state ---
   const [reportText, setReportText] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploadedKeys, setUploadedKeys] = useState<string[]>([]);
-
-  // --- shelter displayed on page ---
   const [shelter, setShelter] = useState<any>(null);
 
-  // --- picker ---
+  // --- picker state ---
   const [showComboBox, setShowComboBox] = useState(false);
   const [pickerMode, setPickerMode] = useState<PickerMode>('city');
 
-  // עיר (שלב 1)
+  // ערים (שלב 1)
   const [citySearch, setCitySearch] = useState('');
   const [isSearchingCities, setIsSearchingCities] = useState(false);
   const [cities, setCities] = useState<string[]>([]);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // מקלטים בעיר (שלב 2)
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [citySheltersFull, setCitySheltersFull] = useState<any[]>([]);
   const [citySheltersView, setCitySheltersView] = useState<any[]>([]);
   const [shelterSearch, setShelterSearch] = useState('');
   const [isLoadingShelters, setIsLoadingShelters] = useState(false);
-
-  // pagination גנרי אם השרת תומך
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
   const [nextCursor, setNextCursor] = useState<{ name: string; value: any } | null>(null);
-
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------- helpers ----------
   const getStr = (v: any): string => {
     if (!v) return '';
-    if (typeof v === 'string') return v;
-    if (typeof v === 'number') return String(v);
+    if (typeof v === 'string' || typeof v === 'number') return String(v);
     if (typeof v === 'object') {
       const cand = v.he || v.He || v['he-IL'] || v.name || v.en || v['en-US'];
       if (typeof cand === 'string') return cand;
     }
     return '';
   };
-
   const normalizeCity = (s: string) =>
-    s.replace(/[־–—]/g, '-')       // דשים שונים
-     .replace(/\s*-\s*/g, '-')     // רווחים סביב מקף
-     .replace(/\s+/g, ' ')
-     .trim();
+    s.replace(/[־–—]/g, '-').replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
 
   const getCityNameFromItem = (it: any): string =>
     getStr(it.city) ||
@@ -111,6 +102,7 @@ const ShelterDetail: React.FC = () => {
     return decodeURIComponent(u.slice(i + marker.length));
   };
 
+  // -------- signed upload --------
   const getSignedUploadUrl = async (type: 'shelter' | 'report') => {
     const response = await fetch(SIGN_URL, {
       method: 'POST',
@@ -123,15 +115,23 @@ const ShelterDetail: React.FC = () => {
   };
 
   const uploadImageToS3 = async (localUri: string, type: 'shelter' | 'report') => {
-    const signed = await getSignedUploadUrl(type);
-    const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+    const signed = await getSignedUploadUrl(type); // { uploadUrl, key?, imageUrl? }
+  
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
     const buffer = Buffer.from(base64, 'base64');
-    await fetch(signed.uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: buffer });
-    const key = signed.key || keyFromUrl(signed.imageUrl);
-    return { url: signed.imageUrl, key };
+  
+    await fetch(signed.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg' },
+      body: buffer,
+    });
+  
+    return { key: signed.key ?? null, publicUrl: signed.imageUrl ?? null };
   };
 
-  // ---------- טוען את תצוגת המקלט הנוכחי ----------
+  // ---------- הצגת המקלט בעמוד ----------
   useEffect(() => {
     const fetchSheltersForPage = async () => {
       try {
@@ -139,9 +139,8 @@ const ShelterDetail: React.FC = () => {
           (typeof location === 'string' && location) ||
           (typeof name === 'string' && name) || '';
         const url = city
-          ? `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(city)}`
-          : API_SHELTERS_BY_CITY;
-
+          ? `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(city)}&limit=${PAGE_LIMIT}`
+          : `${API_SHELTERS_BY_CITY}?limit=${PAGE_LIMIT}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to load shelters (${res.status})`);
         const data = await res.json();
@@ -150,20 +149,13 @@ const ShelterDetail: React.FC = () => {
           : Array.isArray(data?.items) ? data.items
           : Array.isArray(data?.Items) ? data.Items
           : [];
-
         const found = items.find((s: any) => String(s.id) === String(id));
-        if (found) {
-          setShelter(found);
-          setReportText(found.reportText || '');
-          setUploadedImages(found.images || []);
-        } else {
-          setShelter({
-            id: id ?? '',
-            name: name ?? '',
-            location: location ?? '',
-            image: image ?? '',
-          });
-        }
+        setShelter(found || {
+          id: id ?? '',
+          name: name ?? '',
+          location: location ?? '',
+          image: image ?? '',
+        });
       } catch (e) {
         console.error('Error fetching shelters for page:', e);
         setShelter({
@@ -177,11 +169,11 @@ const ShelterDetail: React.FC = () => {
     fetchSheltersForPage();
   }, [id, name, location, image]);
 
-  // ---------- שלב 1: חיפוש ערים ----------
+  // ---------- ערים ----------
   const searchCities = async (q: string) => {
     try {
       setIsSearchingCities(true);
-      const url = `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(q)}`;
+      const url = `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(q)}&limit=${PAGE_LIMIT}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`search cities ${res.status}`);
       const data = await res.json();
@@ -190,10 +182,7 @@ const ShelterDetail: React.FC = () => {
         : Array.isArray(data?.items) ? data.items
         : Array.isArray(data?.Items) ? data.Items
         : [];
-
-      const names = Array.from(
-        new Set(raw.map(getCityNameFromItem).filter(Boolean))
-      );
+      const names = Array.from(new Set(raw.map(getCityNameFromItem).filter(Boolean)));
       setCities(names);
     } catch (e) {
       console.error('searchCities error:', e);
@@ -209,71 +198,86 @@ const ShelterDetail: React.FC = () => {
     if (!text || text.trim().length < 2) { setCities([]); return; }
     debounceRef.current = setTimeout(() => searchCities(text.trim()), 350);
   };
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+  // ---------- פאג'ינציה: איתור Items + Cursor ----------
+  const extractItemsAndCursor = (data: any) => {
+    const items: any[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items) ? data.items
+      : Array.isArray(data?.Items) ? data.Items
+      : Array.isArray(data?.results) ? data.results
+      : Array.isArray(data?.data) ? data.data
+      : [];
 
-  // ---------- שלב 2: טעינת מקלטים לעיר שנבחרה ----------
-  const parseCursor = (data: any): { name: string; value: any } | null => {
-    if (!data) return null;
-    if (data.nextToken) return { name: 'nextToken', value: data.nextToken };
-    if (data.lastKey) return { name: 'lastKey', value: data.lastKey };
-    if (data.LastEvaluatedKey) return { name: 'lastKey', value: data.LastEvaluatedKey };
-    if (data.lastEvaluatedKey) return { name: 'lastKey', value: data.lastEvaluatedKey };
-    return null;
+    // שדות שיכולים להכיל טוקן/מפתח עמוד הבא
+    const CANDIDATES: Array<[string, any]> = [
+      ['nextToken', data?.nextToken],
+      ['NextToken', data?.NextToken],
+      ['lastKey', data?.lastKey],
+      ['LastKey', data?.LastKey],
+      ['lastEvaluatedKey', data?.lastEvaluatedKey],
+      ['LastEvaluatedKey', data?.LastEvaluatedKey],
+      ['cursor', data?.cursor],
+      ['next', data?.next],
+      ['paginationToken', data?.paginationToken],
+      ['continuationToken', data?.continuationToken],
+      ['ExclusiveStartKey', data?.ExclusiveStartKey],
+      // nested
+      ['nextToken', data?.meta?.nextToken],
+      ['next', data?.meta?.next],
+      ['cursor', data?.meta?.cursor],
+      ['next', data?.page?.next],
+      ['cursor', data?.page?.cursor],
+      ['token', data?.pagination?.token],
+    ];
+
+    let cursor: { name: string; value: any } | null = null;
+    for (const [name, val] of CANDIDATES) {
+      if (val !== undefined && val !== null && val !== '') {
+        cursor = { name, value: val };
+        break;
+      }
+    }
+    return { items, cursor };
   };
 
   const urlWithCursor = (base: string, cursor: {name: string; value: any} | null) => {
     if (!cursor) return base;
     const v = typeof cursor.value === 'string' ? cursor.value : JSON.stringify(cursor.value);
     return `${base}&${cursor.name}=${encodeURIComponent(v)}`;
-    // אם השם שונה בשרת, לא ישתמשו בכפתור „טען עוד”
   };
 
+  // ---------- טעינת מקלטי עיר ----------
   const loadSheltersOfCity = async (cityName: string, cursor: {name: string; value: any} | null = null) => {
     const chosen = normalizeCity(cityName);
     const chosenLow = chosen.toLowerCase();
-
     setIsLoadingShelters(true);
     try {
-      const base = `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(chosen)}`;
+      const base = `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(chosen)}&limit=${PAGE_LIMIT}`;
       const res = await fetch(urlWithCursor(base, cursor));
       if (!res.ok) throw new Error(`load city shelters ${res.status}`);
       const data = await res.json();
 
-      const items: any[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.items) ? data.items
-        : Array.isArray(data?.Items) ? data.Items
-        : [];
-
-      // מקלטים אמיתיים בלבד, ורק של העיר שנבחרה
+      const { items, cursor: next } = extractItemsAndCursor(data);
       const sheltersOnly = items
         .filter(isShelterItem)
         .filter((s) => normalizeCity(getCityNameFromItem(s)).toLowerCase() === chosenLow);
 
-      const next = parseCursor(data);
-
-      // מיזוג לתוך ה־full
       setCitySheltersFull((prev) => {
-        // מניעת כפילויות לפי id
         const byId = new Map<string, any>();
         [...prev, ...sheltersOnly].forEach((x) => byId.set(String(x.id ?? `${x.lat},${x.lon}`), x));
         return Array.from(byId.values());
       });
-
-      setNextCursor(next);
+      setNextCursor(next || null);
     } catch (e) {
       console.error('loadSheltersOfCity error:', e);
-      setCitySheltersFull([]);
       setNextCursor(null);
     } finally {
       setIsLoadingShelters(false);
     }
   };
 
-  // בחירת עיר
   const handlePickCity = async (cityName: string) => {
     const chosen = normalizeCity(cityName);
     setSelectedCity(chosen);
@@ -285,12 +289,23 @@ const ShelterDetail: React.FC = () => {
   };
 
   const loadMoreInCity = async () => {
-    if (selectedCity && nextCursor) {
-      await loadSheltersOfCity(selectedCity, nextCursor);
+    if (selectedCity && nextCursor) await loadSheltersOfCity(selectedCity, nextCursor);
+  };
+
+  const loadAllInCity = async () => {
+    if (!selectedCity) return;
+    setIsLoadingAll(true);
+    try {
+      let guard = 0;
+      while (nextCursor && guard < LOAD_ALL_HARD_CAP) {
+        await loadSheltersOfCity(selectedCity, nextCursor);
+        guard += 1;
+      }
+    } finally {
+      setIsLoadingAll(false);
     }
   };
 
-  // חזרה לבחירת עיר
   const backToCityMode = () => {
     setPickerMode('city');
     setSelectedCity(null);
@@ -300,7 +315,7 @@ const ShelterDetail: React.FC = () => {
     setNextCursor(null);
   };
 
-  // סינון מקומי ברשימת מקלטי העיר
+  // סינון מקומי בתוך העיר
   useEffect(() => {
     const q = (shelterSearch || '').toLowerCase().trim();
     if (!q) { setCitySheltersView(citySheltersFull); return; }
@@ -309,7 +324,6 @@ const ShelterDetail: React.FC = () => {
     );
   }, [shelterSearch, citySheltersFull]);
 
-  // ---------- ניווט למקלט שנבחר ----------
   const handleChangeShelter = (selectedId: string | number) => {
     setShowComboBox(false);
     setPickerMode('city');
@@ -323,34 +337,60 @@ const ShelterDetail: React.FC = () => {
     router.push({ pathname: '/report-shelter/[id]', params: { id: String(selectedId) } });
   };
 
-  // ---------- תמונה ----------
   const handleAddImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permission required', 'We need permission to access your photos.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (result.canceled) return;
-
     try {
+      // אם הקומבו פתוח, סגרי ותני רפרוש זעיר כדי שלא יבלע את המודאל של iOS
+      setShowComboBox(false);
+      await new Promise(r => setTimeout(r, 50));
+  
+      // הרשאות בסיסיות (כמו שעבד לך קודם)
+      const perm = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        const req = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!req.granted) return;
+      }
+  
+      // שימוש ב-API הישן שעבד אצלך (כן, יש אזהרת deprecate — אבל עובד)
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.9,
+        base64: false,
+      });
+  
+      if (result.canceled) return;
+  
+      const localUri = result.assets?.[0]?.uri;
+      if (!localUri) return;
+  
+      // מציגים מיד את התמונה מה-URI המקומי
+      setUploadedImages(prev => [...prev, localUri]);
+  
+      // מעלה ל-S3 ושומר רק את ה-key לדו"ח
       setIsUploadingImage(true);
-      const localUri = result.assets[0].uri;
       const uploaded = await uploadImageToS3(localUri, 'report');
-      setUploadedImages((prev) => [...prev, uploaded.url]);
-      if (uploaded.key) setUploadedKeys((prev) => [...prev, uploaded.key]);
-      else Alert.alert('Warning', 'לא הצלחתי לחלץ מפתח תמונה; הדו״ח יישלח בלי קישור לתמונה.');
-    } catch (e) {
-      console.error('Image upload failed:', e);
-      Alert.alert('Error', 'Image upload failed.');
+      if (uploaded?.key) {
+        setUploadedKeys(prev => [...prev, uploaded.key]);
+      } else {
+        Alert.alert('אזהרה', 'ההעלאה הצליחה אך לא התקבל key; הדו״ח יישלח ללא קישור לתמונה.');
+      }
+      console.log('pressed add image');
+Alert.alert('ניסיון', 'פותח גלריה...');
+    } catch (e: any) {
+      console.error('open picker / upload image error:', e);
+      Alert.alert('Error', e?.message || 'Image picker failed.');
     } finally {
       setIsUploadingImage(false);
     }
   };
+   
+  
+  useEffect(() => {
+    (async () => {
+      const p = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (!p.granted) await ImagePicker.requestMediaLibraryPermissionsAsync();
+    })();
+  }, []);  
 
   // ---------- שליחת דיווח ----------
   const handleSubmitReport = async () => {
@@ -358,7 +398,6 @@ const ShelterDetail: React.FC = () => {
       setIsSubmitting(true);
       const userEmail = await getUserEmail();
       if (!userEmail) { Alert.alert('Error', 'User email not found.'); return; }
-
       const firstImageKey = uploadedKeys[0] || null;
 
       const res = await fetch(REPORTS_URL, {
@@ -471,12 +510,20 @@ const ShelterDetail: React.FC = () => {
                 <Text style={{ fontSize: 14, color: '#555' }}>
                   עיר נבחרת: {selectedCity}
                 </Text>
-                <TouchableOpacity onPress={backToCityMode}>
+                <TouchableOpacity onPress={() => {
+                  if (isLoadingShelters || isLoadingAll) return;
+                  // reset
+                  setPickerMode('city');
+                  setSelectedCity(null);
+                  setCitySheltersFull([]);
+                  setCitySheltersView([]);
+                  setShelterSearch('');
+                  setNextCursor(null);
+                }}>
                   <Text style={{ color: '#007bff', fontWeight: '600' }}>חזרה לעיר</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* שדה חיפוש מקומי בתוך העיר */}
               <TextInput
                 style={[styles.comboBoxInput, { marginTop: 8 }]}
                 placeholder="חפשי מקלט בעיר (שם/כתובת)"
@@ -484,7 +531,7 @@ const ShelterDetail: React.FC = () => {
                 onChangeText={setShelterSearch}
               />
 
-              {isLoadingShelters ? (
+              {isLoadingShelters && citySheltersFull.length === 0 ? (
                 <View style={{ padding: 12, alignItems: 'center' }}>
                   <ActivityIndicator />
                   <Text style={{ marginTop: 8, color: '#666' }}>טוען מקלטים…</Text>
@@ -509,11 +556,19 @@ const ShelterDetail: React.FC = () => {
                     )}
                   </ScrollView>
 
-                  {/* כפתור „טען עוד” אם השרת מחזיר עמודים */}
-                  {nextCursor && citySheltersView.length > 0 && (
-                    <TouchableOpacity style={styles.loadMoreBtn} onPress={loadMoreInCity}>
-                      <Text style={styles.loadMoreText}>טען עוד מקלטים</Text>
-                    </TouchableOpacity>
+                  {(nextCursor || (citySheltersFull.length && citySheltersFull.length % PAGE_LIMIT === 0)) && (
+                    <View style={{ gap: 8, marginTop: 10 }}>
+                      <TouchableOpacity style={styles.loadMoreBtn} onPress={loadMoreInCity} disabled={!nextCursor || isLoadingShelters}>
+                        <Text style={styles.loadMoreText}>
+                          {isLoadingShelters ? 'טוען…' : 'טען עוד מקלטים'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.loadMoreBtn} onPress={loadAllInCity} disabled={isLoadingAll}>
+                        <Text style={styles.loadMoreText}>
+                          {isLoadingAll ? 'טוען את כל המקלטים…' : 'טען את כל המקלטים בעיר'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </>
               )}
@@ -546,7 +601,7 @@ const ShelterDetail: React.FC = () => {
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmitReport} disabled={isSubmitting}>
           {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>שלח דיווח</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+        <TouchableOpacity style={styles.cancelButton} onPress={() => router.push('/home')}>
           <Text style={styles.cancelButtonText}>ביטול</Text>
         </TouchableOpacity>
       </View>
@@ -567,12 +622,12 @@ const styles = StyleSheet.create({
   comboBoxItem:{padding:10,borderBottomWidth:1,borderBottomColor:'#eee'},
   comboBoxItemText:{fontSize:16,color:'#333'},
   noSheltersText:{textAlign:'center',padding:10,color:'#666'},
-  loadMoreBtn:{marginTop:10,backgroundColor:'#eee',padding:10,borderRadius:10,alignItems:'center'},
+  loadMoreBtn:{backgroundColor:'#eee',padding:10,borderRadius:10,alignItems:'center'},
   loadMoreText:{color:'#333',fontWeight:'600'},
   addImageButton:{backgroundColor:'#007bff',padding:10,borderRadius:10,alignItems:'center',marginBottom:20},
   addImageButtonText:{color:'#fff',fontSize:16,fontWeight:'bold'},
   imageScroll:{flexDirection:'row',marginBottom:10},
-  previewImage:{width:100,height:100,marginRight:10,borderRadius:10},
+  previewImage:{width:100,height:100,marginRight:10,borderRadius:10, borderWidth:1,borderColor:'#ddd'},
   textInput:{borderWidth:1,borderColor:'#ccc',borderRadius:10,padding:10,height:100,textAlignVertical:'top',marginBottom:20,textAlign:'right'},
   buttonContainer:{flexDirection:'row',justifyContent:'space-between',marginTop:20},
   submitButton:{backgroundColor:'#4CAF50',padding:15,borderRadius:10,alignItems:'center',flex:1,marginRight:10},
