@@ -80,7 +80,7 @@ const getCityFromServer = async (email: string | null) => {
 
 /* -------------------- URLs -------------------- */
 const API_URL_SHELTERS = 'https://naxldowhfc.execute-api.us-east-1.amazonaws.com/get-il-shelters';
-const API_URL_ALERTS = 'https://j5tn0rj9rc.execute-api.us-east-1.amazonaws.com/prod/alerts';
+const API_URL_ALERTS = 'https://rvx1waqqmj.execute-api.us-east-1.amazonaws.com/get-alerts-logs';
 const API_URL_HOSPITALS = 'https://0p6zgldny2.execute-api.us-east-1.amazonaws.com/get-hospitals';
 const API_URL_SIGNED = 'https://bct0wzeaba.execute-api.us-east-1.amazonaws.com/sign-upload';
 const API_URL_SHELTER_ITEM = API_URL_SHELTERS.replace('/get-il-shelters', '/shelters');
@@ -930,7 +930,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
   },
-  topButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  topButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold', textAlign: 'center'},
 
   contentContainer: { flex: 1 },
   listTitle: { textAlign: 'center', fontSize: 16, marginVertical: 5, marginBottom: 20 },
