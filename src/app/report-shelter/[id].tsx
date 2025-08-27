@@ -92,6 +92,16 @@ const ShelterDetail: React.FC = () => {
   const [nextCursor, setNextCursor] = useState<Cursor>(null);
 
   // ---------- helpers ----------
+  const parseResponse = async (res: Response) => {
+  const text = await res.text();
+  let raw: any = {};
+  try { raw = JSON.parse(text); } catch { raw = text; }
+  // פותחים body אם הוא מחרוזת JSON
+  const data = (typeof raw?.body === 'string')
+    ? (() => { try { return JSON.parse(raw.body); } catch { return raw.body; } })()
+    : (raw?.body ?? raw);
+  return data;
+};
   const getStr = (v: any): string => {
     if (v === null || v === undefined) return '';
     if (typeof v === 'string' || typeof v === 'number') return String(v);
@@ -134,15 +144,18 @@ const ShelterDetail: React.FC = () => {
     const num = getStr(s.number) || getStr(s?.address?.number) || getStr(s?.location?.number) || '';
     return [street, num].filter(Boolean).join(' ');
   };
+const labelForShelter = (s: any) => {
+  if (!s) return 'מקלט';
+  const addr = getAddress(s);
+  const nm   = getStr(s?.name) || getStr(s?.shelterName) || getStr(s?.title) || getStr(s?.Name);
+  const cityTxt = getCityNameFromItem(s);
 
-  const labelForShelter = (s: any) => {
-    if (!s) return 'מקלט';
-    const nm = getStr(s?.name) || getStr(s?.shelterName) || getStr(s?.title) || getStr(s?.Name);
-    const cityTxt = getCityNameFromItem(s);
-    const addr = getAddress(s);
-    const txt = [nm || addr || 'מקלט', cityTxt].filter(Boolean).join(' • ');
-    return String(txt).replace(/\[object Object\]/g, '').trim();
-  };
+  // תמיד להעדיף כתובת, ואז שם, ואז fallback
+  const main = addr || nm || 'מקלט';
+  const txt = [main, cityTxt].filter(Boolean).join(' • ');
+  return String(txt).replace(/\[object Object\]/g, '').trim();
+};
+
 
   const keyFromUrl = (u?: string | null) => {
     if (!u) return null;
@@ -188,8 +201,9 @@ const ShelterDetail: React.FC = () => {
           ? `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(city)}&limit=${PAGE_LIMIT}`
           : `${API_SHELTERS_BY_CITY}?limit=${PAGE_LIMIT}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Failed to load shelters (${res.status})`);
-        const data = await res.json();
+if (!res.ok) throw new Error(`Failed to load shelters (${res.status})`);
+const data = await parseResponse(res);   // ← במקום res.json()
+
         const items: any[] = Array.isArray(data)
           ? data
           : Array.isArray(data?.items) ? data.items
@@ -216,8 +230,9 @@ const ShelterDetail: React.FC = () => {
       setIsSearchingCities(true);
       const url = `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(q)}&limit=${PAGE_LIMIT}`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`search cities ${res.status}`);
-      const data = await res.json();
+if (!res.ok) throw new Error(`search cities ${res.status}`);
+const data = await parseResponse(res);   // ← במקום res.json()
+
       const raw: any[] = Array.isArray(data)
         ? data
         : Array.isArray(data?.items) ? data.items
@@ -242,51 +257,51 @@ const ShelterDetail: React.FC = () => {
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   // ---------- פאג'ינציה: איתור Items + Cursor ----------
-  const extractItemsAndCursor = (data: any) => {
-    const items: any[] = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.items) ? data.items
-      : Array.isArray(data?.Items) ? data.Items
-      : Array.isArray(data?.results) ? data.results
-      : Array.isArray(data?.data) ? data.data
-      : [];
+const extractItemsAndCursor = (dataRaw: any) => {
+  // dataRaw כבר אחרי parseResponse ברוב המקומות, אבל אם יגיע גולמי נפתח שוב
+  const data = (typeof dataRaw?.body === 'string')
+    ? (() => { try { return JSON.parse(dataRaw.body); } catch { return dataRaw; } })()
+    : (dataRaw?.body ?? dataRaw);
 
-    const CANDIDATES: Array<[string, any]> = [
-      ['nextToken', data?.nextToken],
-      ['NextToken', data?.NextToken],
-      ['lastKey', data?.lastKey],
-      ['LastKey', data?.LastKey],
-      ['lastEvaluatedKey', data?.lastEvaluatedKey],
-      ['LastEvaluatedKey', data?.LastEvaluatedKey],
-      ['cursor', data?.cursor],
-      ['next', data?.next],
-      ['paginationToken', data?.paginationToken],
-      ['continuationToken', data?.continuationToken],
-      ['ExclusiveStartKey', data?.ExclusiveStartKey],
-      // nested
-      ['nextToken', data?.meta?.nextToken],
-      ['next', data?.meta?.next],
-      ['cursor', data?.meta?.cursor],
-      ['next', data?.page?.next],
-      ['cursor', data?.page?.cursor],
-      ['token', data?.pagination?.token],
-    ];
+  const items: any[] =
+    Array.isArray(data) ? data :
+    Array.isArray(data?.items) ? data.items :
+    Array.isArray(data?.Items) ? data.Items :
+    Array.isArray(data?.results) ? data.results :
+    Array.isArray(data?.data) ? data.data : [];
 
-    let cursor: Cursor = null;
-    for (const [name, val] of CANDIDATES) {
-      if (val !== undefined && val !== null && val !== '') {
-        cursor = { name, value: val };
-        break;
-      }
+  const CANDIDATES: Array<[string, any]> = [
+    ['nextToken', data?.nextToken], ['NextToken', data?.NextToken],
+    ['lastKey', data?.lastKey], ['LastKey', data?.LastKey],
+    ['lastEvaluatedKey', data?.lastEvaluatedKey], ['LastEvaluatedKey', data?.LastEvaluatedKey],
+    ['cursor', data?.cursor], ['next', data?.next],
+    ['paginationToken', data?.paginationToken], ['continuationToken', data?.continuationToken],
+    ['ExclusiveStartKey', data?.ExclusiveStartKey],
+    // nested
+    ['nextToken', data?.meta?.nextToken], ['next', data?.meta?.next], ['cursor', data?.meta?.cursor],
+    ['next', data?.page?.next], ['cursor', data?.page?.cursor],
+    ['token', data?.pagination?.token],
+  ];
+
+  let cursor: Cursor = null;
+  for (const [name, val] of CANDIDATES) {
+    if (val !== undefined && val !== null && val !== '') {
+      cursor = { name, value: val };
+      break;
     }
-    return { items, cursor };
-  };
+  }
+  return { items, cursor };
+};
 
-  const urlWithCursor = (base: string, cursor: Cursor) => {
-    if (!cursor) return base;
-    const v = typeof cursor.value === 'string' ? cursor.value : JSON.stringify(cursor.value);
-    return `${base}&${cursor.name}=${encodeURIComponent(v)}`;
-  };
+
+const urlWithCursor = (base: string, cursor: Cursor) => {
+  if (!cursor) return base;
+  // הערך חייב להיות אותו JSON שהשרת החזיר, כמחרוזת מוצפנת
+  const v = typeof cursor.value === 'string' ? cursor.value : JSON.stringify(cursor.value);
+  return `${base}&startKey=${encodeURIComponent(v)}`;
+};
+
+
 
   // ---------- טעינת מקלטי עיר ----------
   const loadSheltersOfCity = async (cityName: string, cursor: Cursor = null): Promise<Cursor> => {
@@ -295,11 +310,12 @@ const ShelterDetail: React.FC = () => {
     setIsLoadingShelters(true);
     try {
       const base = `${API_SHELTERS_BY_CITY}?city=${encodeURIComponent(chosen)}&limit=${PAGE_LIMIT}`;
-      const res = await fetch(urlWithCursor(base, cursor));
-      if (!res.ok) throw new Error(`load city shelters ${res.status}`);
-      const data = await res.json();
+     const res = await fetch(urlWithCursor(base, cursor));
+if (!res.ok) throw new Error(`load city shelters ${res.status}`);
+const data = await parseResponse(res);   // ← במקום res.json()
 
-      const { items, cursor: next } = extractItemsAndCursor(data);
+const { items, cursor: next } = extractItemsAndCursor(data);
+
       const sheltersOnly = items
         .filter(isShelterItem)
         .filter((s) => normalizeCity(getCityNameFromItem(s)).toLowerCase() === chosenLow);
@@ -320,15 +336,19 @@ const ShelterDetail: React.FC = () => {
     }
   };
 
-  const handlePickCity = async (cityName: string) => {
-    const chosen = normalizeCity(cityName);
-    setSelectedCity(chosen);
-    setPickerMode('shelter');
-    setCities([]);
-    setCitySheltersFull([]);
-    setShelterSearch('');
-    await loadSheltersOfCity(chosen);
-  };
+const handlePickCity = async (cityName: string) => {
+  const chosen = normalizeCity(cityName);
+  setSelectedCity(chosen);
+  setPickerMode('shelter');
+  setCities([]); setCitySheltersFull([]); setShelterSearch('');
+  const first = await loadSheltersOfCity(chosen);
+  // לטעון את כל העמודים באופן אוטומטי (עד LOAD_ALL_HARD_CAP):
+  let guard = 0, cur = first;
+  while (cur && guard < LOAD_ALL_HARD_CAP) {
+    cur = await loadSheltersOfCity(chosen, cur);
+    guard += 1;
+  }
+};
 
   const loadMoreInCity = async () => {
     if (selectedCity && nextCursor) await loadSheltersOfCity(selectedCity, nextCursor);
