@@ -15,6 +15,49 @@ interface ContactItem {
   phoneNumbers?: { number: string }[];
 }
 
+const USER_DETAILS_URL = 'https://p0l8kgq8gk.execute-api.us-east-1.amazonaws.com/getUserDetails';
+
+// ← החליפי ל-Invoke URL הנוכחי של המעבדה שלך
+const GET_REGISTERED_URL =
+  'https://rudac13hpb.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts';
+
+async function refreshRegisteredContactsNow(): Promise<string[]> {
+  try {
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== 'granted') return [];
+
+    const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+    const phones = data
+      .flatMap((c) => c.phoneNumbers || [])
+      .map((p) => normPhone(p.number || ''))
+      .filter(Boolean);
+
+      log('refreshRegisteredContactsNow: sending phones count =', phones.length);
+      log('refreshRegisteredContactsNow: sample phones =', phones.slice(0, 5));
+
+    const res = await fetch(GET_REGISTERED_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones }), // 👈 ה-Lambda מצפה ל-phones
+    });
+    const txt = await res.text();
+    log('refreshRegisteredContactsNow: status', res.status, 'ok', res.ok);
+    log('refreshRegisteredContactsNow: raw', txt.slice(0, 400)); // 👈 חשוב לראות את ה-debug 
+    let json: any = {};
+    try { json = JSON.parse(txt); } catch {}
+    const result: string[] = json.registeredPhones ?? json.registeredNumbers ?? [];
+    log('refreshRegisteredContactsNow: fetched', result.length, 'registered phones');
+    await AsyncStorage.setItem('registeredContacts', JSON.stringify(result));
+    
+    return result;
+  } catch (e) {
+    warn('refreshRegisteredContactsNow error:', e);
+    await AsyncStorage.setItem('registeredContacts', JSON.stringify([]));
+    return [];
+  }
+}
+
+
 // ---------- logging helper ----------
 const LOG_PREFIX = '[ContactsButton]';
 const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
@@ -37,6 +80,8 @@ const ContactsButton = () => {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const fetchContacts = async () => {
     setLoadingContacts(true);
     try {
@@ -55,25 +100,74 @@ const ContactsButton = () => {
       log('Total contacts received from device =', data.length);
 
       // registeredContacts – מה שאצלך נשמר ב‑AsyncStorage (מספרים גולמיים/ברקמות)
-      let registeredNumbers: string[] = [];
-      try {
-        const stored = await AsyncStorage.getItem('registeredContacts');
-        registeredNumbers = stored ? JSON.parse(stored) : [];
-        log('registeredContacts from AsyncStorage count =', registeredNumbers.length);
-      } catch (e) {
-        warn('Failed to parse registeredContacts from AsyncStorage:', e);
-      }
-      const asDigits = (x: string = '') => x.replace(/\D/g, '');
-      const registeredSet = new Set(registeredNumbers.map(asDigits));
+// אחרי הטעינה מ-AsyncStorage:
+let registeredNumbers: string[] = [];
+try {
+  const stored = await AsyncStorage.getItem('registeredContacts');
+  registeredNumbers = stored ? JSON.parse(stored) : [];
+  log('registeredContacts from AsyncStorage count =', registeredNumbers.length);
+} catch (e) {
+  warn('Failed to parse registeredContacts from AsyncStorage:', e);
+}
 
-      // סינון אנשי קשר שיש להם לפחות מספר שנמצא ב‑registeredContacts
-      const matchedContacts = data.filter((contact) =>
-        contact.phoneNumbers?.some((phone) =>
-          registeredSet.has(asDigits(phone.number || ''))
-        )
-      );
+// 👇 אם ריק – נרענן עכשיו מהשרת
+if (registeredNumbers.length === 0) {
+  log('registeredContacts empty → refreshing from Lambda now…');
+  registeredNumbers = await refreshRegisteredContactsNow();
+  log('registeredContacts after refresh =', registeredNumbers.length);
+}
 
-      log('Matched contacts count =', matchedContacts.length);
+// --- מי המשתמש הנוכחי? מה המספר והשם שלו?
+const ownerEmail = await getUserEmail();
+let myPhone = '';
+let myName = '';
+try {
+  if (ownerEmail) {
+    const r = await fetch(`${USER_DETAILS_URL}?email=${encodeURIComponent(ownerEmail)}`);
+    const j = await r.json();
+    // קולט כל האפשרויות
+    myPhone = normPhone(j?.phone_number || j?.phoneNumber || j?.phone || '');
+    myName  = (j?.displayName || j?.name || '').toLowerCase().trim();
+  }
+} catch (e) {
+  warn('failed to resolve my phone/name', e);
+}
+log('[me]', { ownerEmail, myPhone, myName });
+
+// אל תתני לעצמך להופיע בהתאמות מהשרת
+if (myPhone) {
+  registeredNumbers = registeredNumbers.filter(p => normPhone(p) !== myPhone);
+}
+
+// עכשיו בונים את ה-Set אחרי הסינון
+const registeredSet = new Set(registeredNumbers.map(normPhone));
+
+// זיהוי "אני" לפי מספר – גם גרסת 0xxxx המקומית
+const myPhoneLocal = myPhone.startsWith('+972') ? ('0' + myPhone.slice(4)) : '';
+const isMeNumber = (n: string) => {
+  const a = normPhone(n);
+  return !!a && (a === myPhone || a === normPhone(myPhoneLocal));
+};
+
+// התאמת אנשי קשר שרשומים + סינון עצמי לפי מספר או לפי שם (כגיבוי)
+const matchedContacts = data
+  .filter(c =>
+    c.phoneNumbers?.some(p => registeredSet.has(normPhone(p.number || '')))
+  )
+  .filter(c =>
+    // לא להציג אם לאחד המספרים יש התאמה אליי
+    !c.phoneNumbers?.some(p => isMeNumber(p.number || '')) &&
+    // וגם לא אם השם שווה לשם שלי (best-effort)
+    (!myName || (c.name || '').toLowerCase().trim() !== myName)
+  );
+
+
+
+log('Matched contacts count =', matchedContacts.length);
+log('Sample registered (first 3):', registeredNumbers.slice(0,3));
+if (data[0]?.phoneNumbers?.[0]?.number) {
+  log('Sample device num normalized:', normPhone(data[0].phoneNumbers[0].number));
+}
 
       setContacts(
         matchedContacts.map((contact) => ({
@@ -107,6 +201,58 @@ const ContactsButton = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const perm = await Contacts.requestPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert('אין הרשאה', 'לא אושרה גישה לאנשי קשר');
+        return;
+      }
+      const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+
+      let registeredNumbers = await refreshRegisteredContactsNow();
+
+      // מי המשתמש? סינון עצמי
+      const ownerEmail = await getUserEmail();
+      let myPhone = '';
+      if (ownerEmail) {
+        try {
+          const r = await fetch(`${USER_DETAILS_URL}?email=${encodeURIComponent(ownerEmail)}`);
+          const j = await r.json();
+          myPhone = normPhone(j?.phone_number || j?.phoneNumber || j?.phone || '');
+        } catch {}
+      }
+      if (myPhone) {
+        registeredNumbers = registeredNumbers.filter(p => normPhone(p) !== myPhone);
+      }
+
+      const registeredSet = new Set(registeredNumbers.map(normPhone));
+      const myPhoneLocal = myPhone.startsWith('+972') ? ('0' + myPhone.slice(4)) : '';
+      const isMeNumber = (n: string) => {
+        const a = normPhone(n);
+        return !!a && (a === myPhone || a === normPhone(myPhoneLocal));
+      };
+
+      const matchedContacts = data
+        .filter(c => c.phoneNumbers?.some(p => registeredSet.has(normPhone(p.number || ''))))
+        .filter(c => !c.phoneNumbers?.some(p => isMeNumber(p.number || '')));
+
+      setContacts(
+        matchedContacts.map(c => ({
+          id: c.id || '',
+          name: c.name,
+          phoneNumbers: c.phoneNumbers?.map(p => ({ number: p.number || '' })),
+        }))
+      );
+    } catch (e) {
+      err('refresh error:', e);
+      Alert.alert('שגיאה', 'הרענון נכשל');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // החזרת true/false להצלחת הקריאה, כולל הדפסות מלאות
   const doToggleAPICall = async (
     { id, phoneNumber, name, nextSelected }: { id: string; phoneNumber: string; name: string; nextSelected: boolean }
@@ -131,9 +277,10 @@ const ContactsButton = () => {
         ? 'https://l983i479h4.execute-api.us-east-1.amazonaws.com/save-contact'
         : 'https://tjxpec1cnc.execute-api.us-east-1.amazonaws.com/remove-contact';
 
-      const body = nextSelected
-        ? { owner, id, phone: normalizedPhone, name }
-        : { owner, phone: normalizedPhone };
+        const body = nextSelected
+  ? { userId: owner, contactName: name, phoneNumber: normalizedPhone.replace(/\D/g,'') }
+  : { userId: owner, phoneNumber: normalizedPhone.replace(/\D/g,'') };
+
 
       log(nextSelected ? 'Calling SAVE contact' : 'Calling REMOVE contact', { url, body });
 
@@ -218,24 +365,38 @@ const ContactsButton = () => {
           <MaterialIcons name="phone" size={24} color="#fff" />
         )}
       </TouchableOpacity>
-
+  
       <Modal
         visible={modalVisible}
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.titleWrapper}>
+  
+          {/* --- Header עם כפתור רענון --- */}
+          <View style={styles.titleRow}>
             <Text style={styles.title}>Select Contacts</Text>
-            <View style={styles.titleUnderline} />
+            <TouchableOpacity
+              style={styles.refreshBtn}
+              onPress={handleRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" />
+              ) : (
+                <MaterialIcons name="refresh" size={30} color="#11998e" />
+              )}
+            </TouchableOpacity>
           </View>
-
-          {toggleLoading && (
+          <View style={styles.titleUnderline} />
+  
+          {/* שכבת טעינה: גם בזמן רענון */}
+          {(toggleLoading || refreshing) && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#11998e" />
             </View>
           )}
-
+  
           <FlatList
             data={contacts}
             keyExtractor={(item) => item.id}
@@ -259,11 +420,11 @@ const ContactsButton = () => {
             }}
             ListEmptyComponent={
               <Text style={{ textAlign: 'center', color: 'gray', marginTop: 20 }}>
-                לא נמצאו אנשי קשר תואמים ל‑registeredContacts
+                לא נמצאו אנשי קשר תואמים ל-registeredContacts
               </Text>
             }
           />
-
+  
           <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
@@ -271,7 +432,7 @@ const ContactsButton = () => {
       </Modal>
     </>
   );
-};
+}  
 
 export default ContactsButton;
 
@@ -287,8 +448,32 @@ const styles = StyleSheet.create({
   },
   titleWrapper: { marginBottom: 30, alignItems: 'center' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#2C3E50', textAlign: 'center' },
-  titleUnderline: { marginTop: 6, width: 120, height: 4, backgroundColor: '#11998e', borderRadius: 2 },
+  titleUnderline: {
+    marginTop: 6,                  // “קצת יותר למעלה” — צמוד יותר לכותרת
+    marginBottom: 16,
+    width: '50%',                  // קו במרכז ברוחב נעים
+    height: 4,
+    backgroundColor: '#11998e',
+    borderRadius: 2,
+    alignSelf: 'center',
+  }, 
   listContent: { paddingBottom: 80 },
+  titleRow: {
+    marginBottom: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  refreshText: {
+    marginLeft: 6,
+    color: '#11998e',
+    fontWeight: '700',
+  },  
   contactItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   checkbox: { marginRight: 10 },
   contactName: { fontSize: 16, fontWeight: '600', marginBottom: 2 },

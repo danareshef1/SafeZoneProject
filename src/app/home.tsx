@@ -1,3 +1,4 @@
+// src/app/home.tsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
@@ -278,33 +279,50 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const storeRegisteredContacts = async () => {
-    try {
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') return;
+  // helper normalization, זהה ל־Lambda
+function normPhone(p: string) {
+  const d = (p || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('0') && d.length >= 9) return '+972' + d.slice(1);
+  if (d.startsWith('972')) return '+' + d;
+  if ((p || '').trim().startsWith('+')) return (p || '').trim();
+  return '+' + d;
+}
 
-      const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
-      const phoneNumbers = data
-        .flatMap((c) => c.phoneNumbers || [])
-        .map((p) => p.number?.replace(/\D/g, ''))
-        .filter((num) => !!num);
+const storeRegisteredContacts = async () => {
+  try {
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== 'granted') return;
 
-      const response = await lambdaFetch(
-        'https://rudac13hpb.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phoneNumbers }),
-        }
-      );
+    const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+    const phoneNumbers = data
+      .flatMap((c) => c.phoneNumbers || [])
+      .map((p) => (p.number || '').replace(/\D/g, ''))
+      .map(normPhone)   
+      .filter(Boolean);
 
-      const json = await response.json();
-      const result = json.registeredNumbers;
-      await AsyncStorage.setItem('registeredContacts', JSON.stringify(result));
-    } catch (error) {
-      console.error(' שגיאה בשמירת אנשי קשר:', error);
-    }
-  };
+    const response = await lambdaFetch(
+      'https://rudac13hpb.execute-api.us-east-1.amazonaws.com/GetRegisteredContacts',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // 👇 שולחים "phones" (לא phoneNumbers)
+        body: JSON.stringify({ phones: phoneNumbers }),
+      }
+    );
+
+    const json = await response.json();
+    // 👇 קולטים את השם החדש, נופלים אחורה לישן אם צריך
+    const result: string[] = json.registeredPhones ?? json.registeredNumbers ?? [];
+    console.log('[storeRegisteredContacts] saving', result.length, 'numbers:', result);
+
+    await AsyncStorage.setItem('registeredContacts', JSON.stringify(result));
+  } catch (error) {
+    console.error(' שגיאה בשמירת אנשי קשר:', error);
+    // שמור ריק כדי שהמסך לא יתקע
+    await AsyncStorage.setItem('registeredContacts', JSON.stringify([]));
+  }
+};
 
   const checkIfUserAtHome = async () => {
     try {
