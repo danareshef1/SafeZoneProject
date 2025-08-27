@@ -5,7 +5,6 @@ import {
   Text,
   Alert,
   ActivityIndicator,
-  TouchableWithoutFeedback,
   TouchableOpacity,
   ScrollView,
   Modal,
@@ -49,7 +48,7 @@ async function __limit<T>(fn: () => Promise<T>): Promise<T> {
 const lambdaFetch = (url: string, init?: RequestInit) => __limit(() => fetch(url, init));
 
 /* -------------------- Helpers: עיר -------------------- */
-const API_URL_USER_LOC = 'https://<your-id>.execute-api.us-east-1.amazonaws.com/get-user-location';
+const API_URL_USER_LOC = 'https://4rmea844n9.execute-api.us-east-1.amazonaws.com/get-user-location';
 
 const normalizeCity = (name?: string | null) =>
   (name || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim() || null;
@@ -71,7 +70,9 @@ const getCityFromServer = async (email: string | null) => {
     const res = await lambdaFetch(`${API_URL_USER_LOC}?email=${encodeURIComponent(email)}`);
     if (!res.ok) return null;
     const data = await res.json();
-    return (data.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim() || null;
+    const body = typeof data?.body === 'string' ? JSON.parse(data.body) : (data?.body ?? data);
+    const city = (body?.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
+    return city || null;
   } catch {
     return null;
   }
@@ -117,10 +118,20 @@ async function fetchHospitalsCached(): Promise<any[]> {
   const now = Date.now();
   if (hospitalsCache && now - hospitalsCache.fetchedAt < HOSP_TTL_MS) return hospitalsCache.data;
   const res = await lambdaFetch(API_URL_HOSPITALS);
-  const data = await res.json();
+  const raw = await res.json();
+  const data = Array.isArray(raw) ? raw : (typeof raw?.body === 'string' ? JSON.parse(raw.body) : (raw?.body ?? raw));
   hospitalsCache = { data, fetchedAt: now };
-  return data;
+  return data || [];
 }
+
+/* -------------------- City options (combobox) -------------------- */
+const CITY_OPTIONS = [
+  'תל אביב-יפו','ירושלים','חיפה','ראשון לציון','פתח תקווה','אשדוד','באר שבע','נתניה','חולון',
+  'רמת גן','אשקלון','בת ים','חדרה','הרצליה','כפר סבא','ראש העין','מודיעין-מכבים-רעות','רחובות',
+  'נהריה','טבריה','כרמיאל','רעננה','לוד','רמלה','בית שמש','גבעתיים','נס ציונה','קריית גת',
+  'קריית מוצקין','קריית ים','קריית ביאליק','קריית אתא','אילת','עפולה','רמת השרון','קרית שמונה',
+  'ביתר עילית','אלעד','מעלה אדומים','אריאל','אור עקיבא','כפר קאסם','הוד השרון','שוהם'
+];
 
 /* ==================== Component ==================== */
 const HomeScreen: React.FC = () => {
@@ -145,10 +156,12 @@ const HomeScreen: React.FC = () => {
   const [userCity, setUserCity] = useState<string | null>(null);
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [cityInput, setCityInput] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState<string[]>(CITY_OPTIONS.slice(0, 30));
   const [currentLL, setCurrentLL] = useState<{ lat: number; lon: number } | null>(null);
 
   const mapRef = useRef<MapView | null>(null);
   const router = useRouter();
+  const lastMarkerPressRef = useRef<number>(0); // <-- MUST be inside the component
 
   /* ---- Animations ---- */
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
@@ -178,13 +191,18 @@ const HomeScreen: React.FC = () => {
         const email = await getUserEmail();
         await refreshAndSendExpoPushToken(email);
 
-        // 2) Location
+        // 2) Location (עם שמירה ושליחה)
         let lat = 32.0853, lon = 34.7818; // TA fallback
         const perm = await Location.requestForegroundPermissionsAsync();
         if (perm.status === 'granted') {
           const here = await Location.getCurrentPositionAsync({});
           lat = here.coords.latitude;
           lon = here.coords.longitude;
+
+          // שמירה ושליחת מיקום בכניסה
+          await AsyncStorage.setItem('lastLocation', JSON.stringify({ latitude: lat, longitude: lon }));
+          await AsyncStorage.setItem('lastLocationAt', new Date().toISOString());
+          await sendLocationToBackend(lat, lon, 'login');
         } else {
           Alert.alert('Permission Denied', 'Permission to access location was denied. Using default location.');
         }
@@ -199,7 +217,7 @@ const HomeScreen: React.FC = () => {
         setUserCity(deviceCity || serverCity);
         setSelectedCity(initialCity);
 
-        // 4) Light things in parallel (3 בלבד — רחוק מתקרת 10)
+        // 4) Light things in parallel
         await Promise.allSettled([storeNearestHospital(lat, lon), storeRegisteredContacts(), checkIfUserAtHome()]);
 
         // 5) Alerts
@@ -221,6 +239,12 @@ const HomeScreen: React.FC = () => {
   }, [selectedCity]);
 
   /* -------------------- Helpers -------------------- */
+  const handleMarkerPress = (s: Shelter) => {
+    lastMarkerPressRef.current = Date.now();
+    setSelectedShelter(s);
+    // mapRef.current?.animateToRegion({ latitude: s.latitude, longitude: s.longitude, latitudeDelta: 0.01, longitudeDelta: 0.005 }, 300);
+  };
+
   const refreshAndSendExpoPushToken = async (email: string | null) => {
     try {
       const { status } = await Notifications.getPermissionsAsync();
@@ -358,7 +382,6 @@ const HomeScreen: React.FC = () => {
       let items: any[] = [];
       let startKey: any = null;
 
-      // פאג'ינציה סדרתית (Concurrency = 1)
       do {
         const base = `${API_URL_SHELTERS}?city=${encodeURIComponent(city)}`;
         const url = startKey ? `${base}&startKey=${encodeURIComponent(JSON.stringify(startKey))}` : base;
@@ -369,7 +392,6 @@ const HomeScreen: React.FC = () => {
         startKey = body.lastEvaluatedKey || null;
       } while (startKey);
 
-      // ❌ בלי המרות ITM — הנתונים כבר WGS84
       const toLatLon = (s: any) => {
         const lat = Number(s.location?.lat ?? s.location?.latitude ?? s.lat ?? s.latitude);
         const lon = Number(s.location?.lon ?? s.location?.lng ?? s.location?.longitude ?? s.lon ?? s.longitude);
@@ -379,36 +401,46 @@ const HomeScreen: React.FC = () => {
       const converted = items
         .map((s) => {
           const { latitude, longitude } = toLatLon(s);
-          const name = s.name || s.shelterName || s.shelter_name || 'מקלט';
-          return { ...s, name, latitude, longitude } as Shelter;
+          const id =
+            s.id || s.shelterId || s._id || s.asset_id || s.uuid ||
+            `${latitude},${longitude}`;
+
+          const rawLoc = s.location;
+          const address: string | null =
+            typeof s.address === 'string' ? s.address :
+            typeof s.street === 'string' ? s.street :
+            typeof s.streetName === 'string' ? s.streetName :
+            typeof s.fullAddress === 'string' ? s.fullAddress :
+            typeof rawLoc === 'string' ? rawLoc : null;
+
+          const origName = s.name || s.shelterName || s.shelter_name;
+          const name = address || origName || 'מקלט';
+
+          const distanceMeters =
+            latRef != null && lonRef != null && !isNaN(latitude) && !isNaN(longitude)
+              ? Math.round(calculateDistance(latRef, lonRef, latitude, longitude))
+              : Number.MAX_SAFE_INTEGER;
+
+          return {
+            ...s,
+            id,
+            name,
+            address,
+            origName,
+            latitude,
+            longitude,
+            distanceMeters,
+          } as Shelter & { distanceMeters?: number };
         })
-        .filter((s) => !isNaN(s.latitude) && !isNaN(s.longitude));
+        .filter((s) => !isNaN((s as any).latitude) && !isNaN((s as any).longitude));
 
-      let region = mapRegion;
-      if (!region && latRef && lonRef) {
-        region = { latitude: latRef, longitude: lonRef, latitudeDelta: 0.01, longitudeDelta: 0.005 };
-      }
-      if (region) {
-        converted.sort((a, b) => {
-          const da = calculateDistance(region!.latitude, region!.longitude, a.latitude, a.longitude);
-          const db = calculateDistance(region!.latitude, region!.longitude, b.latitude, b.longitude);
-          return da - db;
-        });
-      }
+      const sorted = [...converted].sort((a: any, b: any) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
 
-      setRawShelters(converted);
-      setAllShelters(converted);
-      setSheltersToShow(converted.slice(0, LOAD_COUNT));
-      await AsyncStorage.setItem('shelters', JSON.stringify(converted));
+      setRawShelters(sorted as any);
+      setAllShelters(sorted as any);
+      setSheltersToShow(sorted.slice(0, LOAD_COUNT) as any);
+      await AsyncStorage.setItem('shelters', JSON.stringify(sorted));
 
-      if (converted.length && selectedCity && selectedCity !== userCity) {
-        setMapRegion({
-          latitude: converted[0].latitude,
-          longitude: converted[0].longitude,
-          latitudeDelta: 0.04,
-          longitudeDelta: 0.02,
-        });
-      }
     } catch (error) {
       console.error('Error fetching shelters:', error);
       Alert.alert('Error', 'Unable to fetch shelter data.');
@@ -422,7 +454,7 @@ const HomeScreen: React.FC = () => {
       const hospitals = await fetchHospitalsCached();
       if (!Array.isArray(hospitals) || hospitals.length === 0) return;
       const nearest = hospitals
-        .map((h: any) => ({ ...h, distance: kmDistance(lat, lon, h.lat, h.lon) }))
+        .map((h: any) => ({ ...h, distance: kmDistance(lat, lon, Number(h.lat), Number(h.lon)) }))
         .sort((a: any, b: any) => a.distance - b.distance)[0];
       if (nearest) {
         await AsyncStorage.setItem(
@@ -430,8 +462,8 @@ const HomeScreen: React.FC = () => {
           JSON.stringify({
             id: nearest.name,
             name: nearest.name,
-            latitude: nearest.lat,
-            longitude: nearest.lon,
+            latitude: Number(nearest.lat),
+            longitude: Number(nearest.lon),
             phone: nearest.phone,
           })
         );
@@ -473,6 +505,11 @@ const HomeScreen: React.FC = () => {
         latitudeDelta: 0.01,
         longitudeDelta: 0.005,
       });
+      await AsyncStorage.setItem('lastLocation', JSON.stringify({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      }));
+      await AsyncStorage.setItem('lastLocationAt', new Date().toISOString());
       await sendLocationToBackend(location.coords.latitude, location.coords.longitude);
       Alert.alert('Success', 'Location refreshed!');
     } catch (error) {
@@ -519,7 +556,7 @@ const HomeScreen: React.FC = () => {
       try {
         setIsImageUploading(true);
         const uploadedImageUrl = await uploadImageToS3(localUri, 'shelter');
-        const response = await lambdaFetch(`${API_URL_SHELTER_ITEM}/${selectedShelter.id}`, {
+        const response = await lambdaFetch(`${API_URL_SHELTER_ITEM}/${encodeURIComponent(String(selectedShelter.id))}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: uploadedImageUrl }),
@@ -559,8 +596,6 @@ const HomeScreen: React.FC = () => {
     setSheltersToShow((prev) => [...prev, ...nextItems]);
   };
 
-  const handleDeselectShelter: () => void = () => setSelectedShelter(null);
-
   /* -------------------- Render -------------------- */
   if (!mapRegion) {
     return (
@@ -572,221 +607,267 @@ const HomeScreen: React.FC = () => {
   }
 
   return (
-    <TouchableWithoutFeedback onPress={handleDeselectShelter}>
-      <View style={{ flex: 1 }}>
-        {/* City picker modal */}
-        <Modal
-          visible={cityModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setCityModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>בחירת עיר</Text>
-              <TextInput
-                placeholder="שם עיר (לדוגמה: חולון)"
-                value={cityInput}
-                onChangeText={setCityInput}
-                style={styles.modalInput}
-                textAlign="right"
-              />
-              <View style={{ flexDirection: 'row-reverse', marginTop: 12 }}>
-                <TouchableOpacity
-                  style={[styles.topButton, { flex: 1, marginLeft: 8 }]}
-                  onPress={() => {
-                    const c = normalizeCity(cityInput);
-                    if (c) setSelectedCity(c);
-                    setCityModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.topButtonText}>אישור</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.topButton, { flex: 1 }]}
-                  onPress={async () => {
-                    if (currentLL) {
-                      const c = await detectCityName(currentLL.lat, currentLL.lon);
-                      if (c) {
-                        setCityInput(c);
-                        setSelectedCity(c);
-                      }
-                    }
-                    setCityModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.topButtonText}>השתמש בעיר הנוכחית</Text>
-                </TouchableOpacity>
-              </View>
+    <View style={{ flex: 1 }}>
+      {/* City picker modal (עם הצעות) */}
+      <Modal
+        visible={cityModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCityModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>בחירת עיר</Text>
+            <TextInput
+              placeholder="שם עיר (לדוגמה: חולון)"
+              value={cityInput}
+              onChangeText={(val) => {
+                setCityInput(val);
+                const norm = (val || '').trim().toLowerCase();
+                if (!norm) return setCitySuggestions(CITY_OPTIONS.slice(0, 30));
+                const filtered = CITY_OPTIONS.filter((c) => c.toLowerCase().includes(norm)).slice(0, 40);
+                setCitySuggestions(filtered.length ? filtered : [val]);
+              }}
+              style={styles.modalInput}
+              textAlign="right"
+            />
+
+            <View style={{ maxHeight: 260, marginTop: 8 }}>
+              <ScrollView>
+                {citySuggestions.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' }}
+                    onPress={() => {
+                      const norm = normalizeCity(c);
+                      if (norm) setSelectedCity(norm);
+                      setCityModalVisible(false);
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, textAlign: 'right' }}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-          </View>
-        </Modal>
 
-        <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-          <View style={styles.container}>
-            <MapView ref={mapRef} style={styles.map} region={mapRegion}>
-              {/* Top buttons bar */}
-              <View style={styles.topButtons}>
-                <TouchableOpacity style={[styles.topButton, { marginLeft: 10 }]} onPress={() => setCityModalVisible(true)}>
-                  <Text style={styles.topButtonText}>{selectedCity ? `עיר: ${selectedCity}` : 'בחר עיר'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.topButton} onPress={refreshLocation}>
-                  <Text style={styles.topButtonText}>רענן מיקומך</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.topButton, { marginRight: 10 }]} onPress={handleSaveHomeLocation}>
-                  <Text style={styles.topButtonText}>שמור מיקום בית</Text>
-                </TouchableOpacity>
-              </View>
-
+            <View style={{ flexDirection: 'row-reverse', marginTop: 12 }}>
               <TouchableOpacity
-                style={styles.centerButton}
+                style={[styles.topButton, { flex: 1, marginLeft: 8 }]}
                 onPress={() => {
-                  if (mapRegion) {
-                    mapRef.current?.animateToRegion(mapRegion, 1000);
-                  }
+                  const c = normalizeCity(cityInput);
+                  if (c) setSelectedCity(c);
+                  setCityModalVisible(false);
                 }}
               >
-                <Ionicons name="locate-outline" size={24} color="#fff" />
+                <Text style={styles.topButtonText}>אישור</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.topButton, { flex: 1 }]}
+                onPress={async () => {
+                  if (currentLL) {
+                    const c = await detectCityName(currentLL.lat, currentLL.lon);
+                    if (c) {
+                      setCityInput(c);
+                      setSelectedCity(c);
+                    }
+                  }
+                  setCityModalVisible(false);
+                }}
+              >
+                <Text style={styles.topButtonText}>השתמש בעיר הנוכחית</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
-              {/* My location */}
-              <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }}>
-                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <Animated.View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: 'rgba(17,153,142,0.3)',
-                      transform: [{ scale: pulseAnim }],
-                    }}
-                  />
-                </View>
-              </Marker>
+      <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+        <View style={styles.container}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            region={mapRegion}
+            onPress={() => {
+              if (Date.now() - lastMarkerPressRef.current < 350) return;
+              setSelectedShelter(null);
+            }}
+          >
+            {/* Top buttons bar */}
+            <View style={styles.topButtons}>
+              <TouchableOpacity
+                style={[styles.topButton, { marginLeft: 10 }]}
+                onPress={() => {
+                  setCityInput('');
+                  setCitySuggestions(CITY_OPTIONS.slice(0, 30));
+                  setCityModalVisible(true);
+                }}
+              >
+                <Text style={styles.topButtonText}>{selectedCity ? `עיר: ${selectedCity}` : 'בחר עיר'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.topButton} onPress={refreshLocation}>
+                <Text style={styles.topButtonText}>רענן מיקומך</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.topButton, { marginRight: 10 }]} onPress={handleSaveHomeLocation}>
+                <Text style={styles.topButtonText}>שמור מיקום בית</Text>
+              </TouchableOpacity>
+            </View>
 
-              {sheltersToShow.map((shelter) => (
-                <CustomMarker key={`${shelter.id}-${shelter.status}`} shelter={shelter} onPress={() => setSelectedShelter(shelter)} />
-              ))}
-            </MapView>
+            <TouchableOpacity
+              style={styles.centerButton}
+              onPress={() => {
+                if (mapRegion) {
+                  mapRef.current?.animateToRegion(mapRegion, 1000);
+                }
+              }}
+            >
+              <Ionicons name="locate-outline" size={24} color="#fff" />
+            </TouchableOpacity>
 
-            {alerts.length > 0 && (
-              <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
-                <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
-                <View style={{ flexGrow: 1 }}>
-                  <ScrollView>
-                    {alerts.map((alert, idx) => {
-                      const isMultiple = alert.descriptions.length > 1;
-                      const Container: any = isMultiple ? TouchableOpacity : View;
-                      return (
-                        <Container
-                          key={alert.id}
-                          style={styles.alertItem}
-                          {...(isMultiple && {
-                            onPress: () =>
-                              setAlerts((prev) => prev.map((a, i) => ({ ...a, expanded: i === idx ? !a.expanded : false }))),
-                          })}
-                        >
-                          <Text style={styles.alertIcon}>🚨</Text>
-                          <View style={[styles.alertTextContainer, { flexDirection: 'row-reverse', alignItems: 'center' }]}>
-                            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                              {isMultiple && alert.expanded ? (
-                                alert.descriptions.map((desc, i) => (
-                                  <Text key={i} style={styles.alertDescription}>
-                                    {desc}
-                                  </Text>
-                                ))
-                              ) : (
-                                <Text style={styles.alertDescription}>
-                                  {isMultiple ? `${alert.descriptions.length} איזורי התרעה` : alert.descriptions[0]}
-                                </Text>
-                              )}
-                              <Text style={styles.alertTime}>
-                                {alert.date} - {alert.time}
-                              </Text>
-                            </View>
-                            {isMultiple && (
-                              <Ionicons
-                                name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-                                size={20}
-                                color="#666"
-                                style={{ marginRight: 10, alignSelf: 'flex-start' }}
-                              />
-                            )}
-                          </View>
-                        </Container>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              </View>
-            )}
-
-            {selectedShelter && (
-              <Animated.View style={styles.shelterInfoBox}>
-                <View style={styles.shelterHeader}>
-                  <Ionicons name="home-outline" size={28} color="#11998e" style={{ marginRight: 10 }} />
-                  <Text style={styles.shelterTitle}>{selectedShelter.name}</Text>
-                </View>
-                <View style={styles.shelterDetails}>
-                  {selectedShelter.location && <Text style={styles.locationText}>{selectedShelter.location}</Text>}
-                </View>
-                <View style={styles.buttonRowInline}>
-                  <TouchableOpacity style={styles.actionButtonInline} onPress={handleReport}>
-                    <Ionicons name="warning-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
-                    <Text style={styles.actionButtonTextInline}>דווח</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButtonInline} onPress={handleAddImage} disabled={isImageUploading}>
-                    {isImageUploading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="image-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
-                        <Text style={styles.actionButtonTextInline}>הוסף תמונה</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </Animated.View>
-            )}
-
-            <BottomSheet index={0} snapPoints={snapPoints}>
-              <View style={styles.contentContainer}>
-                <Text style={styles.listTitle}>
-                  {selectedCity ? `מקלטים ב־${selectedCity} (${allShelters.length})` : `Over ${allShelters.length} shelters`}
-                </Text>
-                <BottomSheetFlatList
-                  data={sheltersToShow}
-                  onEndReached={loadMoreShelters}
-                  onEndReachedThreshold={0.5}
-                  contentContainerStyle={{ padding: 10 }}
-                  ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-                  renderItem={({ item }) => (
-                    <ShelterListItem
-                      shelter={item}
-                      containerStyle={{}}
-                      distance={
-                        mapRegion
-                          ? Math.round(
-                              calculateDistance(mapRegion.latitude, mapRegion.longitude, item.latitude, item.longitude)
-                            )
-                          : null
-                      }
-                    />
-                  )}
+            {/* My location pulse */}
+            <Marker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }}>
+              <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <Animated.View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: 'rgba(17,153,142,0.3)',
+                    transform: [{ scale: pulseAnim }],
+                  }}
                 />
               </View>
-            </BottomSheet>
-          </View>
-        </Animated.View>
+            </Marker>
 
-        {isSheltersLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#11998e" />
-            <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
-          </View>
-        )}
-      </View>
-    </TouchableWithoutFeedback>
+            {/* Shelters markers */}
+            {sheltersToShow.map((shelter) => (
+              <CustomMarker
+                key={`${shelter.id}-${(shelter as any).status ?? ''}`}
+                shelter={shelter}
+                onPress={() => handleMarkerPress(shelter)}
+              />
+            ))}
+          </MapView>
+
+          {alerts.length > 0 && (
+            <View style={[styles.alertsContainer, { maxHeight: 250 }]}>
+              <Text style={styles.alertsTitle}>📢 התראות אחרונות</Text>
+              <View style={{ flexGrow: 1 }}>
+                <ScrollView>
+                  {alerts.map((alert, idx) => {
+                    const isMultiple = alert.descriptions.length > 1;
+                    const Container: any = isMultiple ? TouchableOpacity : View;
+                    return (
+                      <Container
+                        key={alert.id}
+                        style={styles.alertItem}
+                        {...(isMultiple && {
+                          onPress: () =>
+                            setAlerts((prev) => prev.map((a, i) => ({ ...a, expanded: i === idx ? !a.expanded : false }))),
+                        })}
+                      >
+                        <Text style={styles.alertIcon}>🚨</Text>
+                        <View style={[styles.alertTextContainer, { flexDirection: 'row-reverse', alignItems: 'center' }]}>
+                          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                            {isMultiple && alert.expanded ? (
+                              alert.descriptions.map((desc, i) => (
+                                <Text key={i} style={styles.alertDescription}>
+                                  {desc}
+                                </Text>
+                              ))
+                            ) : (
+                              <Text style={styles.alertDescription}>
+                                {isMultiple ? `${alert.descriptions.length} איזורי התרעה` : alert.descriptions[0]}
+                              </Text>
+                            )}
+                            <Text style={styles.alertTime}>
+                              {alert.date} - {alert.time}
+                            </Text>
+                          </View>
+                          {isMultiple && (
+                            <Ionicons
+                              name={alert.expanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                              size={20}
+                              color="#666"
+                              style={{ marginRight: 10, alignSelf: 'flex-start' }}
+                            />
+                          )}
+                        </View>
+                      </Container>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          )}
+
+          {selectedShelter && (
+            <Animated.View style={styles.shelterInfoBox}>
+              <View style={styles.shelterHeader}>
+                <Ionicons name="home-outline" size={28} color="#11998e" style={{ marginRight: 10 }} />
+                <Text style={styles.shelterTitle}>{selectedShelter.name}</Text>
+              </View>
+              <View style={styles.shelterDetails}>
+                {typeof (selectedShelter as any).address === 'string' && (
+                  <Text style={styles.locationText}>{(selectedShelter as any).address}</Text>
+                )}
+              </View>
+              <View style={styles.buttonRowInline}>
+                <TouchableOpacity style={styles.actionButtonInline} onPress={handleReport}>
+                  <Ionicons name="warning-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
+                  <Text style={styles.actionButtonTextInline}>דווח</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButtonInline} onPress={handleAddImage} disabled={isImageUploading}>
+                  {isImageUploading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="image-outline" size={18} color="#fff" style={{ marginRight: 5 }} />
+                      <Text style={styles.actionButtonTextInline}>הוסף תמונה</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          )}
+
+          <BottomSheet index={0} snapPoints={snapPoints}>
+            <View style={styles.contentContainer}>
+              <Text style={styles.listTitle}>
+                {selectedCity ? `מקלטים ב־${selectedCity} (${allShelters.length})` : `Over ${allShelters.length} shelters`}
+              </Text>
+              <BottomSheetFlatList
+                data={sheltersToShow}
+                onEndReached={loadMoreShelters}
+                onEndReachedThreshold={0.5}
+                contentContainerStyle={{ padding: 10 }}
+                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+                renderItem={({ item }) => (
+                  <ShelterListItem
+                    shelter={item}
+                    containerStyle={{}}
+                    distance={
+                      mapRegion
+                        ? Math.round(
+                            calculateDistance(mapRegion.latitude, mapRegion.longitude, item.latitude, item.longitude)
+                          )
+                        : null
+                    }
+                  />
+                )}
+                keyExtractor={(item) => String(item.id)}
+              />
+            </View>
+          </BottomSheet>
+        </View>
+      </Animated.View>
+
+      {isSheltersLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#11998e" />
+          <Text style={{ marginTop: 10 }}>Loading shelters...</Text>
+        </View>
+      )}
+    </View>
   );
 };
 
@@ -918,7 +999,7 @@ const styles = StyleSheet.create({
   },
   shelterHeader: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 10 },
   shelterTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', flexShrink: 1, textAlign: 'right' },
-  shelterDetails: { flexDirection: 'column', alignItems: 'flex-end', marginBottom: 15 },
+  shelterDetails: { flexDirection: 'column', alignItems: 'flex-end', marginBottom: 15 }, // fixed typo
   locationText: { fontSize: 14, color: '#666', marginTop: 5, textAlign: 'right' },
   buttonRowInline: { flexDirection: 'row', justifyContent: 'space-between' },
   actionButtonInline: {
