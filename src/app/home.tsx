@@ -162,7 +162,7 @@ const HomeScreen: React.FC = () => {
 
   const mapRef = useRef<MapView | null>(null);
   const router = useRouter();
-  const lastMarkerPressRef = useRef<number>(0); // <-- MUST be inside the component
+const suppressMapClearUntilRef = useRef<number>(0);
 
   /* ---- Animations ---- */
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
@@ -240,11 +240,17 @@ const HomeScreen: React.FC = () => {
   }, [selectedCity]);
 
   /* -------------------- Helpers -------------------- */
-  const handleMarkerPress = (s: Shelter) => {
-    lastMarkerPressRef.current = Date.now();
-    setSelectedShelter(s);
-    // mapRef.current?.animateToRegion({ latitude: s.latitude, longitude: s.longitude, latitudeDelta: 0.01, longitudeDelta: 0.005 }, 300);
-  };
+const handleMarkerPress = (s: Shelter) => {
+  // אל תנקה את הכרטיס מה-Map onPress במשך 800ms
+  suppressMapClearUntilRef.current = Date.now() + 800;
+  setSelectedShelter(s);
+  // אם תרצה גם להזיז את המפה למקלט:
+   mapRef.current?.animateToRegion(
+    { latitude: s.latitude, longitude: s.longitude, latitudeDelta: 0.01, longitudeDelta: 0.005 },
+     300
+   );
+};
+
 
   const refreshAndSendExpoPushToken = async (email: string | null) => {
     try {
@@ -701,15 +707,20 @@ const storeRegisteredContacts = async () => {
 
       <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
         <View style={styles.container}>
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            region={mapRegion}
-            onPress={() => {
-              if (Date.now() - lastMarkerPressRef.current < 350) return;
-              setSelectedShelter(null);
-            }}
-          >
+<MapView
+  ref={mapRef}
+  style={styles.map}
+  region={mapRegion}
+  onPress={() => {
+    // אם אנחנו עדיין בתוך חלון הדיכוי – לא לנקות
+    if (Date.now() < suppressMapClearUntilRef.current) return;
+    // אופציונלי: בזמן טעינה אל תנקה
+    if (isSheltersLoading) return;
+
+    setSelectedShelter(null);
+  }}
+>
+
             {/* Top buttons bar */}
             <View style={styles.topButtons}>
               <TouchableOpacity
