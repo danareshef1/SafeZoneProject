@@ -29,6 +29,7 @@ import { getUserEmail } from '../../utils/auth';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
+
 /* ---------- Concurrency limiter: max 10 lambdas in parallel ---------- */
 const MAX_LAMBDA_CONCURRENCY = 10;
 let __active = 0;
@@ -342,7 +343,6 @@ const storeRegisteredContacts = async () => {
       );
 
       const isAtHome = dist <= HOME_RADIUS_METERS;
-      await AsyncStorage.setItem('isAtHome', JSON.stringify(isAtHome));
     } catch (err) {
       console.error(' שגיאה בבדיקת האם המשתמש בבית:', err);
     }
@@ -453,7 +453,11 @@ const storeRegisteredContacts = async () => {
         .filter((s) => !isNaN((s as any).latitude) && !isNaN((s as any).longitude));
 
       const sorted = [...converted].sort((a: any, b: any) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
-
+// אחרי sorted = [...converted].sort(...):
+const nearest = sorted[0];
+if (nearest) {
+  await AsyncStorage.setItem('nearestShelter', JSON.stringify(nearest));
+}
       setRawShelters(sorted as any);
       setAllShelters(sorted as any);
       setSheltersToShow(sorted.slice(0, LOAD_COUNT) as any);

@@ -82,6 +82,7 @@ const LoginScreen: React.FC = () => {
 
   const handleLogin = async (values: { username: string; password: string }) => {
     try {
+     await AsyncStorage.clear();
       console.log('🔐 Attempting login...');
       // כאן username הוא למעשה אימייל
       await login(values.username, values.password);

@@ -24,12 +24,6 @@ const invE = result ? result[0] : 0;
 const invN = result ? result[1] : 0;
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
-function convertITMtoWGS84(easting: number, northing: number) {
-  const correctedE = easting + deltaE;
-  const correctedN = northing + deltaN;
-  const [lon, lat] = proj4('EPSG:2039', 'EPSG:4326', [correctedE, correctedN]);
-  return { latitude: lat, longitude: lon };
-}
 
 // === Misc helpers ===
 const DEADLINE_MS = 10 * 60 * 1000;
@@ -129,28 +123,44 @@ const ShelterInfoScreen = () => {
   }, []);
 
   // ====== Fallback: משיכת מיקום/עיר מהשרת אם אין push ======
-  useEffect(() => {
-    (async () => {
-      try {
-        const email = await getUserEmail();
-        if (!email) return;
+// ====== Fallback: משיכת מיקום/עיר מהשרת אם אין push ======
+useEffect(() => {
+  (async () => {
+    try {
+      const email = await getUserEmail();
+      if (!email) return;
 
-        const res = await fetch(`https://tnryta2al0.execute-api.us-east-1.amazonaws.com/get-user-location?email=${encodeURIComponent(email)}`);
-        const data = await res.json();
+      const res = await fetch(
+        `https://tnryta2al0.execute-api.us-east-1.amazonaws.com/get-user-location?email=${encodeURIComponent(email)}`
+      );
+      const raw = await res.json();
+      // ⚠️ פירוק נכון של body אם הוא סטרינג, או אם העיקרי נמצא ב-body
+      const body = typeof raw?.body === 'string' ? JSON.parse(raw.body) : (raw?.body ?? raw);
+      const city = (body?.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
 
-        // אם כבר הוגדר ע"י push – לא נדרוס
-        if (!shelterLocation && typeof data?.city === 'string' && data.city.trim()) {
-          setShelterLocation(data.city.trim());
-          if (zones.length) {
-            const z = zones.find(zz => zz.name === data.city || zz.zone === data.city);
-            if (z) setZoneInfo(z);
+      // אם כבר הוגדר ע"י push – לא נדרוס
+      if (!shelterLocation && city) {
+        setShelterLocation(city);
+
+        if (zones.length) {
+          // נסה התאמה לפי name או zone (אחרי נרמול)
+          const norm = (s: string) => s.replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
+          const z = zones.find(zz => norm(zz.name || '') === norm(city) || norm(zz.zone || '') === norm(city));
+          if (z) {
+            setZoneInfo(z);
+            // ⏱ אם אין deadline מפוש, אתחלי לפי ה-countdown של האזור
+            if (typeof z.countdown === 'number' && !globalThis.safezoneShelterDeadline) {
+              globalThis.safezoneShelterDeadline = Date.now() + z.countdown * 1000;
+            }
           }
         }
-      } catch (err) {
-        console.log('שגיאה בשליפת עיר מהשרת:', err);
       }
-    })();
-  }, [zones, shelterLocation]);
+    } catch (err) {
+      console.log('שגיאה בשליפת עיר מהשרת:', err);
+    }
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [zones, shelterLocation]);
 
   // ====== קריאה מה־push (Foreground) ======
   useEffect(() => {
