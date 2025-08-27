@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { getUserEmail } from "../../utils/auth";
 
 // ===== API =====
 const BASE_URL =
@@ -156,7 +157,39 @@ export default function EmotionalChatScreen() {
     setTyping(true);
 
     try {
-      const payload: Record<string, any> = { message: text };
+const email = await getUserEmail().catch(() => null);
+if (!email) {
+  // הודעה עדינה במקום קריסה
+  setMessages((prev) => [
+    {
+      id: `need_email_${Date.now()}`,
+      role: "assistant",
+      content: "לא מצאתי אימייל משתמש. התחבר/י שוב כדי שאוכל לעזור.",
+      ts: Date.now(),
+    },
+    ...prev,
+  ]);
+  setTyping(false);
+  setSending(false);
+  return;
+}
+
+const payload: Record<string, any> = {
+  email,             // 👈 חובה עבור ה-Lambda
+  message: text,     // 👈 חובה עבור ה-Lambda
+  // אופציונלי: נשלח את כל הקונטקסט בתוך location
+  location: {
+    city: baseCtx.city || undefined,
+    atHome: typeof baseCtx.isAtHome === "boolean" ? baseCtx.isAtHome : undefined,
+    shelterName: baseCtx.shelterName || undefined,
+    distanceKm: typeof baseCtx.distanceKm === "number" ? baseCtx.distanceKm : undefined,
+    countdown: typeof baseCtx.countdown === "number" ? baseCtx.countdown : undefined,
+  },
+  // אם תרצי – תרגום panicLevel ל-mood
+  mood: "anxious",
+};
+
+if (sessionIdRef.current) payload.sessionId = sessionIdRef.current; // לא חובה ל-Lambda הנוכחי
       if (sessionIdRef.current) payload.sessionId = sessionIdRef.current;
 
       if (baseCtx.city) payload.city = baseCtx.city;
