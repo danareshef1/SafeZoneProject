@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import proj4 from 'proj4';
 import * as Notifications from 'expo-notifications';
 import { getUserEmail } from '../../utils/auth';
+import * as Location from 'expo-location';
 
 proj4.defs(
   'EPSG:2039',
@@ -25,6 +26,11 @@ const invN = result ? result[1] : 0;
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
+// === API URLs (עדכן אצלך אם צריך) ===
+const GET_PROFILE_URL = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/get-help-profile';
+const OPEN_HELP_URL   = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/open-help-request';
+const NEARBY_HELP_URL = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/nearby-help';
+
 // === Misc helpers ===
 const DEADLINE_MS = 10 * 60 * 1000;
 const nowMs = () => Date.now();
@@ -38,21 +44,19 @@ type ZoneItem = {
 
 function parseZonesResponse(raw: any) {
   if (Array.isArray(raw)) return raw;
-  if (Array.isArray(raw?.zones)) return raw.zones;                 // ← הוספה
+  if (Array.isArray(raw?.zones)) return raw.zones;
   if (Array.isArray(raw?.body)) return raw.body;
   if (typeof raw?.body === 'string') {
     try {
       const p = JSON.parse(raw.body);
       if (Array.isArray(p)) return p;
-      if (Array.isArray(p?.zones)) return p.zones;                 // ← הוספה
+      if (Array.isArray(p?.zones)) return p.zones;
     } catch {}
   }
   return [];
 }
 
-
 function pickDisplayZoneName(d: any): string | undefined {
-  // מעדיף zone (אם נשלח), אחרת city
   return (typeof d?.zone === 'string' && d.zone.trim()) || (typeof d?.city === 'string' && d.city.trim()) || undefined;
 }
 
@@ -74,18 +78,43 @@ const ShelterInfoScreen = () => {
   const [countdownOver, setCountdownOver] = useState(false);
   const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
 
+  // Need Help pins
+  type HelpPin = { requestId: string; lat: number; lng: number; categories: string[]; distanceM: number; city?: string };
+  const [helpPins, setHelpPins] = useState<HelpPin[]>([]);
+  const [sendingHelpReq, setSendingHelpReq] = useState(false);
+
   const router = useRouter();
   const deadlineRef = useRef<number>(0);
 
+  // === Auth header (שים כאן את ה-ID Token שלך מ-Cognito) ===
+  async function getAuthHeaderInScreen() {
+    const idToken = ''; // TODO: await getIdToken();
+    return idToken ? { Authorization: idToken } : {};
+  }
+
+  // עוזר: נירמול set שמגיע מדיינמו
+  function normalizeSet(input: any): string[] {
+    if (!input) return [];
+    if (Array.isArray(input)) return input;
+    if (typeof input === 'object' && input.type === 'Set' && Array.isArray(input.values)) return input.values;
+    if (typeof input === 'object' && Array.isArray((input as any).values)) return (input as any).values;
+    return [];
+  }
+
+  // האם אזעקה פעילה כעת (לשלוט בהצגת הכפתור)
+  const isAlertActiveNow = () => {
+    const dl = (globalThis as any).safezoneShelterDeadline;
+    return typeof dl === 'number' && dl > Date.now() && !countdownOver;
+  };
+
   // ====== טיימר / deadline ======
   useEffect(() => {
-    if (!globalThis.safezoneShelterDeadline) {
-      // אם אין push – נריץ 10 דקות מקומי (fallback)
-      globalThis.safezoneShelterDeadline = nowMs() + DEADLINE_MS;
+    if (!(globalThis as any).safezoneShelterDeadline) {
+      (globalThis as any).safezoneShelterDeadline = nowMs() + DEADLINE_MS;
     }
     const tick = () => {
       const currentDeadline =
-        globalThis.safezoneShelterDeadline ||
+        (globalThis as any).safezoneShelterDeadline ||
         deadlineRef.current ||
         (nowMs() + DEADLINE_MS);
 
@@ -123,44 +152,41 @@ const ShelterInfoScreen = () => {
   }, []);
 
   // ====== Fallback: משיכת מיקום/עיר מהשרת אם אין push ======
-// ====== Fallback: משיכת מיקום/עיר מהשרת אם אין push ======
-useEffect(() => {
-  (async () => {
-    try {
-      const email = await getUserEmail();
-      if (!email) return;
+  useEffect(() => {
+    (async () => {
+      try {
+        const email = await getUserEmail();
+        if (!email) return;
 
-      const res = await fetch(
-        `https://tnryta2al0.execute-api.us-east-1.amazonaws.com/get-user-location?email=${encodeURIComponent(email)}`
-      );
-      const raw = await res.json();
-      // ⚠️ פירוק נכון של body אם הוא סטרינג, או אם העיקרי נמצא ב-body
-      const body = typeof raw?.body === 'string' ? JSON.parse(raw.body) : (raw?.body ?? raw);
-      const city = (body?.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
+        const res = await fetch(
+          `https://tnryta2al0.execute-api.us-east-1.amazonaws.com/get-user-location?email=${encodeURIComponent(email)}`
+        );
+        const raw = await res.json();
+        const body = typeof raw?.body === 'string' ? JSON.parse(raw.body) : (raw?.body ?? raw);
+        const city = (body?.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
 
-      // אם כבר הוגדר ע"י push – לא נדרוס
-      if (!shelterLocation && city) {
-        setShelterLocation(city);
+        // אם כבר הוגדר ע"י push – לא נדרוס
+        if (!shelterLocation && city) {
+          setShelterLocation(city);
 
-        if (zones.length) {
-          // נסה התאמה לפי name או zone (אחרי נרמול)
-          const norm = (s: string) => s.replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
-          const z = zones.find(zz => norm(zz.name || '') === norm(city) || norm(zz.zone || '') === norm(city));
-          if (z) {
-            setZoneInfo(z);
-            // ⏱ אם אין deadline מפוש, אתחלי לפי ה-countdown של האזור
-            if (typeof z.countdown === 'number' && !globalThis.safezoneShelterDeadline) {
-              globalThis.safezoneShelterDeadline = Date.now() + z.countdown * 1000;
+          if (zones.length) {
+            const norm = (s: string) => s.replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
+            const z = zones.find(zz => norm(zz.name || '') === norm(city) || norm(zz.zone || '') === norm(city));
+            if (z) {
+              setZoneInfo(z);
+              // ⏱ אם אין deadline מפוש, אתחלי לפי ה-countdown של האזור
+              if (typeof z.countdown === 'number' && !(globalThis as any).safezoneShelterDeadline) {
+                (globalThis as any).safezoneShelterDeadline = Date.now() + z.countdown * 1000;
+              }
             }
           }
         }
+      } catch (err) {
+        console.log('שגיאה בשליפת עיר מהשרת:', err);
       }
-    } catch (err) {
-      console.log('שגיאה בשליפת עיר מהשרת:', err);
-    }
-  })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [zones, shelterLocation]);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zones, shelterLocation]);
 
   // ====== קריאה מה־push (Foreground) ======
   useEffect(() => {
@@ -223,21 +249,101 @@ useEffect(() => {
     })();
   }, []);
 
+  // ====== וידוא שיש פרופיל Need Help עם קטגוריות ======
+  const ensureHelpProfileReady = async (): Promise<boolean> => {
+    try {
+      const headers = await getAuthHeaderInScreen();
+      const r = await fetch(GET_PROFILE_URL, { headers });
+      const j = await r.json();
+      const cats = normalizeSet(j?.profile?.categories);
+      return (cats?.length ?? 0) > 0;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // ====== פתיחת בקשת עזרה ======
+  const openHelpRequestNow = async () => {
+    if (sendingHelpReq) return;
+    setSendingHelpReq(true);
+    try {
+      const hasProfile = await ensureHelpProfileReady();
+      if (!hasProfile) {
+        Alert.alert('חסר פרופיל', 'נא להגדיר קטגוריות במסך Need Help', [
+          { text: 'הגדר עכשיו', onPress: () => router.push('/need-help') },
+          { text: 'ביטול' },
+        ]);
+        return;
+      }
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('אין הרשאת מיקום', 'לא ניתן לפתוח בקשה ללא מיקום');
+        return;
+      }
+      const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+
+      const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaderInScreen()) };
+      const body = { lat: coords.latitude, lng: coords.longitude, city: shelterLocation || '' };
+      const r = await fetch(OPEN_HELP_URL, { method: 'POST', headers, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (j.ok) {
+        await AsyncStorage.setItem('lastHelpRequestId', String(j.requestId));
+        await AsyncStorage.setItem('lastHelpReqExpiresAt', String(j.expiresAt));
+        Alert.alert('נפתח', 'בקשת עזרה נפתחה ל-15 דק׳');
+      } else {
+        Alert.alert('שגיאה', j?.message || 'לא ניתן לפתוח בקשה כרגע');
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('שגיאה', 'אירעה תקלה בפתיחת בקשה');
+    } finally {
+      setSendingHelpReq(false);
+    }
+  };
+
+  // ====== Polling למבקשי עזרה קרובים (בזמן אזעקה) ======
+  useEffect(() => {
+    if (!isAlertActiveNow()) return;
+
+    let cancelled = false;
+    let timer: any;
+
+    const tick = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const headers = await getAuthHeaderInScreen();
+        const url = `${NEARBY_HELP_URL}?lat=${coords.latitude}&lng=${coords.longitude}&radiusM=700`;
+        const r = await fetch(url, { headers });
+        const j = await r.json();
+        if (!cancelled && j?.ok) setHelpPins(Array.isArray(j.nearby) ? j.nearby : []);
+      } catch (e) {
+        // שקט במכוון
+      } finally {
+        timer = setTimeout(tick, 15000);
+      }
+    };
+
+    tick();
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdownOver, shelterLocation]);
+
   // ====== לוגיקת עיבוד נתוני ה־push ======
   const applyPushData = (data: any) => {
-    // מצפה לשדות: { type, zone?, city?, startIso?, durationSec? }
     const zoneName = pickDisplayZoneName(data);
     if (zoneName) setShelterLocation(zoneName);
 
-    // עדכון countdown ע"פ push (עדיף על כל מקור אחר)
     const startMs = parseStartIso(data?.startIso);
-    const durSec = typeof data?.durationSec === 'number' ? data.durationSec
-                  : (typeof data?.durationSec === 'string' ? parseInt(data.durationSec, 10) : undefined);
+    const durSec = typeof data?.durationSec === 'number'
+      ? data.durationSec
+      : (typeof data?.durationSec === 'string' ? parseInt(data.durationSec, 10) : undefined);
 
     if (startMs && durSec && !isNaN(durSec)) {
       const dline = startMs + durSec * 1000;
-      globalThis.safezoneShelterDeadline = dline;
-      // עדכן מיד את הטיימר פעם אחת
+      (globalThis as any).safezoneShelterDeadline = dline;
       const remainingMs = Math.max(0, dline - nowMs());
       const remSec = Math.ceil(remainingMs / 1000);
       setMinutes(Math.floor(remSec / 60));
@@ -246,7 +352,6 @@ useEffect(() => {
       if (remainingMs <= 0) setCountdownOver(true);
     }
 
-    // ניסיון לשדך מידע אזור (countdown) אם יש לנו רשימת zones
     if (zoneName && zones.length) {
       const match = zones.find(z => z.name === zoneName || z.zone === zoneName);
       if (match) setZoneInfo(match);
@@ -270,7 +375,6 @@ useEffect(() => {
       const tokenJson = await tokenRes.json();
       const displayName = tokenJson?.displayName || '';
 
-      // נעדיף שם מקלט אם לא בבית
       const shelterName = atHomeFlag ? '' : (nearestShelter?.name ?? shelterLocation);
 
       const res = await fetch('https://tzjxjyn7hl.execute-api.us-east-1.amazonaws.com/notifyContactsSafe', {
@@ -366,6 +470,7 @@ useEffect(() => {
       <View style={styles.mapContainer}>
         {mapRegion && (
           <MapView style={styles.mapImage} region={mapRegion} showsUserLocation showsMyLocationButton>
+            {/* סימון מקלט קרוב */}
             {nearestShelter && (
               <Marker
                 coordinate={{ latitude: nearestShelter.latitude, longitude: nearestShelter.longitude }}
@@ -377,6 +482,19 @@ useEffect(() => {
                 }
               />
             )}
+
+            {/* מבקשי עזרה בסביבה */}
+            {helpPins.map(p => (
+              <Marker
+                key={p.requestId}
+                coordinate={{ latitude: p.lat, longitude: p.lng }}
+                title="צריך/ה עזרה (מיקום משוער)"
+                description={`${p.city || ''} • ${Math.round(p.distanceM)} מ' • ${p.categories?.join(', ') || ''}`}
+                pinColor="#f97316"
+              />
+            ))}
+
+            {/* כפתור ניווט למקלט */}
             {!isAtHome ? (
               <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
                 <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
@@ -423,6 +541,15 @@ useEffect(() => {
           {!isAtHome && (
             <TouchableOpacity style={styles.button} onPress={handleReport}>
               <Text style={styles.buttonText}>דיווח</Text>
+            </TouchableOpacity>
+          )}
+          {isAlertActiveNow() && (
+            <TouchableOpacity
+              style={[styles.button, sendingHelpReq && { opacity: 0.6 }]}
+              onPress={openHelpRequestNow}
+              disabled={sendingHelpReq}
+            >
+              <Text style={styles.buttonText}>{sendingHelpReq ? 'פותח בקשה…' : 'אני צריך/ה עזרה'}</Text>
             </TouchableOpacity>
           )}
         </View>

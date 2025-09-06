@@ -67,11 +67,17 @@ const CustomDrawerContent = () => {
         <MaterialIcons name="assignment" size={24} color="#333" />
         <Text style={styles.drawerItemText}>My Reports</Text>
       </TouchableOpacity>
+              <TouchableOpacity style={styles.drawerItem} onPress={() => navigateTo('/NeedHelp')}>
+  <MaterialIcons name="volunteer-activism" size={24} color="#333" />
+  <Text style={styles.drawerItemText}>Need Help</Text>
+</TouchableOpacity>
       <View style={styles.logoutSection}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={24} color="#333" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
+
+
       </View>
     </ScrollView>
   );
@@ -214,6 +220,7 @@ const applyAlertDeadlineAndNavigate = (data: any) => {
           segments[0] === 'verification' ||
           segments[0] === 'newPassword'
         ),
+        
         headerStyle: { backgroundColor: '#11998e' },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
