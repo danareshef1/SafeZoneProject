@@ -416,11 +416,15 @@ const storeRegisteredContacts = async () => {
         startKey = body.lastEvaluatedKey || null;
       } while (startKey);
 
-      const toLatLon = (s: any) => {
-        const lat = Number(s.location?.lat ?? s.location?.latitude ?? s.lat ?? s.latitude);
-        const lon = Number(s.location?.lon ?? s.location?.lng ?? s.location?.longitude ?? s.lon ?? s.longitude);
-        return { latitude: lat, longitude: lon };
-      };
+// 1) ודא ש-lat/lon תמיד מספרים לפני הסינון
+const toLatLon = (s: any) => {
+  const lat = Number(s.location?.lat ?? s.location?.latitude ?? s.lat ?? s.latitude);
+  const lon = Number(s.location?.lon ?? s.location?.lng ?? s.location?.longitude ?? s.lon ?? s.longitude);
+  return { latitude: Number.isFinite(lat) ? lat : NaN, longitude: Number.isFinite(lon) ? lon : NaN };
+};
+
+// 2) לוגים כדי לאבחן
+console.log('[fetchShelters]', { city, count: items.length });
 
       const converted = items
         .map((s) => {
@@ -457,10 +461,19 @@ const storeRegisteredContacts = async () => {
           } as Shelter & { distanceMeters?: number };
         })
         .filter((s) => !isNaN((s as any).latitude) && !isNaN((s as any).longitude));
+console.log('[fetchShelters] usable:', converted.length);
 
       const sorted = [...converted].sort((a: any, b: any) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0));
 // אחרי sorted = [...converted].sort(...):
 const nearest = sorted[0];
+if (sorted.length > 0) {
+  const nearest = sorted[0];
+  await AsyncStorage.setItem('nearestShelter', JSON.stringify(nearest));
+  console.log('[fetchShelters] nearest saved:', nearest?.id, nearest?.name, nearest?.distanceMeters);
+} else {
+  await AsyncStorage.removeItem('nearestShelter'); // למנוע stale
+  console.log('[fetchShelters] no shelters → cleared nearestShelter');
+}
 if (nearest) {
   await AsyncStorage.setItem('nearestShelter', JSON.stringify(nearest));
 }

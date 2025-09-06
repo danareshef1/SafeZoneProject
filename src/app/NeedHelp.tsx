@@ -1,4 +1,5 @@
 // app/need-help.tsx
+import { getUserEmail } from '@/utils/auth';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -53,58 +54,63 @@ export default function NeedHelpScreen() {
   // אם האפליקציה לא רצה כבר ב־RTL גלובלי, נכריח RTL בלוקאלי דרך סטיילים
   const rtl = useMemo(() => I18nManager.isRTL ?? true, []);
 
-  // TODO: שים כאן את ה-ID Token שלך (מה-Cognito) או תחליף בפונקציית auth קיימת
-  const authHeader = async () => {
-    const idToken = ''; // await getIdToken();
-    return idToken ? { Authorization: idToken } : {};
-  };
 
   const toggle = (k: string) => {
     setSelected(prev => (prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]));
   };
-
-  // טען פרופיל קיים
-  useEffect(() => {
-    (async () => {
-      try {
-        const headers = await authHeader();
-        const r = await fetch(GET_URL, { headers });
-        const j = await r.json();
-        const p = j?.profile || {};
-        setSelected(normalizeSet(p.categories));
-        setNotes(p.notes || '');
-        setVisibleOnMap(Boolean(p.wantsMapVisibility ?? true));
-      } catch (e) {
-        console.log('get-help-profile error', e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const saveProfile = async () => {
+// טעינת פרופיל
+useEffect(() => {
+  (async () => {
     try {
-      setSaving(true);
-      const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
-      const r = await fetch(SAVE_URL, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          categories: selected,
-          notes,
-          accessibilityNeeds: {},
-          wantsMapVisibility: visibleOnMap,
-        }),
-      });
+      const email = ((await getUserEmail()) || '').trim().toLowerCase();
+console.log('[NeedHelp] email for GET:', email);
+if (!email) { setLoading(false); Alert.alert('שגיאה','לא נמצא אימייל משתמש'); return; }
+
+      const r = await fetch(`${GET_URL}?email=${encodeURIComponent(email)}`); // ← בלי headers
       const j = await r.json();
-      if (j.ok) Alert.alert('נשמר', 'עודכנו העדפות העזרה');
-      else Alert.alert('שגיאה', JSON.stringify(j));
+      const p = j?.profile || {};
+      setSelected(normalizeSet(p.categories));
+      setNotes(p.notes || '');
+      setVisibleOnMap(Boolean(p.wantsMapVisibility ?? true));
     } catch (e) {
-      Alert.alert('שגיאה', 'לא ניתן לשמור כרגע');
+      console.log('get-help-profile error', e);
+      Alert.alert('שגיאה','לא ניתן לטעון פרופיל');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  };
+  })();
+}, []);
+
+// שמירה
+const saveProfile = async () => {
+  try {
+    setSaving(true);
+    const email = ((await getUserEmail()) || '').trim().toLowerCase();
+console.log('[NeedHelp] email for SAVE:', email);
+if (!email) { Alert.alert('שגיאה','לא נמצא אימייל משתמש'); return; }
+// בשמירה:
+const r = await fetch(`${SAVE_URL}?email=${encodeURIComponent(email)}`, { // 👈 הוספתי ?email=...
+  method:'POST',
+  headers:{ 'Content-Type':'application/json' },
+  body: JSON.stringify({
+    email, // אפשר להשאיר גם בגוף – לא מזיק
+    categories: selected,
+    notes,
+    accessibilityNeeds:{},
+    wantsMapVisibility: visibleOnMap
+  }),
+});
+
+    const j = await r.json();
+    if (j.ok) Alert.alert('נשמר', 'עודכנו העדפות העזרה');
+    else Alert.alert('שגיאה', JSON.stringify(j));
+  } catch {
+    Alert.alert('שגיאה','לא ניתן לשמור כרגע');
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   if (loading) {
     return (

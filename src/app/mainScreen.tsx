@@ -4,18 +4,29 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } fr
 import Svg, { Circle } from 'react-native-svg';
 import MapView, { Marker } from 'react-native-maps';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import proj4 from 'proj4';
 import * as Notifications from 'expo-notifications';
 import { getUserEmail } from '../../utils/auth';
 import * as Location from 'expo-location';
 
+// === Foreground notifications ===
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    priority: Notifications.AndroidNotificationPriority.MAX,
+  }),
+});
+
 proj4.defs(
   'EPSG:2039',
   '+proj=tmerc +lat_0=31.7343938888889 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +units=m +no_defs'
 );
 
-// === ITM helpers (לא בשימוש כרגע, משאיר אם תצטרך) ===
+// === ITM helpers (לא בשימוש) ===
 const sampleE = 179254.9219000004;
 const sampleN = 665111.2525999993;
 const targetLat = 32.0785788989309;
@@ -26,7 +37,7 @@ const invN = result ? result[1] : 0;
 const deltaE = invE - sampleE;
 const deltaN = invN - sampleN;
 
-// === API URLs (עדכן אצלך אם צריך) ===
+// === API URLs ===
 const GET_PROFILE_URL = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/get-help-profile';
 const OPEN_HELP_URL   = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/open-help-request';
 const NEARBY_HELP_URL = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/nearby-help';
@@ -34,13 +45,30 @@ const NEARBY_HELP_URL = 'https://50nq38ocfb.execute-api.us-east-1.amazonaws.com/
 // === Misc helpers ===
 const DEADLINE_MS = 10 * 60 * 1000;
 const nowMs = () => Date.now();
+const AS_KEY_DEADLINE = 'safezoneShelterDeadline';
+
+// ---------- Small helpers ----------
+function normalizeName(s?: string): string | undefined {
+  if (!s || typeof s !== 'string') return;
+  return s.replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
+}
+function pickDisplayZoneName(d: any): string | undefined {
+  return normalizeName(d?.zone) || normalizeName(d?.city);
+}
+function parseStartIso(s?: string): number | undefined {
+  if (!s || typeof s !== 'string') return;
+  const t = Date.parse(s);
+  return isNaN(t) ? undefined : t;
+}
+function num(n: any) { const v = Number(n); return Number.isFinite(v) ? v : NaN; }
 
 type ZoneItem = {
   id?: number | string;
-  name?: string;     // שם יישוב
-  zone?: string;     // שם אזור (שריפות/חזית וכו')
-  countdown?: number; // שניות כניסה למרחב מוגן
+  name?: string;
+  zone?: string;
+  countdown?: number;
 };
+type HelpPin = { requestId: string; lat: number; lng: number; categories: string[]; distanceM: number; city?: string };
 
 function parseZonesResponse(raw: any) {
   if (Array.isArray(raw)) return raw;
@@ -56,21 +84,43 @@ function parseZonesResponse(raw: any) {
   return [];
 }
 
-function pickDisplayZoneName(d: any): string | undefined {
-  return (typeof d?.zone === 'string' && d.zone.trim()) || (typeof d?.city === 'string' && d.city.trim()) || undefined;
-}
-
-function parseStartIso(s?: string): number | undefined {
-  if (!s || typeof s !== 'string') return;
-  const t = Date.parse(s);
-  return isNaN(t) ? undefined : t;
+// המרה סלחנית ל-string[]
+function extractCategories(raw: any): string[] {
+  if (!raw) return [];
+  // מערך של מיתרים רגילים
+  if (Array.isArray(raw) && (raw.length === 0 || typeof raw[0] === 'string')) {
+    return raw.map(String).filter(Boolean);
+  }
+  // המקרה [{S:"..."}, {S:"..."}]
+  if (Array.isArray(raw)) {
+    return raw
+      .map((x: any) => (typeof x === 'string' ? x : (x?.S ?? x?.N ?? x?.B ?? '')))
+      .filter(Boolean)
+      .map(String);
+  }
+  // צורות AttributeValue נוספות
+  if (raw && Array.isArray(raw.SS)) return raw.SS.map(String);
+  if (raw && Array.isArray(raw.L)) {
+    return raw.L
+      .map((x: any) => (x?.S ?? x?.N ?? x?.B ?? ''))
+      .filter(Boolean)
+      .map(String);
+  }
+  // סטים של DocumentClient
+  if (typeof raw === 'object' && raw?.type === 'Set' && Array.isArray(raw.values)) {
+    return raw.values.map(String).filter(Boolean);
+  }
+  if (typeof raw === 'object' && Array.isArray((raw as any).values)) {
+    return (raw as any).values.map(String).filter(Boolean);
+  }
+  return [];
 }
 
 const ShelterInfoScreen = () => {
   const [minutes, setMinutes] = useState(10);
   const [seconds, setSeconds] = useState(0);
   const [progress, setProgress] = useState(1);
-  const [shelterLocation, setShelterLocation] = useState<string>(''); // יציג zone/city
+  const [shelterLocation, setShelterLocation] = useState<string>('');
   const [zoneInfo, setZoneInfo] = useState<ZoneItem | null>(null);
   const [zones, setZones] = useState<ZoneItem[]>([]);
   const [nearestShelter, setNearestShelter] = useState<any>(null);
@@ -79,59 +129,78 @@ const ShelterInfoScreen = () => {
   const [isAtHome, setIsAtHome] = useState<boolean | null>(null);
 
   // Need Help pins
-  type HelpPin = { requestId: string; lat: number; lng: number; categories: string[]; distanceM: number; city?: string };
   const [helpPins, setHelpPins] = useState<HelpPin[]>([]);
   const [sendingHelpReq, setSendingHelpReq] = useState(false);
 
   const router = useRouter();
   const deadlineRef = useRef<number>(0);
 
-  // === Auth header (שים כאן את ה-ID Token שלך מ-Cognito) ===
+  // === Auth header (אם תוסיפי קוגניטו בעתיד) ===
   async function getAuthHeaderInScreen() {
     const idToken = ''; // TODO: await getIdToken();
     return idToken ? { Authorization: idToken } : {};
   }
 
-  // עוזר: נירמול set שמגיע מדיינמו
-  function normalizeSet(input: any): string[] {
-    if (!input) return [];
-    if (Array.isArray(input)) return input;
-    if (typeof input === 'object' && input.type === 'Set' && Array.isArray(input.values)) return input.values;
-    if (typeof input === 'object' && Array.isArray((input as any).values)) return (input as any).values;
-    return [];
-  }
-
-  // האם אזעקה פעילה כעת (לשלוט בהצגת הכפתור)
   const isAlertActiveNow = () => {
     const dl = (globalThis as any).safezoneShelterDeadline;
     return typeof dl === 'number' && dl > Date.now() && !countdownOver;
   };
 
+  const setDeadline = async (deadlineMs: number) => {
+    (globalThis as any).safezoneShelterDeadline = deadlineMs;
+    deadlineRef.current = deadlineMs;
+    setCountdownOver(false);
+    try { await AsyncStorage.setItem(AS_KEY_DEADLINE, String(deadlineMs)); } catch {}
+  };
+
   // ====== טיימר / deadline ======
   useEffect(() => {
-    if (!(globalThis as any).safezoneShelterDeadline) {
-      (globalThis as any).safezoneShelterDeadline = nowMs() + DEADLINE_MS;
-    }
-    const tick = () => {
-      const currentDeadline =
-        (globalThis as any).safezoneShelterDeadline ||
-        deadlineRef.current ||
-        (nowMs() + DEADLINE_MS);
+    const init = async () => {
+      let existing: number | null = null;
+      try {
+        const fromStore = await AsyncStorage.getItem(AS_KEY_DEADLINE);
+        if (fromStore) {
+          const parsed = parseInt(fromStore, 10);
+          if (!isNaN(parsed)) existing = parsed;
+        }
+      } catch {}
 
-      deadlineRef.current = currentDeadline;
+      if (typeof (globalThis as any).safezoneShelterDeadline === 'number') {
+        deadlineRef.current = (globalThis as any).safezoneShelterDeadline;
+      } else if (existing && existing > nowMs()) {
+        (globalThis as any).safezoneShelterDeadline = existing;
+        deadlineRef.current = existing;
+        setCountdownOver(false);
+      } else {
+        const fresh = nowMs() + DEADLINE_MS;
+        await setDeadline(fresh);
+      }
 
-      const remainingMs = Math.max(0, currentDeadline - nowMs());
-      const remSec = Math.ceil(remainingMs / 1000);
+      const tick = () => {
+        const currentDeadline =
+          (globalThis as any).safezoneShelterDeadline ||
+          deadlineRef.current ||
+          (nowMs() + DEADLINE_MS);
 
-      setMinutes(Math.floor(remSec / 60));
-      setSeconds(remSec % 60);
-      setProgress(remainingMs / DEADLINE_MS);
-      if (remainingMs <= 0) setCountdownOver(true);
+        deadlineRef.current = currentDeadline;
+
+        const remainingMs = Math.max(0, currentDeadline - nowMs());
+        const remSec = Math.ceil(remainingMs / 1000);
+
+        setMinutes(Math.floor(remSec / 60));
+        setSeconds(remSec % 60);
+        setProgress(Math.min(1, Math.max(0, remainingMs / DEADLINE_MS)));
+        if (remainingMs <= 0) setCountdownOver(true);
+      };
+
+      tick();
+      const id = setInterval(tick, 1000);
+      return () => clearInterval(id);
     };
 
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    let cleanup: (() => void) | undefined;
+    init().then(c => { cleanup = c as any; });
+    return () => { if (cleanup) cleanup(); };
   }, []);
 
   useEffect(() => {
@@ -163,20 +232,19 @@ const ShelterInfoScreen = () => {
         );
         const raw = await res.json();
         const body = typeof raw?.body === 'string' ? JSON.parse(raw.body) : (raw?.body ?? raw);
-        const city = (body?.city || '').replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
+        const city = normalizeName(body?.city);
 
-        // אם כבר הוגדר ע"י push – לא נדרוס
         if (!shelterLocation && city) {
           setShelterLocation(city);
 
           if (zones.length) {
-            const norm = (s: string) => s.replace(/\s+/g, ' ').replace(/[\"״]/g, '').trim();
-            const z = zones.find(zz => norm(zz.name || '') === norm(city) || norm(zz.zone || '') === norm(city));
+            const z = zones.find(zz =>
+              normalizeName(zz.name) === city || normalizeName(zz.zone) === city
+            );
             if (z) {
               setZoneInfo(z);
-              // ⏱ אם אין deadline מפוש, אתחלי לפי ה-countdown של האזור
               if (typeof z.countdown === 'number' && !(globalThis as any).safezoneShelterDeadline) {
-                (globalThis as any).safezoneShelterDeadline = Date.now() + z.countdown * 1000;
+                await setDeadline(Date.now() + z.countdown * 1000);
               }
             }
           }
@@ -188,7 +256,7 @@ const ShelterInfoScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zones, shelterLocation]);
 
-  // ====== קריאה מה־push (Foreground) ======
+  // ====== קריאה מה־push ======
   useEffect(() => {
     const subReceive = Notifications.addNotificationReceivedListener((notif) => {
       try {
@@ -208,7 +276,6 @@ const ShelterInfoScreen = () => {
       }
     });
 
-    // במקרה שהמסך נפתח מתוך הקשה על התראה שעוד “זמינה”
     (async () => {
       try {
         const last = await Notifications.getLastNotificationResponseAsync();
@@ -223,7 +290,7 @@ const ShelterInfoScreen = () => {
     };
   }, [zones]);
 
-  // ====== טען nearestShelter + isAtHome למפה ======
+  // ====== טען nearestShelter + isAtHome ======
   useEffect(() => {
     (async () => {
       try {
@@ -231,15 +298,38 @@ const ShelterInfoScreen = () => {
         const atHomeString = await AsyncStorage.getItem('isAtHome');
 
         if (data) {
-          const shelter = JSON.parse(data);
-          setNearestShelter(shelter);
-          setMapRegion({
-            latitude: shelter.latitude,
-            longitude: shelter.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+          const s = JSON.parse(data);
+          const lat = num(s.latitude ?? s.lat);
+          const lon = num(s.longitude ?? s.lng);
+          setNearestShelter({
+            ...s,
+            latitude: lat,
+            longitude: lon,
+            distance: typeof s.distance === 'number'
+              ? s.distance
+              : (typeof s.distanceMeters === 'number' ? s.distanceMeters / 1000 : undefined),
           });
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            setMapRegion({
+              latitude: lat,
+              longitude: lon,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            });
+          }
+        } else {
+          const perm = await Location.requestForegroundPermissionsAsync();
+          if (perm.status === 'granted') {
+            const here = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            setMapRegion({
+              latitude: here.coords.latitude,
+              longitude: here.coords.longitude,
+              latitudeDelta: 0.02,
+              longitudeDelta: 0.02,
+            });
+          }
         }
+
         if (atHomeString !== null) {
           setIsAtHome(atHomeString === 'true');
         }
@@ -249,15 +339,93 @@ const ShelterInfoScreen = () => {
     })();
   }, []);
 
-  // ====== וידוא שיש פרופיל Need Help עם קטגוריות ======
+  // ====== טען מחדש nearestShelter בכל כניסה למסך ======
+  const reloadNearest = React.useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem('nearestShelter');
+      if (!raw) return;
+
+      const s = JSON.parse(raw);
+      const fixed = {
+        ...s,
+        latitude: num(s.latitude ?? s.lat),
+        longitude: num(s.longitude ?? s.lng),
+        distance: typeof s.distance === 'number'
+          ? s.distance
+          : (typeof s.distanceMeters === 'number' ? s.distanceMeters / 1000 : undefined),
+      };
+
+      if (!Number.isFinite(fixed.latitude) || !Number.isFinite(fixed.longitude)) {
+        console.log('[mainScreen] nearestShelter missing lat/lon -> ignoring', s);
+        return;
+      }
+
+      setNearestShelter(fixed);
+      setMapRegion((prev: any) => prev ?? ({
+        latitude: fixed.latitude,
+        longitude: fixed.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }));
+    } catch (e) {
+      console.log('reloadNearest error', e);
+    }
+  }, []);
+
+  useFocusEffect(React.useCallback(() => {
+    reloadNearest();
+    return () => {};
+  }, [reloadNearest]));
+
+  // ====== וידוא שיש פרופיל Need Help עם קטגוריות (GET) ======
   const ensureHelpProfileReady = async (): Promise<boolean> => {
     try {
-      const headers = await getAuthHeaderInScreen();
-      const r = await fetch(GET_PROFILE_URL, { headers });
-      const j = await r.json();
-      const cats = normalizeSet(j?.profile?.categories);
-      return (cats?.length ?? 0) > 0;
+      // 1) קאש: אם קיים וריק — לנקות, אם מלא — להחזיר true
+      const cached = await AsyncStorage.getItem('needHelpProfile');
+      if (cached) {
+        try {
+          const p = JSON.parse(cached);
+          const catsCached = extractCategories(p?.categories);
+          if (catsCached.length) return true;
+          await AsyncStorage.removeItem('needHelpProfile'); // קאש ריק → ננקה
+        } catch {
+          await AsyncStorage.removeItem('needHelpProfile');
+        }
+      }
+
+      // 2) אימייל
+      let email = await getUserEmail();
+      if (!email) email = (await AsyncStorage.getItem('userEmail')) || '';
+      email = (email || '').trim().toLowerCase();
+      if (!email) return false;
+
+      // 3) קריאה לשרת (GET)
+      const url = `${GET_PROFILE_URL}?email=${encodeURIComponent(email)}`;
+      console.log('[NeedHelp] GET', url);
+      const r = await fetch(url);
+      const txt = await r.text();
+      if (!r.ok) {
+        console.log('[NeedHelp] status:', r.status, 'body:', txt?.slice(0, 500));
+        return false;
+      }
+
+      // 4) פרסור סלחני
+      let j: any = {};
+      try { j = txt ? JSON.parse(txt) : {}; } catch {}
+      const body    = typeof j?.body === 'string' ? (() => { try { return JSON.parse(j.body); } catch { return null; } })() : (j?.body ?? null);
+      const profile = j?.profile || body?.profile || j;
+      const cats: string[] = extractCategories(profile?.categories);
+
+      console.log('[NeedHelp] categories:', cats);
+
+      // 5) שמירה לקאש (כ־string[])
+      if (cats.length) {
+        await AsyncStorage.setItem('needHelpProfile', JSON.stringify({ categories: cats }));
+        return true;
+      }
+      return false;
     } catch (e) {
+      console.log('ensureHelpProfileReady error:', e);
       return false;
     }
   };
@@ -269,10 +437,15 @@ const ShelterInfoScreen = () => {
     try {
       const hasProfile = await ensureHelpProfileReady();
       if (!hasProfile) {
-        Alert.alert('חסר פרופיל', 'נא להגדיר קטגוריות במסך Need Help', [
-          { text: 'הגדר עכשיו', onPress: () => router.push('/need-help') },
-          { text: 'ביטול' },
-        ]);
+        const email = await getUserEmail();
+        Alert.alert(
+          'חסר פרופיל',
+          `לא נמצאו קטגוריות ל־${email || 'unknown'}.\nודאי שבטבלת NeedHelpProfiles יש categories מסוג List עם ערכים (Strings).`,
+          [
+            { text: 'הגדר עכשיו', onPress: () => router.push('/NeedHelp') },
+            { text: 'ביטול' },
+          ]
+        );
         return;
       }
 
@@ -302,7 +475,7 @@ const ShelterInfoScreen = () => {
     }
   };
 
-  // ====== Polling למבקשי עזרה קרובים (בזמן אזעקה) ======
+  // ====== Polling למבקשי עזרה קרובים ======
   useEffect(() => {
     if (!isAlertActiveNow()) return;
 
@@ -319,7 +492,7 @@ const ShelterInfoScreen = () => {
         const r = await fetch(url, { headers });
         const j = await r.json();
         if (!cancelled && j?.ok) setHelpPins(Array.isArray(j.nearby) ? j.nearby : []);
-      } catch (e) {
+      } catch {
         // שקט במכוון
       } finally {
         timer = setTimeout(tick, 15000);
@@ -343,17 +516,19 @@ const ShelterInfoScreen = () => {
 
     if (startMs && durSec && !isNaN(durSec)) {
       const dline = startMs + durSec * 1000;
-      (globalThis as any).safezoneShelterDeadline = dline;
+      setDeadline(dline);
       const remainingMs = Math.max(0, dline - nowMs());
       const remSec = Math.ceil(remainingMs / 1000);
       setMinutes(Math.floor(remSec / 60));
       setSeconds(remSec % 60);
-      setProgress(remainingMs / DEADLINE_MS);
+      setProgress(Math.min(1, Math.max(0, remainingMs / DEADLINE_MS)));
       if (remainingMs <= 0) setCountdownOver(true);
     }
 
     if (zoneName && zones.length) {
-      const match = zones.find(z => z.name === zoneName || z.zone === zoneName);
+      const match = zones.find(z =>
+        normalizeName(z.name) === zoneName || normalizeName(z.zone) === zoneName
+      );
       if (match) setZoneInfo(match);
     }
   };
@@ -455,8 +630,7 @@ const ShelterInfoScreen = () => {
           מיקומך: {shelterLocation ? shelterLocation : 'לא ידוע'}
         </Text>
         <Text style={styles.infoText}>
-          זמן כניסה למקלט:{' '}
-          {zoneInfo?.countdown != null ? `${zoneInfo.countdown} שניות` : 'לא ידוע'}
+          זמן כניסה למקלט: {zoneInfo?.countdown != null ? `${zoneInfo.countdown} שניות` : 'לא ידוע'}
         </Text>
       </View>
 
@@ -469,32 +643,33 @@ const ShelterInfoScreen = () => {
 
       <View style={styles.mapContainer}>
         {mapRegion && (
-          <MapView style={styles.mapImage} region={mapRegion} showsUserLocation showsMyLocationButton>
-            {/* סימון מקלט קרוב */}
-            {nearestShelter && (
-              <Marker
-                coordinate={{ latitude: nearestShelter.latitude, longitude: nearestShelter.longitude }}
-                title={nearestShelter.name ?? 'מקלט'}
-                description={
-                  typeof nearestShelter.distance === 'number'
-                    ? `מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`
-                    : undefined
-                }
-              />
-            )}
+          <>
+            <MapView style={styles.mapImage} region={mapRegion} showsUserLocation showsMyLocationButton>
+              {nearestShelter && Number.isFinite(nearestShelter.latitude) && Number.isFinite(nearestShelter.longitude) && (
+                <Marker
+                  coordinate={{ latitude: nearestShelter.latitude, longitude: nearestShelter.longitude }}
+                  title={nearestShelter.name ?? 'מקלט'}
+                  description={
+                    typeof nearestShelter.distance === 'number'
+                      ? `מרחק: ${nearestShelter.distance.toFixed(2)} ק"מ`
+                      : (typeof nearestShelter.distanceMeters === 'number'
+                          ? `מרחק: ${(nearestShelter.distanceMeters/1000).toFixed(2)} ק"מ`
+                          : undefined)
+                  }
+                />
+              )}
 
-            {/* מבקשי עזרה בסביבה */}
-            {helpPins.map(p => (
-              <Marker
-                key={p.requestId}
-                coordinate={{ latitude: p.lat, longitude: p.lng }}
-                title="צריך/ה עזרה (מיקום משוער)"
-                description={`${p.city || ''} • ${Math.round(p.distanceM)} מ' • ${p.categories?.join(', ') || ''}`}
-                pinColor="#f97316"
-              />
-            ))}
+              {helpPins.map(p => (
+                <Marker
+                  key={p.requestId}
+                  coordinate={{ latitude: p.lat, longitude: p.lng }}
+                  title="צריך/ה עזרה (מיקום משוער)"
+                  description={`${p.city || ''} • ${Math.round(p.distanceM)} מ' • ${p.categories?.join(', ') || ''}`}
+                  pinColor="#f97316"
+                />
+              ))}
+            </MapView>
 
-            {/* כפתור ניווט למקלט */}
             {!isAtHome ? (
               <TouchableOpacity style={styles.floatingButton} onPress={handleNavigateToShelter}>
                 <Text style={styles.floatingButtonText}>🏃 נווט למקלט</Text>
@@ -504,7 +679,7 @@ const ShelterInfoScreen = () => {
                 <Text style={styles.floatingButtonText}>🏠 אתה בבית - לך לממ״ד</Text>
               </View>
             )}
-          </MapView>
+          </>
         )}
       </View>
 
@@ -518,7 +693,7 @@ const ShelterInfoScreen = () => {
                 cy="80"
                 r={70}
                 stroke="#11998e"
-                strokeWidth="12"
+                strokeWidth={12}
                 strokeDasharray={2 * Math.PI * 70}
                 strokeDashoffset={strokeDashoffset}
                 fill="none"
