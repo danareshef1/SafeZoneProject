@@ -1,50 +1,96 @@
-# Welcome to your Expo app 👋
+# SafeZone 🚨
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+SafeZone is a **location-based emergency response mobile application** designed to guide users in real time during emergency situations - from receiving an alert, through navigation to the nearest shelter, to emotional support and post-emergency assistance.
 
-## Get started
+The project was developed as part of the **Cloud Computing Workshop**.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 📱 What is SafeZone?
 
-2. Start the app
+During emergencies, people often receive alerts but lack:
+- Clear guidance on *where to go*
+- Visibility into *shelter availability*
+- Tools to *notify loved ones*
+- Support for *stress and anxiety* in real time
 
-   ```bash
-    npx expo start
-   ```
+SafeZone bridges this gap by providing a **complete emergency assistant**, not just an alert system.
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## ✨ Key Features
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- 📍 **Real-time location-based alerts**
+- 🧭 **Navigation to the nearest shelter**
+- 🏠 **Shelter occupancy & condition reporting**
+- 📩 **Notify emergency contacts with live location**
+- 🧠 **AI-powered emotional support (GenAI)**
+- ⏱️ **Shelter stay timer (based on Home Front guidelines)**
+- 🧾 **Post-emergency recovery tools & checklist**
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## 🧩 User Flow (High Level)
+
+1. User receives an emergency alert
+2. App displays nearby shelters on a map
+3. Optimal shelter is selected based on distance
+4. Step-by-step navigation guides the user
+5. User can:
+   - Notify loved ones
+   - Report shelter conditions
+   - Use emotional support chat
+6. After the alert ends - recovery and assistance tools are shown
+
+---
+
+## ☁️ System Architecture
+
+SafeZone is built on a **serverless AWS architecture** to ensure scalability, reliability, and fast response times.
+
+### AWS Services Used
+
+- **AWS Lambda** – Backend business logic (alerts, reports, notifications)
+- **Amazon API Gateway** – REST APIs for mobile app communication
+- **Amazon DynamoDB** – Main database (users, shelters, reports)
+- **AWS Cognito** – User authentication & identity management
+- **Amazon S3** – Image uploads (shelter reports)
+- **Amazon EventBridge** – Scheduled background tasks
+- **Amazon CloudWatch** – Monitoring & logging
+
+---
+
+## 🗺️ Location & Navigation Logic
+
+- GPS access via `expo-location`
+- Coordinate conversion (ITM → WGS84) using `proj4`
+- Distance calculation using Haversine formula
+- Local caching with `AsyncStorage`
+- One-tap navigation to Google / Apple Maps
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- React Native
+- Expo
+- TypeScript
+
+### Backend
+- AWS Lambda (Python)
+- API Gateway
+- DynamoDB
+
+### AI
+- OpenAI
+
+---
+
+## 🚀 Installation & Run (Development)
 
 ```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+git clone https://github.com/<your-username>/SafeZone.git
+cd SafeZone
+npm install
+npx expo start
