@@ -125,7 +125,7 @@ to help users stay safe, informed, and calm under pressure.
       </video>
     </td>
     <td align="center" style="padding:12px;">
-      <h4>🗺️ Shelter Navigation</h4>
+      <h4>Alert Screen</h4>
       <video 
         src="https://github.com/user-attachments/assets/9163264c-cb58-4e18-8b35-44b2aa2ec2ad"
         controls
@@ -136,7 +136,7 @@ to help users stay safe, informed, and calm under pressure.
 
   <tr>
     <td align="center" style="padding:12px;">
-      <h4>📞 Emergency Contacts</h4>
+      <h4>🔐 Login & Registration</h4>
       <video 
         src="https://github.com/user-attachments/assets/6c837164-6b08-44d1-9360-b1afe638b99b"
         controls
