@@ -75,7 +75,6 @@ It combines:
 to help users stay safe, informed, and calm under pressure.
 
 ---
----
 
 ## 📽️ Demo Videos
 
@@ -84,16 +83,38 @@ to help users stay safe, informed, and calm under pressure.
 <div align="center">
 
 <table style="border-collapse:collapse; border:none;">
+
+  <!-- Row 1: Entry -->
   <tr>
-    <td align="center" style="padding:12px;">
-      <h4>🆘 Need Help Mode</h4>
+    <td align="center" style="padding:14px;">
+      <h4>🔐 Login & Registration</h4>
       <video 
-        src="https://github.com/user-attachments/assets/95cfaf4d-4542-42a5-a446-4e5c26c1ab5a"
+        src="https://github.com/user-attachments/assets/6c837164-6b08-44d1-9360-b1afe638b99b"
         controls
         style="width:420px; max-width:100%; border-radius:12px;">
       </video>
     </td>
-    <td align="center" style="padding:12px;">
+    <td align="center" style="padding:14px;">
+      <h4>🧭 Shelter Search</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/79122f22-761c-4f06-aaea-23b75a1b44ed"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+  </tr>
+
+  <!-- Row 2: Alert -->
+  <tr>
+    <td align="center" style="padding:14px;">
+      <h4>🚨 Emergency Alert</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/9163264c-cb58-4e18-8b35-44b2aa2ec2ad"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+    <td align="center" style="padding:14px;">
       <h4>⏱️ After Alert Screen</h4>
       <video 
         src="https://github.com/user-attachments/assets/1cc662c8-8afa-4d89-b42f-85b2c03dcf1a"
@@ -103,9 +124,9 @@ to help users stay safe, informed, and calm under pressure.
     </td>
   </tr>
 
+  <!-- Row 3: Assistance -->
   <tr>
-    
-    <td align="center" style="padding:12px;">
+    <td align="center" style="padding:14px;">
       <h4>🆘 Need Help Mode</h4>
       <video 
         src="https://github.com/user-attachments/assets/6c35849b-cd3e-4737-bea5-7c816bbca8f4"
@@ -113,37 +134,7 @@ to help users stay safe, informed, and calm under pressure.
         style="width:420px; max-width:100%; border-radius:12px;">
       </video>
     </td>
-  </tr>
-
-  <tr>
-    <td align="center" style="padding:12px;">
-      <h4>🧭 Shelter Search</h4>
-      <video 
-        src="https://github.com/user-attachments/assets/79122f22-761c-4f06-aaea-23b75a1b44ed"
-        controls
-        style="width:420px; max-width:100%; border-radius:12px;">
-      </video>
-    </td>
-    <td align="center" style="padding:12px;">
-      <h4>Alert Screen</h4>
-      <video 
-        src="https://github.com/user-attachments/assets/9163264c-cb58-4e18-8b35-44b2aa2ec2ad"
-        controls
-        style="width:420px; max-width:100%; border-radius:12px;">
-      </video>
-    </td>
-  </tr>
-
-  <tr>
-    <td align="center" style="padding:12px;">
-      <h4>🔐 Login & Registration</h4>
-      <video 
-        src="https://github.com/user-attachments/assets/6c837164-6b08-44d1-9360-b1afe638b99b"
-        controls
-        style="width:420px; max-width:100%; border-radius:12px;">
-      </video>
-    </td>
-    <td align="center" style="padding:12px;">
+    <td align="center" style="padding:14px;">
       <h4>🏥 Nearby Hospitals</h4>
       <video 
         src="https://github.com/user-attachments/assets/8e83d10d-b046-45f8-9475-e157fcdd9a60"
@@ -152,11 +143,12 @@ to help users stay safe, informed, and calm under pressure.
       </video>
     </td>
   </tr>
+
 </table>
 
 </div>
 
- ---
+---
 
 ## ❤️ Final Note
 
