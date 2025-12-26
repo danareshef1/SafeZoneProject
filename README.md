@@ -61,7 +61,6 @@ SafeZone is built as a **serverless, cloud-native system** using AWS services.
 | External Alert API | Real-time emergency alerts |
 | OpenAI | Emotional support & AI interactions |
 
-
 ---
 
 ## 🚀 Why SafeZone?
@@ -79,48 +78,43 @@ to help users stay safe, informed, and calm under pressure.
 
 ## 📽️ Demo Videos
 
-### 🔐 Login & Registration
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/login-and-registration.mp4
+<h3>🔐 Login & Registration</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/login-and-registration.mp4" controls width="320"></video>
 
 ---
 
-### 🧑‍💻 Login Screen
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/login-screen.mp4
+<h3>🚨 Emergency Alert</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/emergency-alert.mp4" controls width="320"></video>
 
 ---
 
-### 🚨 Emergency Alert
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/emergency-alert.mp4
+<h3>⏱️ After Alert Screen</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/after-alert-screen.mp4" controls width="320"></video>
 
 ---
 
-### ⏱️ After Alert Screen
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/after-alert-screenmp4
+<h3>🆘 Need Help Mode</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/need-help.mp4" controls width="320"></video>
 
 ---
 
-### 🆘 Need Help Mode
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/need-help.mp4
+<h3>🧭 Shelter Search</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/search.mp4" controls width="320"></video>
 
 ---
 
-### 🧭 Shelter Search
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/search.mp4
+<h3>🗺️ Shelter Navigation</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/shelter-navigation-1.mp4" controls width="320"></video>
 
 ---
 
-### 🗺️ Shelter Navigation
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/shelter-navigation-1.mp4
+<h3>📞 Emergency Contacts</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/emergency-contacts.mp4" controls width="320"></video>
 
 ---
 
-### 📞 Emergency Contacts
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/emergency-contacts.mp4
-
----
-
-### 🏥 Nearby Hospitals
-https://github.com/danareshef1/SafeZoneProject/blob/main/demo/nearby-hospitals.mp4
+<h3>🏥 Nearby Hospitals</h3>
+<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/nearby-hospitals.mp4" controls width="320"></video>
 
 ---
 
