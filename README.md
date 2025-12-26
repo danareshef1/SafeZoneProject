@@ -79,51 +79,41 @@ to help users stay safe, informed, and calm under pressure.
 ## 📽️ Demo Videos
 
 
-<h3>🔐 Login & Registration</h3>
-<video controls width="360">
-  <source src="https://github.com/user-attachments/assets/5f7020f3-6c8f-4964-a5a2-33b2f706effd
-" type="video/mp4">
-</video>
+https://github.com/user-attachments/assets/4926864a-e884-4ef0-bac9-a431afad3f69
 
 
 
+https://github.com/user-attachments/assets/95cfaf4d-4542-42a5-a446-4e5c26c1ab5a
 
----
 
-<h3>🚨 Emergency Alert</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/emergency-alert.mp4" controls width="320"></video>
 
----
+https://github.com/user-attachments/assets/1cc662c8-8afa-4d89-b42f-85b2c03dcf1a
 
-<h3>⏱️ After Alert Screen</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/after-alert-screen.mp4" controls width="320"></video>
 
----
 
-<h3>🆘 Need Help Mode</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/need-help.mp4" controls width="320"></video>
+https://github.com/user-attachments/assets/fc1cd1e2-ba54-4379-b8b0-757bc4969b25
 
----
 
-<h3>🧭 Shelter Search</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/search.mp4" controls width="320"></video>
 
----
+https://github.com/user-attachments/assets/6c35849b-cd3e-4737-bea5-7c816bbca8f4
 
-<h3>🗺️ Shelter Navigation</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/shelter-navigation-1.mp4" controls width="320"></video>
 
----
 
-<h3>📞 Emergency Contacts</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/emergency-contacts.mp4" controls width="320"></video>
+https://github.com/user-attachments/assets/79122f22-761c-4f06-aaea-23b75a1b44ed
 
----
 
-<h3>🏥 Nearby Hospitals</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/nearby-hospitals.mp4" controls width="320"></video>
 
----
+https://github.com/user-attachments/assets/9163264c-cb58-4e18-8b35-44b2aa2ec2ad
+
+
+
+https://github.com/user-attachments/assets/6c837164-6b08-44d1-9360-b1afe638b99b
+
+
+
+https://github.com/user-attachments/assets/8e83d10d-b046-45f8-9475-e157fcdd9a60
+
+
 
 ## ❤️ Final Note
 
