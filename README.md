@@ -79,18 +79,6 @@ to help users stay safe, informed, and calm under pressure.
 
 ## 📽️ Demo Videos
 
-<div align="center">
-
-<h3>🚨 Emergency Alert Flow</h3>
-
-<video 
-  src="https://github.com/user-attachments/assets/4926864a-e884-4ef0-bac9-a431afad3f69"
-  controls
-  style="max-width:100%; width:900px; border-radius:12px; margin-bottom:40px;">
-</video>
-
-</div>
-
 ---
 
 <div align="center">
@@ -98,7 +86,7 @@ to help users stay safe, informed, and calm under pressure.
 <table style="border-collapse:collapse; border:none;">
   <tr>
     <td align="center" style="padding:12px;">
-      <h4>🔐 Login & Registration</h4>
+      <h4>🆘 Need Help Mode</h4>
       <video 
         src="https://github.com/user-attachments/assets/95cfaf4d-4542-42a5-a446-4e5c26c1ab5a"
         controls
@@ -106,7 +94,7 @@ to help users stay safe, informed, and calm under pressure.
       </video>
     </td>
     <td align="center" style="padding:12px;">
-      <h4>🧑‍💻 Login Screen</h4>
+      <h4>⏱️ After Alert Screen</h4>
       <video 
         src="https://github.com/user-attachments/assets/1cc662c8-8afa-4d89-b42f-85b2c03dcf1a"
         controls
@@ -116,14 +104,7 @@ to help users stay safe, informed, and calm under pressure.
   </tr>
 
   <tr>
-    <td align="center" style="padding:12px;">
-      <h4>⏱️ After Alert Screen</h4>
-      <video 
-        src="https://github.com/user-attachments/assets/fc1cd1e2-ba54-4379-b8b0-757bc4969b25"
-        controls
-        style="width:420px; max-width:100%; border-radius:12px;">
-      </video>
-    </td>
+    
     <td align="center" style="padding:12px;">
       <h4>🆘 Need Help Mode</h4>
       <video 
