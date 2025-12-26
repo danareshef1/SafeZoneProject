@@ -95,7 +95,7 @@ to help users stay safe, informed, and calm under pressure.
       </video>
     </td>
     <td align="center" style="padding:14px;">
-      <h4>🧭 Shelter Search</h4>
+      <h4>🧭 App Flow</h4>
       <video 
         src="https://github.com/user-attachments/assets/79122f22-761c-4f06-aaea-23b75a1b44ed"
         controls
@@ -127,7 +127,7 @@ to help users stay safe, informed, and calm under pressure.
   <!-- Row 3: Assistance -->
   <tr>
     <td align="center" style="padding:14px;">
-      <h4>🆘 Need Help Mode</h4>
+      <h4>🆘 App Flow</h4>
       <video 
         src="https://github.com/user-attachments/assets/6c35849b-cd3e-4737-bea5-7c816bbca8f4"
         controls
