@@ -78,8 +78,11 @@ to help users stay safe, informed, and calm under pressure.
 
 ## 📽️ Demo Videos
 
+
 <h3>🔐 Login & Registration</h3>
-<video src="https://github.com/danareshef1/SafeZoneProject/raw/main/demo/login-and-registration.mp4" controls width="320"></video>
+<video controls width="360">
+  <source src="https://raw.githubusercontent.com/danareshef1/SafeZoneProject/main/demo/login-and-registration.mp4" type="video/mp4">
+</video>
 
 ---
 
