@@ -75,45 +75,107 @@ It combines:
 to help users stay safe, informed, and calm under pressure.
 
 ---
+---
 
 ## 📽️ Demo Videos
 
+<div align="center">
 
-https://github.com/user-attachments/assets/4926864a-e884-4ef0-bac9-a431afad3f69
+<h3>🚨 Emergency Alert Flow</h3>
 
+<video 
+  src="https://github.com/user-attachments/assets/4926864a-e884-4ef0-bac9-a431afad3f69"
+  controls
+  style="max-width:100%; width:900px; border-radius:12px; margin-bottom:40px;">
+</video>
 
+</div>
 
-https://github.com/user-attachments/assets/95cfaf4d-4542-42a5-a446-4e5c26c1ab5a
+---
 
+<div align="center">
 
+<table style="border-collapse:collapse; border:none;">
+  <tr>
+    <td align="center" style="padding:12px;">
+      <h4>🔐 Login & Registration</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/95cfaf4d-4542-42a5-a446-4e5c26c1ab5a"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+    <td align="center" style="padding:12px;">
+      <h4>🧑‍💻 Login Screen</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/1cc662c8-8afa-4d89-b42f-85b2c03dcf1a"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+  </tr>
 
-https://github.com/user-attachments/assets/1cc662c8-8afa-4d89-b42f-85b2c03dcf1a
+  <tr>
+    <td align="center" style="padding:12px;">
+      <h4>⏱️ After Alert Screen</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/fc1cd1e2-ba54-4379-b8b0-757bc4969b25"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+    <td align="center" style="padding:12px;">
+      <h4>🆘 Need Help Mode</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/6c35849b-cd3e-4737-bea5-7c816bbca8f4"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+  </tr>
 
+  <tr>
+    <td align="center" style="padding:12px;">
+      <h4>🧭 Shelter Search</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/79122f22-761c-4f06-aaea-23b75a1b44ed"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+    <td align="center" style="padding:12px;">
+      <h4>🗺️ Shelter Navigation</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/9163264c-cb58-4e18-8b35-44b2aa2ec2ad"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+  </tr>
 
+  <tr>
+    <td align="center" style="padding:12px;">
+      <h4>📞 Emergency Contacts</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/6c837164-6b08-44d1-9360-b1afe638b99b"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+    <td align="center" style="padding:12px;">
+      <h4>🏥 Nearby Hospitals</h4>
+      <video 
+        src="https://github.com/user-attachments/assets/8e83d10d-b046-45f8-9475-e157fcdd9a60"
+        controls
+        style="width:420px; max-width:100%; border-radius:12px;">
+      </video>
+    </td>
+  </tr>
+</table>
 
-https://github.com/user-attachments/assets/fc1cd1e2-ba54-4379-b8b0-757bc4969b25
+</div>
 
-
-
-https://github.com/user-attachments/assets/6c35849b-cd3e-4737-bea5-7c816bbca8f4
-
-
-
-https://github.com/user-attachments/assets/79122f22-761c-4f06-aaea-23b75a1b44ed
-
-
-
-https://github.com/user-attachments/assets/9163264c-cb58-4e18-8b35-44b2aa2ec2ad
-
-
-
-https://github.com/user-attachments/assets/6c837164-6b08-44d1-9360-b1afe638b99b
-
-
-
-https://github.com/user-attachments/assets/8e83d10d-b046-45f8-9475-e157fcdd9a60
-
-
+ ---
 
 ## ❤️ Final Note
 
